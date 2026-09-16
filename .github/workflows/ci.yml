@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend — build + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore CulinaryBlog.sln
+
+      # NFR-MAINT-001: TreatWarningsAsErrors bật trong Directory.Build.props
+      - name: Build (0 warning)
+        run: dotnet build CulinaryBlog.sln --no-restore -c Release
+
+      # CONS-001 — chạy riêng để lỗi kiến trúc hiện rõ, không lẫn với test khác
+      - name: Architecture tests (Dependency Rule)
+        run: dotnet test backend/tests/CulinaryBlog.ArchitectureTests --no-build -c Release --verbosity normal
+
+      - name: Unit tests
+        run: >
+          dotnet test backend/tests/CulinaryBlog.UnitTests --no-build -c Release
+          --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+      - name: Integration tests
+        run: dotnet test backend/tests/CulinaryBlog.IntegrationTests --no-build -c Release
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: ./coverage
+
+  frontend:
+    name: Frontend — lint + typecheck + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+
+  secrets-scan:
+    name: Quét secret (NFR-SEC-007)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
