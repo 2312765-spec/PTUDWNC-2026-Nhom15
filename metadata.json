@@ -1,0 +1,6 @@
+{
+  "name": "Culinary Blog - Blog Ẩm Thực và Nấu Ăn",
+  "description": "Nền tảng chia sẻ và khám phá công thức nấu ăn ẩm thực chuyên nghiệp, giao diện Next.js App Router tông màu xanh dương hiện đại.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
