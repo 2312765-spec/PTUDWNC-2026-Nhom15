@@ -62,10 +62,10 @@
           }
         }
       },
-      "Microsoft.Extensions.Caching.Abstractions/10.0.0-preview.2.25163.2": {
+      "Microsoft.Extensions.Caching.Abstractions/10.0.0-preview.1.25080.5": {
         "type": "package",
         "dependencies": {
-          "Microsoft.Extensions.Primitives": "10.0.0-preview.2.25163.2"
+          "Microsoft.Extensions.Primitives": "10.0.0-preview.1.25080.5"
         },
         "compile": {
           "lib/net10.0/Microsoft.Extensions.Caching.Abstractions.dll": {
@@ -81,7 +81,7 @@
           "buildTransitive/net8.0/_._": {}
         }
       },
-      "Microsoft.Extensions.DependencyInjection.Abstractions/10.0.0-preview.2.25163.2": {
+      "Microsoft.Extensions.DependencyInjection.Abstractions/10.0.0-preview.1.25080.5": {
         "type": "package",
         "compile": {
           "lib/net10.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll": {
@@ -97,10 +97,10 @@
           "buildTransitive/net8.0/_._": {}
         }
       },
-      "Microsoft.Extensions.Logging.Abstractions/10.0.0-preview.2.25163.2": {
+      "Microsoft.Extensions.Logging.Abstractions/10.0.0-preview.1.25080.5": {
         "type": "package",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0-preview.2.25163.2"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0-preview.1.25080.5"
         },
         "compile": {
           "lib/net10.0/Microsoft.Extensions.Logging.Abstractions.dll": {
@@ -116,7 +116,7 @@
           "buildTransitive/net8.0/Microsoft.Extensions.Logging.Abstractions.targets": {}
         }
       },
-      "Microsoft.Extensions.Primitives/10.0.0-preview.2.25163.2": {
+      "Microsoft.Extensions.Primitives/10.0.0-preview.1.25080.5": {
         "type": "package",
         "compile": {
           "lib/net10.0/Microsoft.Extensions.Primitives.dll": {
@@ -218,10 +218,10 @@
         "mediatr.contracts.nuspec"
       ]
     },
-    "Microsoft.Extensions.Caching.Abstractions/10.0.0-preview.2.25163.2": {
-      "sha512": "w7fe95lmqVfx0Ywx91A2wBhTHsf9PTrK0Sbf+jR1tqQ/oDv3x5xSEXG1J1stuxMuWEvhds/829cJidAaoDCv3g==",
+    "Microsoft.Extensions.Caching.Abstractions/10.0.0-preview.1.25080.5": {
+      "sha512": "H1eRrxMSyUVbhBEvUh6lEoclkZ22RNlW+xm5SOicfAA3QTMzKuDK3DDooyjD73W5WK0UuYKNmqMmn3bQ3Gh5sg==",
       "type": "package",
-      "path": "microsoft.extensions.caching.abstractions/10.0.0-preview.2.25163.2",
+      "path": "microsoft.extensions.caching.abstractions/10.0.0-preview.1.25080.5",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -243,15 +243,15 @@
         "lib/net9.0/Microsoft.Extensions.Caching.Abstractions.xml",
         "lib/netstandard2.0/Microsoft.Extensions.Caching.Abstractions.dll",
         "lib/netstandard2.0/Microsoft.Extensions.Caching.Abstractions.xml",
-        "microsoft.extensions.caching.abstractions.10.0.0-preview.2.25163.2.nupkg.sha512",
+        "microsoft.extensions.caching.abstractions.10.0.0-preview.1.25080.5.nupkg.sha512",
         "microsoft.extensions.caching.abstractions.nuspec",
         "useSharedDesignerContext.txt"
       ]
     },
-    "Microsoft.Extensions.DependencyInjection.Abstractions/10.0.0-preview.2.25163.2": {
-      "sha512": "ntG9Kn3eOoJMfBoOIYZOCp86MBxmKmeluoTisAKdmhyJPJKwM5+C2cHFPPcXXW5IYHFh/j4helQ1r22XtzV/oA==",
+    "Microsoft.Extensions.DependencyInjection.Abstractions/10.0.0-preview.1.25080.5": {
+      "sha512": "/6gp/48ibjQePwjWlSu72bditSihLVRXf3L+kcoj6JKWA+tnWxEgOIuKmrSigTvSeqmAHcdpSwu7Fuf6bgFAyQ==",
       "type": "package",
-      "path": "microsoft.extensions.dependencyinjection.abstractions/10.0.0-preview.2.25163.2",
+      "path": "microsoft.extensions.dependencyinjection.abstractions/10.0.0-preview.1.25080.5",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -275,15 +275,15 @@
         "lib/netstandard2.0/Microsoft.Extensions.DependencyInjection.Abstractions.xml",
         "lib/netstandard2.1/Microsoft.Extensions.DependencyInjection.Abstractions.dll",
         "lib/netstandard2.1/Microsoft.Extensions.DependencyInjection.Abstractions.xml",
-        "microsoft.extensions.dependencyinjection.abstractions.10.0.0-preview.2.25163.2.nupkg.sha512",
+        "microsoft.extensions.dependencyinjection.abstractions.10.0.0-preview.1.25080.5.nupkg.sha512",
         "microsoft.extensions.dependencyinjection.abstractions.nuspec",
         "useSharedDesignerContext.txt"
       ]
     },
-    "Microsoft.Extensions.Logging.Abstractions/10.0.0-preview.2.25163.2": {
-      "sha512": "MeBgGWgPEbW7iSnOnr58+cXRoJ+JkTvLQCipzZa/p+4FDvHH3TNlmkGhMrNgMo5LuYrQm/2EdS2KeFyJ5JNS0A==",
+    "Microsoft.Extensions.Logging.Abstractions/10.0.0-preview.1.25080.5": {
+      "sha512": "C21GNMRtPHRWKRRvPba59tjEqvwxpD6B+1Cd+B0Z3LamD2rZ3WTLTgf05kN18dXbhvcT+i24CN7Yntsbu1y8ZQ==",
       "type": "package",
-      "path": "microsoft.extensions.logging.abstractions/10.0.0-preview.2.25163.2",
+      "path": "microsoft.extensions.logging.abstractions/10.0.0-preview.1.25080.5",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -348,15 +348,15 @@
         "lib/net9.0/Microsoft.Extensions.Logging.Abstractions.xml",
         "lib/netstandard2.0/Microsoft.Extensions.Logging.Abstractions.dll",
         "lib/netstandard2.0/Microsoft.Extensions.Logging.Abstractions.xml",
-        "microsoft.extensions.logging.abstractions.10.0.0-preview.2.25163.2.nupkg.sha512",
+        "microsoft.extensions.logging.abstractions.10.0.0-preview.1.25080.5.nupkg.sha512",
         "microsoft.extensions.logging.abstractions.nuspec",
         "useSharedDesignerContext.txt"
       ]
     },
-    "Microsoft.Extensions.Primitives/10.0.0-preview.2.25163.2": {
-      "sha512": "x+QrguTaz5tyltxgKFUdACwodInudwiBw1nz6Wh3LOxXBdYzQ4UIbs6A674QaL8swaOK1ZqFkhSQ/l5x8nXrtw==",
+    "Microsoft.Extensions.Primitives/10.0.0-preview.1.25080.5": {
+      "sha512": "vuci/NLr6n/4Vxig68IwDxu2J6OMv6k9d8PXi+QHR2z7EZciBxL1R5Ri3kdMUZxZfD38M/AcUWllGcynSgPJSg==",
       "type": "package",
-      "path": "microsoft.extensions.primitives/10.0.0-preview.2.25163.2",
+      "path": "microsoft.extensions.primitives/10.0.0-preview.1.25080.5",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -378,7 +378,7 @@
         "lib/net9.0/Microsoft.Extensions.Primitives.xml",
         "lib/netstandard2.0/Microsoft.Extensions.Primitives.dll",
         "lib/netstandard2.0/Microsoft.Extensions.Primitives.xml",
-        "microsoft.extensions.primitives.10.0.0-preview.2.25163.2.nupkg.sha512",
+        "microsoft.extensions.primitives.10.0.0-preview.1.25080.5.nupkg.sha512",
         "microsoft.extensions.primitives.nuspec",
         "useSharedDesignerContext.txt"
       ]
@@ -395,8 +395,8 @@
       "FluentValidation >= 11.11.0",
       "FluentValidation.DependencyInjectionExtensions >= 11.11.0",
       "MediatR >= 12.4.1",
-      "Microsoft.Extensions.Caching.Abstractions >= 10.0.0-preview.2.25163.2",
-      "Microsoft.Extensions.Logging.Abstractions >= 10.0.0-preview.2.25163.2"
+      "Microsoft.Extensions.Caching.Abstractions >= 10.0.0-preview.1.25080.5",
+      "Microsoft.Extensions.Logging.Abstractions >= 10.0.0-preview.1.25080.5"
     ]
   },
   "packageFolders": {
@@ -406,13 +406,12 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\PTUNGWebNangCao_ThiCuoiKy\\PTUDWNC-2026-Nhom15\\backend\\CulinaryBlog.Application\\CulinaryBlog.Application.csproj",
+      "projectUniqueName": "D:\\PTUNGWebNangCao_ThiCuoiKy\\Culinary Blog NKY\\Culinary_Blog_Web_Development_Advanced\\aspnet-core-dotnet10\\src\\CulinaryBlog.Application\\CulinaryBlog.Application.csproj",
       "projectName": "CulinaryBlog.Application",
-      "projectPath": "D:\\PTUNGWebNangCao_ThiCuoiKy\\PTUDWNC-2026-Nhom15\\backend\\CulinaryBlog.Application\\CulinaryBlog.Application.csproj",
+      "projectPath": "D:\\PTUNGWebNangCao_ThiCuoiKy\\Culinary Blog NKY\\Culinary_Blog_Web_Development_Advanced\\aspnet-core-dotnet10\\src\\CulinaryBlog.Application\\CulinaryBlog.Application.csproj",
       "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-      "outputPath": "D:\\PTUNGWebNangCao_ThiCuoiKy\\PTUDWNC-2026-Nhom15\\backend\\CulinaryBlog.Application\\obj\\",
+      "outputPath": "D:\\PTUNGWebNangCao_ThiCuoiKy\\Culinary Blog NKY\\Culinary_Blog_Web_Development_Advanced\\aspnet-core-dotnet10\\src\\CulinaryBlog.Application\\obj\\",
       "projectStyle": "PackageReference",
-      "centralPackageVersionsManagementEnabled": true,
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
@@ -433,14 +432,13 @@
           "framework": "net10.0",
           "targetAlias": "net10.0",
           "projectReferences": {
-            "D:\\PTUNGWebNangCao_ThiCuoiKy\\PTUDWNC-2026-Nhom15\\backend\\CulinaryBlog.Domain\\CulinaryBlog.Domain.csproj": {
-              "projectPath": "D:\\PTUNGWebNangCao_ThiCuoiKy\\PTUDWNC-2026-Nhom15\\backend\\CulinaryBlog.Domain\\CulinaryBlog.Domain.csproj"
+            "D:\\PTUNGWebNangCao_ThiCuoiKy\\Culinary Blog NKY\\Culinary_Blog_Web_Development_Advanced\\aspnet-core-dotnet10\\src\\CulinaryBlog.Domain\\CulinaryBlog.Domain.csproj": {
+              "projectPath": "D:\\PTUNGWebNangCao_ThiCuoiKy\\Culinary Blog NKY\\Culinary_Blog_Web_Development_Advanced\\aspnet-core-dotnet10\\src\\CulinaryBlog.Domain\\CulinaryBlog.Domain.csproj"
             }
           }
         }
       },
       "warningProperties": {
-        "allWarningsAsErrors": true,
         "warnAsError": [
           "NU1605"
         ]
@@ -459,78 +457,24 @@
         "dependencies": {
           "FluentValidation": {
             "target": "Package",
-            "version": "[11.11.0, )",
-            "versionCentrallyManaged": true
+            "version": "[11.11.0, )"
           },
           "FluentValidation.DependencyInjectionExtensions": {
             "target": "Package",
-            "version": "[11.11.0, )",
-            "versionCentrallyManaged": true
+            "version": "[11.11.0, )"
           },
           "MediatR": {
             "target": "Package",
-            "version": "[12.4.1, )",
-            "versionCentrallyManaged": true
+            "version": "[12.4.1, )"
           },
           "Microsoft.Extensions.Caching.Abstractions": {
             "target": "Package",
-            "version": "[10.0.0-preview.2.25163.2, )",
-            "versionCentrallyManaged": true
+            "version": "[10.0.0-preview.1.25080.5, )"
           },
           "Microsoft.Extensions.Logging.Abstractions": {
             "target": "Package",
-            "version": "[10.0.0-preview.2.25163.2, )",
-            "versionCentrallyManaged": true
+            "version": "[10.0.0-preview.1.25080.5, )"
           }
-        },
-        "centralPackageVersions": {
-          "AspNetCore.HealthChecks.Aws.S3": "8.0.1",
-          "AspNetCore.HealthChecks.NpgSql": "8.0.2",
-          "AspNetCore.HealthChecks.Redis": "8.0.1",
-          "AWSSDK.S3": "3.7.416.4",
-          "coverlet.collector": "6.0.2",
-          "FluentAssertions": "6.12.2",
-          "FluentValidation": "11.11.0",
-          "FluentValidation.DependencyInjectionExtensions": "11.11.0",
-          "Google.Apis.Auth": "1.68.0",
-          "Hangfire.AspNetCore": "1.8.17",
-          "Hangfire.Core": "1.8.17",
-          "Hangfire.PostgreSql": "1.20.10",
-          "MailKit": "4.8.0",
-          "MediatR": "12.4.1",
-          "Microsoft.AspNetCore.Authentication.JwtBearer": "10.0.0-preview.2.25164.1",
-          "Microsoft.AspNetCore.Identity.EntityFrameworkCore": "10.0.0-preview.2.25163.8",
-          "Microsoft.AspNetCore.Mvc.Testing": "10.0.0-preview.1.25120.3",
-          "Microsoft.EntityFrameworkCore": "10.0.0-preview.2.25163.8",
-          "Microsoft.EntityFrameworkCore.Design": "10.0.0-preview.2.25163.8",
-          "Microsoft.EntityFrameworkCore.InMemory": "10.0.0-preview.2.25163.8",
-          "Microsoft.EntityFrameworkCore.Relational": "10.0.0-preview.2.25163.8",
-          "Microsoft.Extensions.Caching.Abstractions": "10.0.0-preview.2.25163.2",
-          "Microsoft.Extensions.Configuration.Abstractions": "10.0.12",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0-preview.2.25163.2",
-          "Microsoft.Extensions.Logging.Abstractions": "10.0.0-preview.2.25163.2",
-          "Microsoft.NET.Test.Sdk": "17.12.0",
-          "Microsoft.OpenApi": "1.6.22",
-          "Npgsql.EntityFrameworkCore.PostgreSQL": "10.0.0-preview.2",
-          "NSubstitute": "5.3.0",
-          "OpenTelemetry.Exporter.OpenTelemetryProtocol": "1.10.0",
-          "OpenTelemetry.Extensions.Hosting": "1.10.0",
-          "OpenTelemetry.Instrumentation.AspNetCore": "1.10.0",
-          "OpenTelemetry.Instrumentation.Http": "1.10.0",
-          "Scalar.AspNetCore": "2.0.4",
-          "Serilog.AspNetCore": "8.0.3",
-          "Serilog.Enrichers.Environment": "3.0.1",
-          "Serilog.Sinks.Seq": "8.0.0",
-          "SixLabors.ImageSharp": "3.1.6",
-          "SSH.NET": "2024.1.0",
-          "StackExchange.Redis": "2.8.16",
-          "Swashbuckle.AspNetCore": "6.6.2",
-          "System.IdentityModel.Tokens.Jwt": "8.2.1",
-          "Testcontainers.PostgreSql": "4.0.0",
-          "Testcontainers.Redis": "4.0.0",
-          "TngTech.ArchUnitNET.xUnit": "0.11.4",
-          "xunit": "2.9.2",
-          "xunit.runner.visualstudio": "2.8.2"
         },
         "imports": [
           "net461",

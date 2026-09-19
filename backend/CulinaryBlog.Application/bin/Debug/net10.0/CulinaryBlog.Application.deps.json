@@ -12,8 +12,8 @@
           "FluentValidation": "11.11.0",
           "FluentValidation.DependencyInjectionExtensions": "11.11.0",
           "MediatR": "12.4.1",
-          "Microsoft.Extensions.Caching.Abstractions": "10.0.0-preview.2.25163.2",
-          "Microsoft.Extensions.Logging.Abstractions": "10.0.0-preview.2.25163.2"
+          "Microsoft.Extensions.Caching.Abstractions": "10.0.0-preview.1.25080.5",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.0-preview.1.25080.5"
         },
         "runtime": {
           "CulinaryBlog.Application.dll": {}
@@ -30,7 +30,7 @@
       "FluentValidation.DependencyInjectionExtensions/11.11.0": {
         "dependencies": {
           "FluentValidation": "11.11.0",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0-preview.2.25163.2"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0-preview.1.25080.5"
         },
         "runtime": {
           "lib/netstandard2.1/FluentValidation.DependencyInjectionExtensions.dll": {
@@ -42,7 +42,7 @@
       "MediatR/12.4.1": {
         "dependencies": {
           "MediatR.Contracts": "2.0.1",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0-preview.2.25163.2"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0-preview.1.25080.5"
         },
         "runtime": {
           "lib/net6.0/MediatR.dll": {
@@ -59,41 +59,41 @@
           }
         }
       },
-      "Microsoft.Extensions.Caching.Abstractions/10.0.0-preview.2.25163.2": {
+      "Microsoft.Extensions.Caching.Abstractions/10.0.0-preview.1.25080.5": {
         "dependencies": {
-          "Microsoft.Extensions.Primitives": "10.0.0-preview.2.25163.2"
+          "Microsoft.Extensions.Primitives": "10.0.0-preview.1.25080.5"
         },
         "runtime": {
           "lib/net10.0/Microsoft.Extensions.Caching.Abstractions.dll": {
             "assemblyVersion": "10.0.0.0",
-            "fileVersion": "10.0.25.16302"
+            "fileVersion": "10.0.25.8005"
           }
         }
       },
-      "Microsoft.Extensions.DependencyInjection.Abstractions/10.0.0-preview.2.25163.2": {
+      "Microsoft.Extensions.DependencyInjection.Abstractions/10.0.0-preview.1.25080.5": {
         "runtime": {
           "lib/net10.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll": {
             "assemblyVersion": "10.0.0.0",
-            "fileVersion": "10.0.25.16302"
+            "fileVersion": "10.0.25.8005"
           }
         }
       },
-      "Microsoft.Extensions.Logging.Abstractions/10.0.0-preview.2.25163.2": {
+      "Microsoft.Extensions.Logging.Abstractions/10.0.0-preview.1.25080.5": {
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0-preview.2.25163.2"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0-preview.1.25080.5"
         },
         "runtime": {
           "lib/net10.0/Microsoft.Extensions.Logging.Abstractions.dll": {
             "assemblyVersion": "10.0.0.0",
-            "fileVersion": "10.0.25.16302"
+            "fileVersion": "10.0.25.8005"
           }
         }
       },
-      "Microsoft.Extensions.Primitives/10.0.0-preview.2.25163.2": {
+      "Microsoft.Extensions.Primitives/10.0.0-preview.1.25080.5": {
         "runtime": {
           "lib/net10.0/Microsoft.Extensions.Primitives.dll": {
             "assemblyVersion": "10.0.0.0",
-            "fileVersion": "10.0.25.16302"
+            "fileVersion": "10.0.25.8005"
           }
         }
       },
@@ -141,33 +141,33 @@
       "path": "mediatr.contracts/2.0.1",
       "hashPath": "mediatr.contracts.2.0.1.nupkg.sha512"
     },
-    "Microsoft.Extensions.Caching.Abstractions/10.0.0-preview.2.25163.2": {
+    "Microsoft.Extensions.Caching.Abstractions/10.0.0-preview.1.25080.5": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-w7fe95lmqVfx0Ywx91A2wBhTHsf9PTrK0Sbf+jR1tqQ/oDv3x5xSEXG1J1stuxMuWEvhds/829cJidAaoDCv3g==",
-      "path": "microsoft.extensions.caching.abstractions/10.0.0-preview.2.25163.2",
-      "hashPath": "microsoft.extensions.caching.abstractions.10.0.0-preview.2.25163.2.nupkg.sha512"
+      "sha512": "sha512-H1eRrxMSyUVbhBEvUh6lEoclkZ22RNlW+xm5SOicfAA3QTMzKuDK3DDooyjD73W5WK0UuYKNmqMmn3bQ3Gh5sg==",
+      "path": "microsoft.extensions.caching.abstractions/10.0.0-preview.1.25080.5",
+      "hashPath": "microsoft.extensions.caching.abstractions.10.0.0-preview.1.25080.5.nupkg.sha512"
     },
-    "Microsoft.Extensions.DependencyInjection.Abstractions/10.0.0-preview.2.25163.2": {
+    "Microsoft.Extensions.DependencyInjection.Abstractions/10.0.0-preview.1.25080.5": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-ntG9Kn3eOoJMfBoOIYZOCp86MBxmKmeluoTisAKdmhyJPJKwM5+C2cHFPPcXXW5IYHFh/j4helQ1r22XtzV/oA==",
-      "path": "microsoft.extensions.dependencyinjection.abstractions/10.0.0-preview.2.25163.2",
-      "hashPath": "microsoft.extensions.dependencyinjection.abstractions.10.0.0-preview.2.25163.2.nupkg.sha512"
+      "sha512": "sha512-/6gp/48ibjQePwjWlSu72bditSihLVRXf3L+kcoj6JKWA+tnWxEgOIuKmrSigTvSeqmAHcdpSwu7Fuf6bgFAyQ==",
+      "path": "microsoft.extensions.dependencyinjection.abstractions/10.0.0-preview.1.25080.5",
+      "hashPath": "microsoft.extensions.dependencyinjection.abstractions.10.0.0-preview.1.25080.5.nupkg.sha512"
     },
-    "Microsoft.Extensions.Logging.Abstractions/10.0.0-preview.2.25163.2": {
+    "Microsoft.Extensions.Logging.Abstractions/10.0.0-preview.1.25080.5": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-MeBgGWgPEbW7iSnOnr58+cXRoJ+JkTvLQCipzZa/p+4FDvHH3TNlmkGhMrNgMo5LuYrQm/2EdS2KeFyJ5JNS0A==",
-      "path": "microsoft.extensions.logging.abstractions/10.0.0-preview.2.25163.2",
-      "hashPath": "microsoft.extensions.logging.abstractions.10.0.0-preview.2.25163.2.nupkg.sha512"
+      "sha512": "sha512-C21GNMRtPHRWKRRvPba59tjEqvwxpD6B+1Cd+B0Z3LamD2rZ3WTLTgf05kN18dXbhvcT+i24CN7Yntsbu1y8ZQ==",
+      "path": "microsoft.extensions.logging.abstractions/10.0.0-preview.1.25080.5",
+      "hashPath": "microsoft.extensions.logging.abstractions.10.0.0-preview.1.25080.5.nupkg.sha512"
     },
-    "Microsoft.Extensions.Primitives/10.0.0-preview.2.25163.2": {
+    "Microsoft.Extensions.Primitives/10.0.0-preview.1.25080.5": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-x+QrguTaz5tyltxgKFUdACwodInudwiBw1nz6Wh3LOxXBdYzQ4UIbs6A674QaL8swaOK1ZqFkhSQ/l5x8nXrtw==",
-      "path": "microsoft.extensions.primitives/10.0.0-preview.2.25163.2",
-      "hashPath": "microsoft.extensions.primitives.10.0.0-preview.2.25163.2.nupkg.sha512"
+      "sha512": "sha512-vuci/NLr6n/4Vxig68IwDxu2J6OMv6k9d8PXi+QHR2z7EZciBxL1R5Ri3kdMUZxZfD38M/AcUWllGcynSgPJSg==",
+      "path": "microsoft.extensions.primitives/10.0.0-preview.1.25080.5",
+      "hashPath": "microsoft.extensions.primitives.10.0.0-preview.1.25080.5.nupkg.sha512"
     },
     "CulinaryBlog.Domain/1.0.0": {
       "type": "project",
