@@ -1,7 +1,12 @@
 namespace CulinaryBlog.Domain.Interfaces;
 
-/// <summary>Đảm bảo nhiều thao tác nằm trong một transaction (SRS Phụ lục C — Unit of Work).</summary>
-public interface IUnitOfWork
+/// <summary>
+/// Unit of Work pattern theo đặc tả SRS v1.0.0
+/// Đảm bảo tính toàn vẹn giao dịch và cung cấp các Repositories
+/// </summary>
+public interface IUnitOfWork : IDisposable
 {
-    Task<int> SaveChangesAsync(CancellationToken ct = default);
+    ICategoryRepository Categories { get; }
+    
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

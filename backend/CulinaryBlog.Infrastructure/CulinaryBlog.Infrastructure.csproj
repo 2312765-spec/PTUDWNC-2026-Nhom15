@@ -1,27 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>CulinaryBlog.Infrastructure</RootNamespace>
+  </PropertyGroup>
+
   <ItemGroup>
+    <ProjectReference Include="..\CulinaryBlog.Domain\CulinaryBlog.Domain.csproj" />
     <ProjectReference Include="..\CulinaryBlog.Application\CulinaryBlog.Application.csproj" />
+    
   </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
-    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
-    <PackageReference Include="Google.Apis.Auth" />
-    <PackageReference Include="StackExchange.Redis" />
-    <PackageReference Include="AWSSDK.S3" />
-    <PackageReference Include="MailKit" />
-    <PackageReference Include="SixLabors.ImageSharp" />
-    <PackageReference Include="Hangfire.Core" />
-    <PackageReference Include="Hangfire.PostgreSql" />
-    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
-  <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-  </ItemGroup>
+
 </Project>

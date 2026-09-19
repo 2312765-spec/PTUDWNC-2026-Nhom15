@@ -5,13 +5,6 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
 
-    <!--
-      NFR-MAINT-001: không được có compiler warning.
-      AnalysisLevel để "latest" (mode mặc định) chứ KHÔNG "latest-recommended" — mode
-      recommended bật thêm hàng chục rule CA (CA1848 logging, CA2007 ConfigureAwait...)
-      và với TreatWarningsAsErrors sẽ làm build đỏ vì lý do không liên quan chất lượng.
-      TODO(S12): cân nhắc nâng lên latest-recommended khi hardening.
-    -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
     <AnalysisLevel>latest</AnalysisLevel>

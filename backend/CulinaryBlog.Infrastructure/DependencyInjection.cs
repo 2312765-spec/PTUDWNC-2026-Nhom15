@@ -1,47 +1,35 @@
-using CulinaryBlog.Application.Common.Interfaces;
-using CulinaryBlog.Domain.Interfaces;
-using CulinaryBlog.Infrastructure.Caching;
-using CulinaryBlog.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using StackExchange.Redis;
+using CulinaryBlog.Infrastructure.Persistence;
+using CulinaryBlog.Infrastructure.Persistence.Repositories;
+using CulinaryBlog.Domain.Interfaces; // Hoặc CulinaryBlog.Application.Interfaces tùy vị trí chứa ICategoryRepository
 
 namespace CulinaryBlog.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(
-        this IServiceCollection services,
+    public static IServiceCollection AddInfrastructureServices(
+        this IServiceCollection services, 
         IConfiguration configuration)
     {
-        // ---- PostgreSQL (CONS-006) ----
-        var connectionString = configuration.GetConnectionString("Postgres")
-            ?? throw new InvalidOperationException("Thiếu ConnectionStrings:Postgres trong cấu hình.");
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
 
-        services.AddSingleton<AuditInterceptor>();
-        services.AddDbContext<CulinaryBlogDbContext>((sp, options) =>
+        if (string.IsNullOrEmpty(connectionString))
         {
-            options.UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure(3));
-            options.AddInterceptors(sp.GetRequiredService<AuditInterceptor>());
-        });
-        services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<CulinaryBlogDbContext>());
-
-        // ---- Redis (D8 — cache DUY NHẤT) ----
-        var redisConnection = configuration.GetConnectionString("Redis")
-            ?? throw new InvalidOperationException("Thiếu ConnectionStrings:Redis trong cấu hình.");
-
-        services.AddSingleton<IConnectionMultiplexer>(_ =>
+            // Dùng In-Memory Database cho phát triển nhanh và test
+            services.AddDbContext<ApplicationDbContext>(options =>
+                options.UseInMemoryDatabase("CulinaryBlogDb"));
+        }
+        else
         {
-            var options = ConfigurationOptions.Parse(redisConnection);
-            options.AbortOnConnectFail = false; // NFR-REL-002: Redis down vẫn khởi động được
-            return ConnectionMultiplexer.Connect(options);
-        });
-        services.AddScoped<ICacheService, RedisCacheService>();
+            // Kết nối PostgreSQL 16 theo tài liệu kiến trúc SRS
+            services.AddDbContext<ApplicationDbContext>(options =>
+                options.UseNpgsql(connectionString));
+        }
 
-        // TODO(S2 — A): IJwtService, IEmailService, ASP.NET Core Identity
-        // TODO(S3 — B): ISlugHelper, CategoryRepository, RecipeRepository
-        // TODO(S8 — D): IFileStorageService (MinioFileStorageService), Hangfire jobs
+        services.AddScoped<ICategoryRepository, CategoryRepository>();
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         return services;
     }

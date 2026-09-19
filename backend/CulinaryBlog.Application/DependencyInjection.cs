@@ -8,25 +8,15 @@ namespace CulinaryBlog.Application;
 
 public static class DependencyInjection
 {
-    /// <summary>
-    /// Đăng ký MediatR + FluentValidation + 4 pipeline behavior.
-    /// THỨ TỰ BEHAVIOR LÀ CỐ ĐỊNH (SRS 6.3) — đừng đổi:
-    ///   1. Logging  2. Validation  3. Caching  →  Handler  →  5. CacheInvalidation
-    /// </summary>
-    public static IServiceCollection AddApplication(this IServiceCollection services)
+    public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        var assembly = Assembly.GetExecutingAssembly();
+        services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 
         services.AddMediatR(cfg =>
         {
-            cfg.RegisterServicesFromAssembly(assembly);
-            cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
-            cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
-            cfg.AddOpenBehavior(typeof(CachingBehavior<,>));
-            cfg.AddOpenBehavior(typeof(CacheInvalidationBehavior<,>));
+            cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly());
+            cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         });
-
-        services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
 
         return services;
     }

@@ -1,28 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
+
   <PropertyGroup>
-    <UserSecretsId>culinary-blog-api</UserSecretsId>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>CulinaryBlog.Api</RootNamespace>
   </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\CulinaryBlog.Application\CulinaryBlog.Application.csproj" />
     <ProjectReference Include="..\CulinaryBlog.Infrastructure\CulinaryBlog.Infrastructure.csproj" />
+    <ProjectReference Include="..\CulinaryBlog.Domain\CulinaryBlog.Domain.csproj" />
   </ItemGroup>
+ 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
-    <PackageReference Include="Scalar.AspNetCore" />
-    <PackageReference Include="Serilog.AspNetCore" />
-    <PackageReference Include="Serilog.Sinks.Seq" />
-    <PackageReference Include="Serilog.Enrichers.Environment" />
-    <PackageReference Include="Hangfire.AspNetCore" />
-    <PackageReference Include="Hangfire.PostgreSql" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
-    <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
-    <PackageReference Include="AspNetCore.HealthChecks.Redis" />
+    <PackageReference Include="Microsoft.OpenApi" />
+    <PackageReference Include="SSH.NET" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
   </ItemGroup>
-  <ItemGroup>
-    <InternalsVisibleTo Include="CulinaryBlog.IntegrationTests" />
-  </ItemGroup>
+
 </Project>

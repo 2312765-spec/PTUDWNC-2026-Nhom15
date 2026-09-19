@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!--
-    CONS-001: Domain KHÔNG được phụ thuộc bất kỳ thư viện ngoài nào (chỉ .NET BCL).
-    KHÔNG thêm <PackageReference> vào file này. ArchitectureTests sẽ fail nếu vi phạm.
-  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>CulinaryBlog.Domain</RootNamespace>
+  </PropertyGroup>
+
 </Project>
