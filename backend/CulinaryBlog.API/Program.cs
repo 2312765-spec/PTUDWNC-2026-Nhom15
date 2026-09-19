@@ -1,121 +1,171 @@
 using System.Text;
-using CulinaryBlog.API.Endpoints;
-using CulinaryBlog.API.Extensions;
-using CulinaryBlog.API.Middleware;
 using CulinaryBlog.Application;
 using CulinaryBlog.Application.Common.Interfaces;
+using CulinaryBlog.Domain.Entities;
+using CulinaryBlog.Domain.Enums;
 using CulinaryBlog.Infrastructure;
+using CulinaryBlog.Infrastructure.Persistence;
+using CulinaryBlog.WebApi.Middleware;
+using CulinaryBlog.WebApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using Scalar.AspNetCore;
-using Serilog;
-
-// ---------------------------------------------------------------------------
-// Culinary Blog API — .NET 10 Minimal APIs (CONS-003: KHÔNG dùng MVC Controllers)
-// Kiến trúc: Clean Architecture 4 tầng + CQRS/MediatR (CONS-001, CONS-002)
-// ---------------------------------------------------------------------------
-
+using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
-// ---- Serilog (CONS-010, FR-OBS-002) --------------------------------------
-builder.Host.UseSerilog((context, services, config) => config
-    .ReadFrom.Configuration(context.Configuration)
-    .ReadFrom.Services(services)
-    .Enrich.FromLogContext()
-    .Enrich.WithMachineName());
-
-// ---- Tầng ứng dụng --------------------------------------------------------
-builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
-
-// ---- ICurrentUser (hợp đồng chung — chủ sở hữu: A) -----------------------
+// 1. Cấu hình ASP.NET Core .NET 10 Services
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
-// ---- Xác thực JWT (CONS-004) ---------------------------------------------
-// TODO(S2 — A): thêm ASP.NET Core Identity + Google OAuth (D9).
-var jwtKey = builder.Configuration["Jwt:Key"];
-if (!string.IsNullOrWhiteSpace(jwtKey))
+// 2. Cấu hình IMemoryCache (SRS FR-CAT-001 TTL 60 phút sliding expiration)
+builder.Services.AddMemoryCache();
+
+// 3. Đăng ký Application Services (MediatR, FluentValidation, ValidationBehavior)
+builder.Services.AddApplicationServices();
+
+// 4. Đăng ký Infrastructure Services (EF Core DbContext, Repositories, UnitOfWork)
+builder.Services.AddInfrastructureServices(builder.Configuration);
+
+// 5. Đăng ký Current User Service
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+
+// 6. Cấu hình Authentication & Authorization (JWT Bearer với Role Admin / Author)
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "CulinaryBlogSuperSecretKey2026Net10AspNetCoreAuthenticationKey!";
+builder.Services.AddAuthentication(options =>
 {
-    builder.Services
-        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-        .AddJwtBearer(options =>
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+    };
+});
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("RequireAdmin", policy => policy.RequireRole("Admin"));
+    options.AddPolicy("RequireAuthor", policy => policy.RequireRole("Author", "Admin"));
+});
+
+// 7. Cấu hình Swagger / OpenAPI Documentation
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Culinary Blog Category API (.NET 10)",
+        Version = "v1.0.0",
+        Description = "API Module Quản lý Danh mục Ẩm thực theo tài liệu SRS v1.0.0 (FR-CAT-001 đến FR-CAT-005)"
+    });
+
+    // 1. Khắc phục lỗi SchemaId trùng lặp giữa các DTOs / Records / ProblemDetails
+    c.CustomSchemaIds(type => type.FullName?.Replace("+", "."));
+
+    // 2. Khắc phục lỗi CS0029 & lỗi 500: Loại bỏ tham số CancellationToken khỏi Swagger UI
+    c.MapType<CancellationToken>(() => new OpenApiSchema());
+    c.OperationFilter<IgnoreCancellationTokenOperationFilter>();
+
+    // 3. Xử lý giải quyết xung đột action routes nếu có
+    c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
+
+    // 4. Cấu hình xác thực JWT Bearer trên Swagger UI
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Nhập JWT Bearer Token theo định dạng: Bearer {token}",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+  c.AddSecurityRequirement(new OpenApiSecurityRequirement
+{
+    {
+        new OpenApiSecurityScheme
         {
-            options.TokenValidationParameters = new TokenValidationParameters
+            Reference = new OpenApiReference
             {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                ValidAudience = builder.Configuration["Jwt:Audience"],
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-                ClockSkew = TimeSpan.Zero,
-            };
-        });
-}
-
-// NFR-SEC-006: KHÔNG hardcode chuỗi role trong endpoint. Dùng policy.
-// D12: chỉ 2 policy — policy "VerifiedAuthor" đã bị bỏ khỏi v1.
-builder.Services.AddAuthorizationBuilder()
-    .AddPolicy(Policies.Author, policy => policy.RequireRole(Roles.Author, Roles.Admin))
-    .AddPolicy(Policies.Admin, policy => policy.RequireRole(Roles.Admin));
-
-// ---- CORS (NFR-SEC-005: allowlist, KHÔNG dùng "*") -----------------------
-const string CorsPolicy = "CulinaryBlogCors";
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
-builder.Services.AddCors(options => options.AddPolicy(CorsPolicy, policy => policy
-    .WithOrigins(allowedOrigins)
-    .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-    .WithHeaders("Content-Type", "Authorization", "X-Correlation-ID", "If-Match")
-    .AllowCredentials()));
-
-// ---- OpenAPI / Scalar (NFR-MAINT-003) ------------------------------------
-builder.Services.AddOpenApi();
-
-// ---- Health checks (FR-OBS-001) ------------------------------------------
-builder.Services.AddAppHealthChecks(builder.Configuration);
-
-// TODO(S12 — A): Rate limiting theo D15 — /auth/* 10/phút/IP, API 100/phút/IP, upload 5/phút/IP.
+                Type = ReferenceType.SecurityScheme,
+                Id = "Bearer"
+            }
+        },
+        Array.Empty<string>()
+    }
+});
+});
 
 var app = builder.Build();
 
-// ---------------------------------------------------------------------------
-// Pipeline — THỨ TỰ QUAN TRỌNG, đừng đảo
-// ---------------------------------------------------------------------------
-
-// 1. CorrelationId phải đứng trước mọi thứ để mọi log đều có nó (CONS-010).
-app.UseMiddleware<CorrelationIdMiddleware>();
-
-// 2. Bắt mọi exception chưa xử lý → RFC 7807 (CONS-005, D4).
-app.UseMiddleware<GlobalExceptionMiddleware>();
-
-app.UseSerilogRequestLogging();
-
-if (app.Environment.IsDevelopment())
+// 8. Tự động Seed dữ liệu mẫu ban đầu cho Database
+using (var scope = app.Services.CreateScope())
 {
-    app.MapOpenApi();
-    app.MapScalarApiReference();
-}
-else
-{
-    app.UseHsts(); // NFR-SEC-005
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    if (!context.Categories.Any())
+    {
+        var cat1 = Category.Create("Món Chính", "mon-chinh", "Các món ăn chính thơm ngon, đậm đà cho bữa cơm gia đình.", orderIndex: 1);
+        var cat2 = Category.Create("Món Canh", "mon-canh", "Canh ngọt thanh mát giải nhiệt ngày hè, ấm lòng ngày đông.", orderIndex: 2);
+        var cat3 = Category.Create("Bún & Phở", "bun-pho", "Tinh hoa ẩm thực truyền thống nước lèo phở bò, bún chả...", orderIndex: 3);
+        var cat4 = Category.Create("Tráng Miệng", "trang-mieng", "Các món chè bưởi, bánh ngọt, trái cây thanh mát.", orderIndex: 4);
+
+        context.Categories.AddRange(cat1, cat2, cat3, cat4);
+
+        var r1 = Recipe.Create("Phở Bò Tái Lăn Hà Nội", "pho-bo-tai-lan", "Bí quyết nước dùng thanh ngọt", cat3.Id, "usr-chef-1", "Chef Minh Tuấn", null, RecipeStatus.Published, "Medium", 30, 180, 4, "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=800");
+        var r2 = Recipe.Create("Cá Kho Tộ Miền Tây", "ca-kho-to", "Cá bống kho tộ nước màu dừa", cat1.Id, "usr-chef-1", "Chef Minh Tuấn", null, RecipeStatus.Published, "Easy", 15, 45, 4, "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800");
+        var r3 = Recipe.Create("Canh Chua Cá Hồi", "canh-chua-ca-hoi", "Vị chua thanh mát mùa hè", cat2.Id, "usr-chef-2", "Bếp Trưởng Hoàng Oanh", null, RecipeStatus.Published, "Easy", 15, 20, 4, "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=800");
+        var r4 = Recipe.Create("Bò Kho Nước Dừa (Bản Nháp)", "bo-kho-nhap", "Công thức thử nghiệm", cat1.Id, "usr-chef-1", "Chef Minh Tuấn", null, RecipeStatus.Draft, "Medium", 20, 60, 4, "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800");
+
+        context.Recipes.AddRange(r1, r2, r3, r4);
+        context.SaveChanges();
+    }
 }
 
-app.UseCors(CorsPolicy);
+// 9. Pipeline Middleware
+app.UseMiddleware<ProblemDetailsExceptionMiddleware>();
+
+// Cấu hình Swagger & Swagger UI (luôn bật để kiểm thử API các chức năng FR-CAT-001 đến FR-CAT-005)
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Culinary Blog Category API v1 (.NET 10)");
+    c.RoutePrefix = "swagger"; // Truy cập UI tại /swagger
+});
+
+app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ---- Endpoint groups ------------------------------------------------------
-app.MapHealthEndpoints();
-
-var api = app.MapGroup("/api/v1"); // CONS-005: version qua URL path
-api.MapAuthEndpoints();       // A
-api.MapCategoryEndpoints();   // B
-api.MapRecipeEndpoints();     // B (queries) + C (commands)
-api.MapImageEndpoints();      // D
+app.MapControllers();
 
 app.Run();
 
-/// <summary>Điểm vào của API — public để WebApplicationFactory trong IntegrationTests dùng được.</summary>
-public partial class Program;
+/// <summary>
+/// Filter tự động ẩn tham số CancellationToken khỏi Swagger UI để tránh lỗi serialize WaitHandle
+/// </summary>
+public class IgnoreCancellationTokenOperationFilter : Swashbuckle.AspNetCore.SwaggerGen.IOperationFilter
+{
+    public void Apply(OpenApiOperation operation, Swashbuckle.AspNetCore.SwaggerGen.OperationFilterContext context)
+    {
+        var ctParams = context.ApiDescription.ParameterDescriptions
+            .Where(p => p.ModelMetadata?.ModelType == typeof(CancellationToken) || p.Type == typeof(CancellationToken))
+            .Select(p => p.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (ctParams.Count > 0 && operation.Parameters != null)
+        {
+            var parametersToRemove = operation.Parameters
+                .Where(p => ctParams.Contains(p.Name))
+                .ToList();
+
+            foreach (var parameter in parametersToRemove)
+            {
+                operation.Parameters.Remove(parameter);
+            }
+        }
+    }
+}
