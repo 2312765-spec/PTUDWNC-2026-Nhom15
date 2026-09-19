@@ -4,7 +4,6 @@ namespace CulinaryBlog.Application.Common.Interfaces;
 /// Dịch vụ truy xuất thông tin người dùng hiện tại từ ClaimsPrincipal / JWT Token
 /// Phục vụ phân quyền lọc Draft / Published recipes (FR-CAT-002) và Admin (FR-CAT-003)
 /// </summary>
-
 public interface ICurrentUserService
 {
     string? UserId { get; }

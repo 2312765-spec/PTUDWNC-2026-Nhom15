@@ -1,8 +1,4 @@
 namespace CulinaryBlog.Application.Categories.DTOs;
-
-/// <summary>
-/// Category DTO theo đặc tả SRS FR-CAT-001 & FR-CAT-003
-/// </summary>
 public record CategoryDto(
     Guid Id,
     string Name,
@@ -13,9 +9,6 @@ public record CategoryDto(
     int OrderIndex
 );
 
-/// <summary>
-/// Recipe Summary DTO dùng trong phân trang danh mục (FR-CAT-002)
-/// </summary>
 public record RecipeSummaryDto(
     Guid Id,
     string Title,
@@ -33,10 +26,6 @@ public record RecipeSummaryDto(
     int LikeCount,
     DateTimeOffset CreatedAt
 );
-
-/// <summary>
-/// PagedResult DTO theo chuẩn OFFSET-based pagination
-/// </summary>
 public class PagedResult<T>
 {
     public IReadOnlyList<T> Items { get; init; } = Array.Empty<T>();
@@ -56,9 +45,6 @@ public class PagedResult<T>
     }
 }
 
-/// <summary>
-/// Kết quả chi tiết danh mục kèm danh sách công thức phân trang (FR-CAT-002)
-/// </summary>
 public record CategoryDetailDto(
     CategoryDto Category,
     PagedResult<RecipeSummaryDto> Recipes
