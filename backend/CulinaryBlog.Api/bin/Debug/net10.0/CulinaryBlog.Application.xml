@@ -1,0 +1,248 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>CulinaryBlog.Application</name>
+    </assembly>
+    <members>
+        <member name="T:CulinaryBlog.Application.Categories.Commands.CreateCategory.CreateCategoryCommand">
+            <summary>
+            Command tạo danh mục mới bởi Quản trị viên (SRS FR-CAT-003)
+            </summary>
+        </member>
+        <member name="M:CulinaryBlog.Application.Categories.Commands.CreateCategory.CreateCategoryCommand.#ctor(System.String,System.String,System.String,System.Int32)">
+            <summary>
+            Command tạo danh mục mới bởi Quản trị viên (SRS FR-CAT-003)
+            </summary>
+        </member>
+        <member name="T:CulinaryBlog.Application.Categories.Commands.CreateCategory.CreateCategoryCommandValidator">
+            <summary>
+            FluentValidation xác thực dữ liệu: Name 2-50 ký tự, không chứa thẻ HTML (SRS FR-CAT-003 Luồng chính bước 4)
+            </summary>
+        </member>
+        <member name="T:CulinaryBlog.Application.Categories.Commands.DeleteCategory.DeleteCategoryCommand">
+            <summary>
+            Command xóa danh mục bởi Quản trị viên (SRS FR-CAT-005)
+            Quy tắc: KHÔNG được xóa danh mục còn chứa công thức (dù là Published hay Draft).
+            </summary>
+        </member>
+        <member name="M:CulinaryBlog.Application.Categories.Commands.DeleteCategory.DeleteCategoryCommand.#ctor(System.Guid)">
+            <summary>
+            Command xóa danh mục bởi Quản trị viên (SRS FR-CAT-005)
+            Quy tắc: KHÔNG được xóa danh mục còn chứa công thức (dù là Published hay Draft).
+            </summary>
+        </member>
+        <member name="T:CulinaryBlog.Application.Categories.Commands.UpdateCategory.UpdateCategoryCommand">
+            <summary>
+            Command cập nhật thông tin danh mục bởi Quản trị viên (SRS FR-CAT-004)
+            Quy tắc: Admin cập nhật Name và/hoặc Description. Slug KHÔNG thay đổi khi đổi tên (để tránh broken links).
+            </summary>
+        </member>
+        <member name="M:CulinaryBlog.Application.Categories.Commands.UpdateCategory.UpdateCategoryCommand.#ctor(System.Guid,System.String,System.String,System.String,System.Int32)">
+            <summary>
+            Command cập nhật thông tin danh mục bởi Quản trị viên (SRS FR-CAT-004)
+            Quy tắc: Admin cập nhật Name và/hoặc Description. Slug KHÔNG thay đổi khi đổi tên (để tránh broken links).
+            </summary>
+        </member>
+        <member name="T:CulinaryBlog.Application.Categories.Commands.UpdateCategory.UpdateCategoryCommandValidator">
+            <summary>
+            FluentValidation xác thực dữ liệu: Name 2-50 ký tự, không chứa thẻ HTML (SRS FR-CAT-004)
+            </summary>
+        </member>
+        <member name="T:CulinaryBlog.Application.Categories.DTOs.CategoryDto">
+            <summary>
+            Category DTO theo đặc tả SRS FR-CAT-001 FR-CAT-003
+            </summary>
+        </member>
+        <member name="M:CulinaryBlog.Application.Categories.DTOs.CategoryDto.#ctor(System.Guid,System.String,System.String,System.String,System.String,System.Int32,System.Int32)">
+            <summary>
+            Category DTO theo đặc tả SRS FR-CAT-001 FR-CAT-003
+            </summary>
+        </member>
+        <member name="T:CulinaryBlog.Application.Categories.DTOs.PagedResult`1">
+            <summary>
+            PagedResult DTO theo chuẩn OFFSET-based pagination
+            </summary>
+        </member>
+        <member name="T:CulinaryBlog.Application.Categories.DTOs.CategoryDetailDto">
+            <summary>
+            Kết quả chi tiết danh mục kèm danh sách công thức phân trang (FR-CAT-002)
+            </summary>
+        </member>
+        <member name="M:CulinaryBlog.Application.Categories.DTOs.CategoryDetailDto.#ctor(CulinaryBlog.Application.Categories.DTOs.CategoryDto,CulinaryBlog.Application.Categories.DTOs.PagedResult{CulinaryBlog.Application.Categories.DTOs.RecipeSummaryDto})">
+            <summary>
+            Kết quả chi tiết danh mục kèm danh sách công thức phân trang (FR-CAT-002)
+            </summary>
+        </member>
+        <member name="T:CulinaryBlog.Application.Categories.Queries.GetCategories.GetCategoriesQuery">
+            <summary>
+            Query lấy danh sách tất cả danh mục (SRS FR-CAT-001)
+            </summary>
+        </member>
+        <member name="T:CulinaryBlog.Application.Categories.Queries.GetCategoryBySlug.GetCategoryBySlugQuery">
+            <summary>
+            Query lấy thông tin chi tiết danh mục và danh sách công thức phân trang (SRS FR-CAT-002)
+            </summary>
+        </member>
+        <member name="M:CulinaryBlog.Application.Categories.Queries.GetCategoryBySlug.GetCategoryBySlugQuery.#ctor(System.String,System.Int32,System.Int32)">
+            <summary>
+            Query lấy thông tin chi tiết danh mục và danh sách công thức phân trang (SRS FR-CAT-002)
+            </summary>
+        </member>
+        <member name="T:CulinaryBlog.Application.Common.Behaviors.ValidationBehavior`2">
+            <summary>
+            Pipeline Behavior tự động xác thực Command/Query trước khi xử lý (SRS FR-CAT-003 Luồng chính bước 4)
+            </summary>
+        </member>
+        <member name="T:CulinaryBlog.Application.Common.Helpers.SlugHelper">
+            <summary>
+            Helper sinh Slug thân thiện SEO theo đặc tả SRS FR-CAT-003 Luồng chính bước 5
+            Quy tắc: Chuyển sang chữ thường, bỏ dấu tiếng Việt, thay khoảng trắng bằng "-"
+            </summary>
+        </member>
+        <member name="M:CulinaryBlog.Application.Common.Helpers.SlugHelper.SpaceRegex">
+            <remarks>
+            Pattern:<br/>
+            <code>\\s+</code><br/>
+            Explanation:<br/>
+            <code>
+            ○ Match a whitespace character atomically at least once.<br/>
+            </code>
+            </remarks>
+        </member>
+        <member name="M:CulinaryBlog.Application.Common.Helpers.SlugHelper.InvalidCharsRegex">
+            <remarks>
+            Pattern:<br/>
+            <code>[^a-z0-9\\s-]</code><br/>
+            Explanation:<br/>
+            <code>
+            ○ Match a character in the set [^\-0-9a-z\s].<br/>
+            </code>
+            </remarks>
+        </member>
+        <member name="M:CulinaryBlog.Application.Common.Helpers.SlugHelper.MultipleDashesRegex">
+            <remarks>
+            Pattern:<br/>
+            <code>-+</code><br/>
+            Explanation:<br/>
+            <code>
+            ○ Match '-' atomically at least once.<br/>
+            </code>
+            </remarks>
+        </member>
+        <member name="T:CulinaryBlog.Application.Common.Interfaces.ICurrentUserService">
+            <summary>
+            Dịch vụ truy xuất thông tin người dùng hiện tại từ ClaimsPrincipal / JWT Token
+            Phục vụ phân quyền lọc Draft / Published recipes (FR-CAT-002) và Admin (FR-CAT-003)
+            </summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.SpaceRegex_0">
+            <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the SpaceRegex method.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.SpaceRegex_0.Instance">
+            <summary>Cached, thread-safe singleton instance.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.SpaceRegex_0.#ctor">
+            <summary>Initializes the instance.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.SpaceRegex_0.RunnerFactory">
+            <summary>Provides a factory for creating <see cref="T:System.Text.RegularExpressions.RegexRunner"/> instances to be used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.SpaceRegex_0.RunnerFactory.CreateInstance">
+            <summary>Creates an instance of a <see cref="T:System.Text.RegularExpressions.RegexRunner"/> used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.SpaceRegex_0.RunnerFactory.Runner">
+            <summary>Provides the runner that contains the custom logic implementing the specified regular expression.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.SpaceRegex_0.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
+            <summary>Scan the <paramref name="inputSpan"/> starting from base.runtextstart for the next match.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.SpaceRegex_0.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Search <paramref name="inputSpan"/> starting from base.runtextpos for the next location a match could possibly start.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if a possible match was found; false if no more matches are possible.</returns>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.SpaceRegex_0.RunnerFactory.Runner.TryMatchAtCurrentPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Determine whether <paramref name="inputSpan"/> at base.runtextpos is a match for the regular expression.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if the regular expression matches at the current position; otherwise, false.</returns>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.InvalidCharsRegex_1">
+            <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the InvalidCharsRegex method.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.InvalidCharsRegex_1.Instance">
+            <summary>Cached, thread-safe singleton instance.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.InvalidCharsRegex_1.#ctor">
+            <summary>Initializes the instance.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.InvalidCharsRegex_1.RunnerFactory">
+            <summary>Provides a factory for creating <see cref="T:System.Text.RegularExpressions.RegexRunner"/> instances to be used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.InvalidCharsRegex_1.RunnerFactory.CreateInstance">
+            <summary>Creates an instance of a <see cref="T:System.Text.RegularExpressions.RegexRunner"/> used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.InvalidCharsRegex_1.RunnerFactory.Runner">
+            <summary>Provides the runner that contains the custom logic implementing the specified regular expression.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.InvalidCharsRegex_1.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
+            <summary>Scan the <paramref name="inputSpan"/> starting from base.runtextstart for the next match.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.InvalidCharsRegex_1.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Search <paramref name="inputSpan"/> starting from base.runtextpos for the next location a match could possibly start.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if a possible match was found; false if no more matches are possible.</returns>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.MultipleDashesRegex_2">
+            <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the MultipleDashesRegex method.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.MultipleDashesRegex_2.Instance">
+            <summary>Cached, thread-safe singleton instance.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.MultipleDashesRegex_2.#ctor">
+            <summary>Initializes the instance.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.MultipleDashesRegex_2.RunnerFactory">
+            <summary>Provides a factory for creating <see cref="T:System.Text.RegularExpressions.RegexRunner"/> instances to be used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.MultipleDashesRegex_2.RunnerFactory.CreateInstance">
+            <summary>Creates an instance of a <see cref="T:System.Text.RegularExpressions.RegexRunner"/> used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.MultipleDashesRegex_2.RunnerFactory.Runner">
+            <summary>Provides the runner that contains the custom logic implementing the specified regular expression.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.MultipleDashesRegex_2.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
+            <summary>Scan the <paramref name="inputSpan"/> starting from base.runtextstart for the next match.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.MultipleDashesRegex_2.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Search <paramref name="inputSpan"/> starting from base.runtextpos for the next location a match could possibly start.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if a possible match was found; false if no more matches are possible.</returns>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.MultipleDashesRegex_2.RunnerFactory.Runner.TryMatchAtCurrentPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Determine whether <paramref name="inputSpan"/> at base.runtextpos is a match for the regular expression.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if the regular expression matches at the current position; otherwise, false.</returns>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.Utilities">
+            <summary>Helper methods used by generated <see cref="T:System.Text.RegularExpressions.Regex"/>-derived implementations.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_defaultTimeout">
+            <summary>Default timeout value set in <see cref="T:System.AppContext"/>, or <see cref="F:System.Text.RegularExpressions.Regex.InfiniteMatchTimeout"/> if none was set.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_hasTimeout">
+            <summary>Whether <see cref="F:System.Text.RegularExpressions.Generated.Utilities.s_defaultTimeout"/> is non-infinite.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.Utilities.IndexOfNonAsciiOrAny_CE674C7A957B7095C4CADB8C4A475347C5DA26B8D4D257B2A44E97986360F80D(System.ReadOnlySpan{System.Char})">
+            <summary>Finds the next index of any character that matches a character in the set [^\-0-9a-z\s].</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_ascii_3E00000120FF0300000000FEFFFF07">
+            <summary>Supports searching for characters in or not in "\t\n\v\f\r -0123456789abcdefghijklmnopqrstuvwxyz".</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_whitespace">
+            <summary>Supports searching for characters in or not in "\t\n\v\f\r \u0085             \u2028\u2029  　".</summary>
+        </member>
+    </members>
+</doc>

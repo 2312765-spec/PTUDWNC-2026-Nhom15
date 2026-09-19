@@ -1,0 +1,26 @@
+D:\PTUNGWebNangCao_ThiCuoiKy\Culinary Blog NKY\Culinary_Blog_Web_Development_Advanced\aspnet-core-dotnet10\src\CulinaryBlog.Domain\bin\Debug\net10.0\CulinaryBlog.Domain.deps.json
+D:\PTUNGWebNangCao_ThiCuoiKy\Culinary Blog NKY\Culinary_Blog_Web_Development_Advanced\aspnet-core-dotnet10\src\CulinaryBlog.Domain\bin\Debug\net10.0\CulinaryBlog.Domain.dll
+D:\PTUNGWebNangCao_ThiCuoiKy\Culinary Blog NKY\Culinary_Blog_Web_Development_Advanced\aspnet-core-dotnet10\src\CulinaryBlog.Domain\bin\Debug\net10.0\CulinaryBlog.Domain.pdb
+D:\PTUNGWebNangCao_ThiCuoiKy\Culinary Blog NKY\Culinary_Blog_Web_Development_Advanced\aspnet-core-dotnet10\src\CulinaryBlog.Domain\obj\Debug\net10.0\CulinaryBlog.Domain.GeneratedMSBuildEditorConfig.editorconfig
+D:\PTUNGWebNangCao_ThiCuoiKy\Culinary Blog NKY\Culinary_Blog_Web_Development_Advanced\aspnet-core-dotnet10\src\CulinaryBlog.Domain\obj\Debug\net10.0\CulinaryBlog.Domain.AssemblyInfoInputs.cache
+D:\PTUNGWebNangCao_ThiCuoiKy\Culinary Blog NKY\Culinary_Blog_Web_Development_Advanced\aspnet-core-dotnet10\src\CulinaryBlog.Domain\obj\Debug\net10.0\CulinaryBlog.Domain.AssemblyInfo.cs
+D:\PTUNGWebNangCao_ThiCuoiKy\Culinary Blog NKY\Culinary_Blog_Web_Development_Advanced\aspnet-core-dotnet10\src\CulinaryBlog.Domain\obj\Debug\net10.0\CulinaryBlog.Domain.csproj.CoreCompileInputs.cache
+D:\PTUNGWebNangCao_ThiCuoiKy\Culinary Blog NKY\Culinary_Blog_Web_Development_Advanced\aspnet-core-dotnet10\src\CulinaryBlog.Domain\obj\Debug\net10.0\CulinaryBlog.Domain.sourcelink.json
+D:\PTUNGWebNangCao_ThiCuoiKy\Culinary Blog NKY\Culinary_Blog_Web_Development_Advanced\aspnet-core-dotnet10\src\CulinaryBlog.Domain\obj\Debug\net10.0\CulinaryBlog.Domain.dll
+D:\PTUNGWebNangCao_ThiCuoiKy\Culinary Blog NKY\Culinary_Blog_Web_Development_Advanced\aspnet-core-dotnet10\src\CulinaryBlog.Domain\obj\Debug\net10.0\refint\CulinaryBlog.Domain.dll
+D:\PTUNGWebNangCao_ThiCuoiKy\Culinary Blog NKY\Culinary_Blog_Web_Development_Advanced\aspnet-core-dotnet10\src\CulinaryBlog.Domain\obj\Debug\net10.0\CulinaryBlog.Domain.pdb
+D:\PTUNGWebNangCao_ThiCuoiKy\Culinary Blog NKY\Culinary_Blog_Web_Development_Advanced\aspnet-core-dotnet10\src\CulinaryBlog.Domain\obj\Debug\net10.0\ref\CulinaryBlog.Domain.dll
+D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Domain\bin\Debug\net10.0\CulinaryBlog.Domain.deps.json
+D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Domain\bin\Debug\net10.0\CulinaryBlog.Domain.dll
+D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Domain\bin\Debug\net10.0\CulinaryBlog.Domain.pdb
+D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Domain\bin\Debug\net10.0\CulinaryBlog.Domain.xml
+D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Domain\obj\Debug\net10.0\CulinaryBlog.Domain.GeneratedMSBuildEditorConfig.editorconfig
+D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Domain\obj\Debug\net10.0\CulinaryBlog.Domain.AssemblyInfoInputs.cache
+D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Domain\obj\Debug\net10.0\CulinaryBlog.Domain.AssemblyInfo.cs
+D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Domain\obj\Debug\net10.0\CulinaryBlog.Domain.csproj.CoreCompileInputs.cache
+D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Domain\obj\Debug\net10.0\CulinaryBlog.Domain.sourcelink.json
+D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Domain\obj\Debug\net10.0\CulinaryBlog.Domain.dll
+D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Domain\obj\Debug\net10.0\refint\CulinaryBlog.Domain.dll
+D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Domain\obj\Debug\net10.0\CulinaryBlog.Domain.xml
+D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Domain\obj\Debug\net10.0\CulinaryBlog.Domain.pdb
+D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Domain\obj\Debug\net10.0\ref\CulinaryBlog.Domain.dll
