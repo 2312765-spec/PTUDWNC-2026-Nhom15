@@ -1,9 +1,0 @@
-D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Api\obj\Debug\net10.0\CulinaryBlog.WebApi.csproj.AssemblyReference.cache
-D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Api\obj\Debug\net10.0\rpswa.dswa.cache.json
-D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Api\obj\Debug\net10.0\CulinaryBlog.WebApi.GeneratedMSBuildEditorConfig.editorconfig
-D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Api\obj\Debug\net10.0\CulinaryBlog.WebApi.AssemblyInfoInputs.cache
-D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Api\obj\Debug\net10.0\CulinaryBlog.WebApi.AssemblyInfo.cs
-D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Api\obj\Debug\net10.0\CulinaryBlog.WebApi.csproj.CoreCompileInputs.cache
-D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Api\obj\Debug\net10.0\CulinaryBlog.WebApi.MvcApplicationPartsAssemblyInfo.cs
-D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Api\obj\Debug\net10.0\CulinaryBlog.WebApi.MvcApplicationPartsAssemblyInfo.cache
-D:\PTUNGWebNangCao_ThiCuoiKy\PTUDWNC-2026-Nhom15\backend\CulinaryBlog.Api\obj\Debug\net10.0\CulinaryBlog.WebApi.sourcelink.json
