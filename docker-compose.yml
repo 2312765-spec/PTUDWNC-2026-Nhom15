@@ -59,8 +59,11 @@ services:
       retries: 5
 
   # Tạo bucket "culinary-blog" với policy public-read (D16) — chạy một lần rồi thoát
+  # LƯU Ý: dùng quay.io, KHÔNG dùng "minio/mc:latest" trên Docker Hub — Docker Hub
+  # đã chặn pull ẩn danh image này ("pull access denied"). quay.io là mirror chính
+  # thức của MinIO Inc., không bị chặn.
   minio-init:
-    image: minio/mc:latest
+    image: quay.io/minio/mc:latest
     container_name: cb-minio-init
     depends_on:
       minio:

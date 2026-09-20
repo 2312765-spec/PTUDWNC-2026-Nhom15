@@ -5,7 +5,10 @@ using CulinaryBlog.API.Middleware;
 using CulinaryBlog.Application;
 using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Infrastructure;
+using CulinaryBlog.Infrastructure.Persistence;
+using CulinaryBlog.Infrastructure.Persistence.Seeding;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using Serilog;
@@ -79,6 +82,15 @@ builder.Services.AddAppHealthChecks(builder.Configuration);
 // TODO(S12 — A): Rate limiting theo D15 — /auth/* 10/phút/IP, API 100/phút/IP, upload 5/phút/IP.
 
 var app = builder.Build();
+
+// ---- Migration + seed (chỉ Development — Sprint 0, B) ---------------------
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
+    await db.Database.MigrateAsync();
+    await DbSeeder.SeedAsync(db);
+}
 
 // ---------------------------------------------------------------------------
 // Pipeline — THỨ TỰ QUAN TRỌNG, đừng đảo

@@ -539,6 +539,8 @@ nếu không request `/recipes/search` sẽ khớp vào route slug. Kèm theo D1
 | `RECIPE_PUBLISH_INCOMPLETE` | 400 | Recipe | — |
 | `RECIPE_FORBIDDEN` | 403 | Recipe | — |
 | `RECIPE_CONCURRENCY_CONFLICT` | **409** | Recipe | ✏️ đổi từ 422 (D4) |
+| `RECIPE_IMAGE_NOT_FOUND` | 404 | Recipe | 🆕 **thêm mới** — SRS FR-RCP-008 chỉ ghi chung "404", chưa có mã riêng cho ảnh không tồn tại (phát hiện lúc lập kế hoạch FR-RCP-008) |
+| `RECIPE_PRIMARY_IMAGE_REQUIRED` | 400 | Recipe | 🆕 **thêm mới** (D22) — `PATCH` `{ isPrimary: false }` trên ảnh đang là primary bị từ chối, vì recipe phải luôn có đúng 1 ảnh primary nếu còn ảnh |
 | `CATEGORY_NOT_FOUND` | 404 | Category | — |
 | `CATEGORY_NAME_EXISTS` | 409 | Category | — |
 | `CATEGORY_DELETE_HAS_RECIPES` | 409 | Category | — |

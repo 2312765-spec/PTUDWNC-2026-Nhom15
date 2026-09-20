@@ -21,6 +21,8 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+    <!-- Sprint 0 — B: seed dữ liệu mẫu (50 recipe / 5 author). -->
+    <PackageVersion Include="Bogus" Version="35.6.5" />
   </ItemGroup>
 
   <ItemGroup Label="Identity &amp; Auth">
@@ -33,8 +35,13 @@
   <ItemGroup Label="Cache / Storage / Email / Jobs">
     <PackageVersion Include="StackExchange.Redis" Version="2.8.16" />
     <PackageVersion Include="AWSSDK.S3" Version="3.7.416.4" />
-    <PackageVersion Include="MailKit" Version="4.8.0" />
-    <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.6" />
+    <!-- 4.8.0 dính GHSA-9j88-vvj5-vhgr (MailKit) — vá ở 4.16.0. Nâng lên bản mới nhất. -->
+    <PackageVersion Include="MailKit" Version="4.18.0" />
+    <!-- Transitive qua MailKit. 4.8.0 dính GHSA-g7hc-96xr-gvvx (MimeKit) — vá ở 4.15.1.
+         Pin tường minh vì CentralPackageTransitivePinningEnabled=true. -->
+    <PackageVersion Include="MimeKit" Version="4.18.0" />
+    <!-- 3.1.6 dính GHSA-2cmq-823j-5qj8 (high) và GHSA-rxmq-m78w-7wmc — vá lần lượt ở 3.1.7 / 3.1.11. -->
+    <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
     <PackageVersion Include="Hangfire.Core" Version="1.8.17" />
     <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.17" />
     <PackageVersion Include="Hangfire.PostgreSql" Version="1.20.10" />
@@ -44,10 +51,15 @@
     <PackageVersion Include="Serilog.AspNetCore" Version="8.0.3" />
     <PackageVersion Include="Serilog.Sinks.Seq" Version="8.0.0" />
     <PackageVersion Include="Serilog.Enrichers.Environment" Version="3.0.1" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.10.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.10.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.10.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.10.0" />
+    <!-- Cả họ OpenTelemetry nâng đồng bộ lên 1.18.0 — 1.10.0 dính GHSA-8785-wc3w-h8q6,
+         GHSA-g94r-2vxg-569j (API) và GHSA-4625-4j76-fww9 (Exporter OTLP), vá ở 1.11.2/1.15.3. -->
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.18.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.18.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.18.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />
+    <!-- Transitive — pin để không rơi lại về bản cũ dính CVE. -->
+    <PackageVersion Include="OpenTelemetry" Version="1.18.0" />
+    <PackageVersion Include="OpenTelemetry.Api" Version="1.18.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="8.0.2" />
     <PackageVersion Include="AspNetCore.HealthChecks.Redis" Version="8.0.1" />
     <PackageVersion Include="AspNetCore.HealthChecks.Aws.S3" Version="8.0.1" />
@@ -56,6 +68,9 @@
   <ItemGroup Label="API">
     <PackageVersion Include="Scalar.AspNetCore" Version="2.0.4" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
+    <!-- Transitive qua Microsoft.AspNetCore.OpenApi/Scalar. 2.0.0 dính GHSA-v5pm-xwqc-g5wc
+         (high, vá ở 2.7.5). Giữ nguyên major 2.x để không phá tương thích API với gói trên. -->
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.12.2" />
   </ItemGroup>
 
   <ItemGroup Label="Testing">
@@ -67,6 +82,9 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.0.0" />
     <PackageVersion Include="Testcontainers.Redis" Version="4.0.0" />
+    <!-- Transitive qua Testcontainers. 2023.0.0 dính GHSA-q939-rpr3-3284 (high),
+         chỉ vá ở đúng 2026.0.0 — pin tường minh. -->
+    <PackageVersion Include="SSH.NET" Version="2026.0.0" />
     <PackageVersion Include="TngTech.ArchUnitNET.xUnit" Version="0.11.4" />
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
   </ItemGroup>

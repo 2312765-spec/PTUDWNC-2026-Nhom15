@@ -1,25 +1,31 @@
 using System.Linq.Expressions;
 using CulinaryBlog.Domain.Common;
+using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Interfaces;
+using CulinaryBlog.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace CulinaryBlog.Infrastructure.Persistence;
 
 /// <summary>
 /// DbContext chính — CONS-006: PostgreSQL duy nhất, EF Core Code-First.
-///
-/// TODO(Sprint 0 — B): khi tạo ApplicationUser, đổi lớp cha thành
-///   IdentityDbContext&lt;ApplicationUser, IdentityRole, string&gt;
-/// và nhớ gọi base.OnModelCreating(modelBuilder) TRƯỚC phần cấu hình bên dưới.
+/// Kế thừa IdentityDbContext để có sẵn AspNetUsers/AspNetRoles theo SRS 7.7.
 /// </summary>
 public class CulinaryBlogDbContext(DbContextOptions<CulinaryBlogDbContext> options)
-    : DbContext(options), IUnitOfWork
+    : IdentityDbContext<ApplicationUser, IdentityRole, string>(options), IUnitOfWork
 {
-    // TODO(Sprint 0 — B): khai báo DbSet cho Recipe, Category, RecipeStep,
-    // RecipeIngredient, RecipeImage, RefreshToken theo SRS Chương 7.
+    public DbSet<Category> Categories => Set<Category>();
+    public DbSet<Recipe> Recipes => Set<Recipe>();
+    public DbSet<RecipeStep> RecipeSteps => Set<RecipeStep>();
+    public DbSet<RecipeIngredient> RecipeIngredients => Set<RecipeIngredient>();
+    public DbSet<RecipeImage> RecipeImages => Set<RecipeImage>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // IdentityDbContext.OnModelCreating PHẢI chạy trước — nó khai báo AspNetUsers/AspNetRoles.
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CulinaryBlogDbContext).Assembly);

@@ -20,6 +20,7 @@
     <PackageReference Include="Hangfire.Core" />
     <PackageReference Include="Hangfire.PostgreSql" />
     <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Bogus" />
   </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

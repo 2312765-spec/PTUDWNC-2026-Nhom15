@@ -30,7 +30,7 @@ public sealed class RedisCacheService(
 
             return value.IsNullOrEmpty
                 ? default
-                : JsonSerializer.Deserialize<T>(value!, JsonOptions);
+                : JsonSerializer.Deserialize<T>((string)value!, JsonOptions);
         }
         catch (Exception ex)
         {
