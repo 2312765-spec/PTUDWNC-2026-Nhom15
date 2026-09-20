@@ -1,0 +1,36 @@
+@import 'tailwindcss';
+
+/*
+  Design token — chủ sở hữu: C (Sprint 0).
+  NFR-USE-002: mọi cặp màu chữ/nền phải đạt contrast >= 4.5:1 (WCAG 2.1 AA).
+*/
+@theme {
+  --color-brand-50: #fff7ed;
+  --color-brand-100: #ffedd5;
+  --color-brand-500: #f97316;
+  --color-brand-600: #ea580c;
+  --color-brand-700: #c2410c;
+
+  --color-ink: #1c1917;
+  --color-ink-muted: #57534e;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #fafaf9;
+  --color-border: #e7e5e4;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-surface-subtle);
+  color: var(--color-ink);
+}
+
+/* NFR-USE-002: focus ring rõ ràng cho điều hướng bàn phím */
+:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+}

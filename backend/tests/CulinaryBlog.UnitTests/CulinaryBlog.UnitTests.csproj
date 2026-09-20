@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <CollectCoverage>true</CollectCoverage>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\CulinaryBlog.Domain\CulinaryBlog.Domain.csproj" />
+    <ProjectReference Include="..\..\CulinaryBlog.Application\CulinaryBlog.Application.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+</Project>
