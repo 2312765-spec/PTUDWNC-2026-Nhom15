@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CulinaryBlog.Infrastructure.Repositories;
 
-public class CategoryRepository : ICategoryRepository
+public sealed class CategoryRepository : ICategoryRepository
 {
     private readonly CulinaryBlogDbContext _context;
 
@@ -14,18 +14,7 @@ public class CategoryRepository : ICategoryRepository
         _context = context;
     }
 
-    // 1. Khớp với Task<IEnumerable<Category>>
-    public async Task<IEnumerable<Category>> GetAllWithRecipesAsync(CancellationToken cancellationToken = default)
-    {
-        return await _context.Categories
-            .AsNoTracking()
-            .Include(c => c.Recipes)
-            .OrderBy(c => c.Name)
-            .ToListAsync(cancellationToken);
-    }
-
-    // 2. Triển khai phương thức GetAllWithRecipeCountAsync
-    public async Task<IEnumerable<Category>> GetAllWithRecipeCountAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Category>> GetAllWithRecipesAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Categories
             .AsNoTracking()

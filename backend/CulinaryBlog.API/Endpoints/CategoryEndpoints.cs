@@ -11,12 +11,10 @@ public static class CategoryEndpoints
 {
     public static RouteGroupBuilder MapCategoryEndpoints(this RouteGroupBuilder group)
     {
-     var categories = group.MapGroup("/categories")
-                          .WithTags("Categories");
-
-      categories.MapGet("/", async (ISender sender, CancellationToken cancellationToken) =>
+        group.MapGet("/", async (ISender sender, CancellationToken cancellationToken) =>
         {
-            var result = await sender.Send(new GetCategoriesQuery(), cancellationToken);
+            var query = new GetCategoriesQuery();
+            var result = await sender.Send(query, cancellationToken);
             return TypedResults.Ok(result);
         })
         .WithName("GetCategories")

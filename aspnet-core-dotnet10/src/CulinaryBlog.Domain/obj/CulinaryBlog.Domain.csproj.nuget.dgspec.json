@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "d:\\PTUNGWebNangCao_ThiCuoiKy\\PTUDWNC-2026-Nhom15\\aspnet-core-dotnet10\\src\\CulinaryBlog.Domain\\CulinaryBlog.Domain.csproj": {}
+    "D:\\PTUNGWebNangCao_ThiCuoiKy\\PTUDWNC-2026-Nhom15\\aspnet-core-dotnet10\\src\\CulinaryBlog.Domain\\CulinaryBlog.Domain.csproj": {}
   },
   "projects": {
-    "d:\\PTUNGWebNangCao_ThiCuoiKy\\PTUDWNC-2026-Nhom15\\aspnet-core-dotnet10\\src\\CulinaryBlog.Domain\\CulinaryBlog.Domain.csproj": {
+    "D:\\PTUNGWebNangCao_ThiCuoiKy\\PTUDWNC-2026-Nhom15\\aspnet-core-dotnet10\\src\\CulinaryBlog.Domain\\CulinaryBlog.Domain.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "d:\\PTUNGWebNangCao_ThiCuoiKy\\PTUDWNC-2026-Nhom15\\aspnet-core-dotnet10\\src\\CulinaryBlog.Domain\\CulinaryBlog.Domain.csproj",
+        "projectUniqueName": "D:\\PTUNGWebNangCao_ThiCuoiKy\\PTUDWNC-2026-Nhom15\\aspnet-core-dotnet10\\src\\CulinaryBlog.Domain\\CulinaryBlog.Domain.csproj",
         "projectName": "CulinaryBlog.Domain",
-        "projectPath": "d:\\PTUNGWebNangCao_ThiCuoiKy\\PTUDWNC-2026-Nhom15\\aspnet-core-dotnet10\\src\\CulinaryBlog.Domain\\CulinaryBlog.Domain.csproj",
+        "projectPath": "D:\\PTUNGWebNangCao_ThiCuoiKy\\PTUDWNC-2026-Nhom15\\aspnet-core-dotnet10\\src\\CulinaryBlog.Domain\\CulinaryBlog.Domain.csproj",
         "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-        "outputPath": "d:\\PTUNGWebNangCao_ThiCuoiKy\\PTUDWNC-2026-Nhom15\\aspnet-core-dotnet10\\src\\CulinaryBlog.Domain\\obj\\",
+        "outputPath": "D:\\PTUNGWebNangCao_ThiCuoiKy\\PTUDWNC-2026-Nhom15\\aspnet-core-dotnet10\\src\\CulinaryBlog.Domain\\obj\\",
         "projectStyle": "PackageReference",
         "centralPackageVersionsManagementEnabled": true,
         "CentralPackageTransitivePinningEnabled": true,

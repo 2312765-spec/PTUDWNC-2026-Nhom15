@@ -4,5 +4,5 @@ namespace CulinaryBlog.Domain.Interfaces;
 
 public interface ICategoryRepository
 {
-    Task<IEnumerable<Category>> GetAllWithRecipesAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Category>> GetAllWithRecipesAsync(CancellationToken cancellationToken = default);
 }
