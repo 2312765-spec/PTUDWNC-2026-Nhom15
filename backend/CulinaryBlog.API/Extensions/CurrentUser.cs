@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using CulinaryBlog.Application.Common.Interfaces;
+using CulinaryBlog.Domain.Common;
 
 namespace CulinaryBlog.API.Extensions;
 

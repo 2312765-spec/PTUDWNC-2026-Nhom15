@@ -4,10 +4,14 @@ using CulinaryBlog.API.Extensions;
 using CulinaryBlog.API.Middleware;
 using CulinaryBlog.Application;
 using CulinaryBlog.Application.Common.Interfaces;
+using CulinaryBlog.Domain.Common;
 using CulinaryBlog.Infrastructure;
+using CulinaryBlog.Infrastructure.Identity;
 using CulinaryBlog.Infrastructure.Persistence;
 using CulinaryBlog.Infrastructure.Persistence.Seeding;
+using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
@@ -31,12 +35,22 @@ builder.Host.UseSerilog((context, services, config) => config
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// ---- Hangfire worker (FR-JOB-001) -----------------------------------------
+// AddHangfireServer() resolve JobStorage NGAY lúc host start → cần Postgres thật.
+// Không bật trong môi trường Testing (SmokeTests dùng WebApplicationFactory không có
+// Postgres thật — xem CulinaryBlog.Infrastructure.DependencyInjection).
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddHangfireServer();
+}
+
 // ---- ICurrentUser (hợp đồng chung — chủ sở hữu: A) -----------------------
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
 // ---- Xác thực JWT (CONS-004) ---------------------------------------------
-// TODO(S2 — A): thêm ASP.NET Core Identity + Google OAuth (D9).
+// ASP.NET Core Identity (AddIdentityCore) đã cấu hình trong AddInfrastructure (S2 — A, D23).
+// TODO(S9 — A): Google OAuth (D9).
 var jwtKey = builder.Configuration["Jwt:Key"];
 if (!string.IsNullOrWhiteSpace(jwtKey))
 {
@@ -84,11 +98,15 @@ builder.Services.AddAppHealthChecks(builder.Configuration);
 var app = builder.Build();
 
 // ---- Migration + seed (chỉ Development — Sprint 0, B) ---------------------
+// Seed role PHẢI chạy sau MigrateAsync (bảng AspNetRoles phải tồn tại trước) — xem
+// IdentityRoleSeeder. Ở môi trường "Testing" (integration test), PostgresApiFactory tự
+// gọi migration + seed role riêng vì host được build/start trước khi factory kịp can thiệp.
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
     await db.Database.MigrateAsync();
+    await IdentityRoleSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>());
     await DbSeeder.SeedAsync(db);
 }
 

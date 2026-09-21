@@ -1,4 +1,7 @@
 using CulinaryBlog.API.Extensions;
+using CulinaryBlog.Application.Auth.Commands.Register;
+using CulinaryBlog.Application.Auth.Dtos;
+using MediatR;
 
 namespace CulinaryBlog.API.Endpoints;
 
@@ -7,7 +10,7 @@ namespace CulinaryBlog.API.Endpoints;
 ///
 /// Quyết định bắt buộc: D5 (displayName/avatarUrl/bio — KHÔNG có fullName/userName),
 /// D20 (RefreshToken schema), D4 (validation → 400), D9 (Google: body { idToken }),
-/// D11 (IsActive → 403), D17 (lockout → 423).
+/// D11 (IsActive → 403), D17 (lockout → 423), D24 (register trả AuthResponseDto đầy đủ).
 /// </summary>
 public static class AuthEndpoints
 {
@@ -15,8 +18,11 @@ public static class AuthEndpoints
     {
         var group = app.MapGroup("/auth").WithTags("Auth");
 
-        group.MapPost("/register", () => NotImplementedResults.Pending("FR-AUTH-001", "A"))
-             .WithSummary("Đăng ký tài khoản mới — body { email, password, displayName }");
+        group.MapPost("/register", RegisterAsync)
+             .WithSummary("Đăng ký tài khoản mới — body { email, password, displayName } (D5)")
+             .Produces<AuthResponseDto>(StatusCodes.Status201Created)
+             .ProducesValidationProblem()
+             .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPost("/login", () => NotImplementedResults.Pending("FR-AUTH-002", "A"))
              .WithSummary("Đăng nhập email/password — body { email, password }");
@@ -39,4 +45,28 @@ public static class AuthEndpoints
              .RequireAuthorization()
              .WithSummary("Cập nhật hồ sơ — body { displayName?, avatarUrl?, bio? }");
     }
+
+    /// <summary>
+    /// CONS-008: endpoint chỉ nhận request → gửi command → trả kết quả. Không business logic,
+    /// không validate ở đây (ValidationBehavior lo việc đó).
+    /// </summary>
+    private static async Task<IResult> RegisterAsync(
+        RegisterRequest request,
+        HttpContext httpContext,
+        ISender sender,
+        CancellationToken ct)
+    {
+        var command = new RegisterCommand(
+            request.Email,
+            request.Password,
+            request.DisplayName,
+            httpContext.Connection.RemoteIpAddress?.ToString());
+
+        var result = await sender.Send(command, ct);
+
+        return TypedResults.Created((string?)null, result);
+    }
 }
+
+/// <summary>D5 — wire contract của POST /auth/register.</summary>
+public sealed record RegisterRequest(string Email, string Password, string DisplayName);
