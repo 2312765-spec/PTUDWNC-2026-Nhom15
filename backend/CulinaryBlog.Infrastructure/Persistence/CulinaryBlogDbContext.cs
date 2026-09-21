@@ -1,22 +1,26 @@
 using System.Linq.Expressions;
 using CulinaryBlog.Domain.Common;
+using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Interfaces;
+using CulinaryBlog.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace CulinaryBlog.Infrastructure.Persistence;
 
 /// <summary>
 /// DbContext chính — CONS-006: PostgreSQL duy nhất, EF Core Code-First.
-///
-/// TODO(Sprint 0 — B): khi tạo ApplicationUser, đổi lớp cha thành
-///   IdentityDbContext&lt;ApplicationUser, IdentityRole, string&gt;
-/// và nhớ gọi base.OnModelCreating(modelBuilder) TRƯỚC phần cấu hình bên dưới.
+/// D23/ADR-0003: kế thừa IdentityDbContext để có AspNetUsers/AspNetRoles… (ApplicationUser
+/// ở Infrastructure, không phải Domain — xem ADR-0003).
 /// </summary>
 public class CulinaryBlogDbContext(DbContextOptions<CulinaryBlogDbContext> options)
-    : DbContext(options), IUnitOfWork
+    : IdentityDbContext<ApplicationUser, IdentityRole, string>(options), IUnitOfWork
 {
-    // TODO(Sprint 0 — B): khai báo DbSet cho Recipe, Category, RecipeStep,
-    // RecipeIngredient, RecipeImage, RefreshToken theo SRS Chương 7.
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+    // TODO(S3 — B): khai báo DbSet cho Recipe, Category, RecipeStep, RecipeIngredient,
+    // RecipeImage theo SRS Chương 7.
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -59,7 +63,8 @@ public class CulinaryBlogDbContext(DbContextOptions<CulinaryBlogDbContext> optio
     /// mỗi lần update.
     ///
     /// Phương án thay thế (nếu muốn PostgreSQL tự lo): bỏ cột RowVersion và dùng
-    /// UseXminAsConcurrencyToken() — nhưng khác với SRS 7.1. Nếu đổi, ghi thành D23.
+    /// UseXminAsConcurrencyToken() — nhưng khác với SRS 7.1. Nếu đổi, ghi thành quyết định mới
+    /// (D23 đã dùng cho vị trí ApplicationUser — xem docs/decisions.md).
     /// </summary>
     private static void ApplyRowVersionConcurrencyToken(ModelBuilder modelBuilder)
     {

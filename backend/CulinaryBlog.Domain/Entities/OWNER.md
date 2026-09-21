@@ -10,8 +10,8 @@ Một migration lớn sạch hơn năm migration vá, và nó gỡ block cho C v
 | `RecipeIngredient.cs` | 7.4 | `Quantity`/`Unit` **nullable** · `OrderIndex` (**không** `SortOrder`) — D7 |
 | `RecipeImage.cs` | 7.5 | `IsPrimary`, `OrderIndex` |
 | `Category.cs` | 7.6 | `Name` UNIQUE, `Slug` UNIQUE |
-| `ApplicationUser.cs` | 7.7 | `DisplayName`, `AvatarUrl`, `Bio`, `IsActive` — **không có `FullName`** (D5) |
-| `RefreshToken.cs` | 7.8 | `TokenHash` SHA-256 · `IsRevoked` là **computed** `RevokedAt != null` (D20) |
+| ~~`ApplicationUser.cs`~~ | 7.7 | ❌ **không đặt ở Domain** — xem D23/ADR-0003: kế thừa `IdentityUser` nên vi phạm CONS-001 nếu để ở Domain. Đã tạo ở `Infrastructure/Identity/ApplicationUser.cs`, truy cập qua `IIdentityService`. |
+| ✅ `RefreshToken.cs` | 7.8 | Đã tạo (A, FR-AUTH-001, prerequisite) — `TokenHash` SHA-256 · `IsRevoked` là **computed** `RevokedAt != null` (D20) |
 
 **Quy tắc:** entity không có public setter. Tạo qua factory `Recipe.Create(...)`,
 đổi trạng thái qua method `recipe.Publish()`. C sẽ viết các method đó ở Sprint 1.

@@ -38,6 +38,9 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D20 | RefreshToken schema | Theo mô hình 7.8, `IsRevoked` là computed |
 | D21 | Tổng số FR | **34** |
 | D22 | Endpoint sửa metadata ảnh | `PATCH /recipes/{id}/images/{imageId}` |
+| D23 | Vị trí `ApplicationUser` | **Infrastructure**, không phải Domain — qua `IIdentityService` (ADR-0003) |
+| D24 | Response `POST /auth/register` | **Đầy đủ `AuthResponseDto`** (auto-login), không phải `{userId,email,displayName}` |
+| D25 | Độ dài refresh token | **128-bit** (theo NFR-SEC-002), không phải 512-bit |
 
 ---
 
@@ -549,6 +552,107 @@ nếu không request `/recipes/search` sẽ khớp vào route slug. Kèm theo D1
 
 **HTTP status còn dùng:** 200, 201, 204, 400, 401, 403, 404, 409, 423, 429, 500, 503.
 **Không còn dùng 422.**
+
+---
+
+## D23 — `ApplicationUser` thuộc tầng Infrastructure, không phải Domain
+
+**Nguồn mâu thuẫn:** SRS mục 1008 (bảng kiến trúc) liệt `ApplicationUser` vào danh sách
+Domain Entities, và `docs/roadmap.md`/`Domain/Entities/OWNER.md` ghi `ApplicationUser.cs`
+là file cần tạo trong `CulinaryBlog.Domain/Entities/`, kế thừa `IdentityUser<string>`.
+Nhưng CONS-001 (bất biến, không thương lượng): **"Domain KHÔNG phụ thuộc thư viện ngoài
+nào (chỉ .NET BCL)"** — và `Domain.csproj` có comment tường minh "KHÔNG thêm
+`<PackageReference>` vào file này". `IdentityUser<TKey>` nằm trong gói NuGet
+`Microsoft.Extensions.Identity.Stores`, và để dùng được `AddEntityFrameworkStores<TContext>()`
+(cần cho FR-AUTH-001 → 007), `ApplicationUser` **bắt buộc** phải kế thừa `IdentityUser<TKey>`.
+Hai yêu cầu này không thể cùng đúng.
+
+**Chốt:** `ApplicationUser` đặt tại `CulinaryBlog.Infrastructure/Identity/ApplicationUser.cs`,
+kế thừa `IdentityUser` (khóa `string`, theo đúng SRS 7.7 "Id varchar(450)"). **Domain không
+có entity User.** Application tầng trên không được biết kiểu `ApplicationUser` — mọi thao
+tác Identity (tạo user, gán role, kiểm tra password, tìm theo email/id) đi qua interface
+`IIdentityService` khai báo ở `Application/Common/Interfaces/IIdentityService.cs`, hiện thực
+ở `Infrastructure/Identity/IdentityService.cs` bằng `UserManager<ApplicationUser>`.
+
+`RefreshToken` (SRS 7.8) **vẫn ở Domain** — nó là POCO thuần, không kế thừa `IdentityUser`,
+chỉ giữ `UserId` kiểu `string` (không có navigation property đến `ApplicationUser`, vì kiểu
+đó không tồn tại ở Domain). Quan hệ FK `RefreshTokens.UserId → AspNetUsers.Id` được cấu hình
+ở Infrastructure (Fluent API), không qua navigation property.
+
+**Vì:** CONS-001 nằm trong danh sách 10 ràng buộc "vi phạm = reject PR" — không thể xếp
+ngang hàng với một dòng liệt kê trong bảng kiến trúc tổng quan (SRS 1008) hay một ghi chú
+điều phối công việc (roadmap.md, không phải nguồn sự thật theo mục 1 CLAUDE.md). Mẫu hình
+"contract ở Application, implementation ở Infrastructure" cũng chính là mẫu hình dự án đã
+dùng sẵn cho `IJwtService`, `IEmailService`, `ICurrentUser`, `IFileStorageService` — áp dụng
+tiếp cho Identity là nhất quán, không phải kiến trúc mới.
+
+**Đây là quyết định kiến trúc** (không chỉ làm rõ SRS) → xem thêm `docs/adr/0003-application-user-o-tang-infrastructure.md`.
+
+**Hệ quả:**
+
+- `CulinaryBlogDbContext` đổi lớp cha thành
+  `IdentityDbContext<ApplicationUser, IdentityRole, string>`.
+- `IRefreshTokenRepository` (Domain/Interfaces) — vì `RefreshToken` không kế thừa
+  `BaseEntity` (không có `IsDeleted`/`RowVersion`, xem D20) nên không dùng được
+  `IRepository<T>` chung.
+- Domain vẫn **0 package reference** — ArchitectureTests `Domain_ShouldNotDependOn_EntityFramework`
+  và các test dependency-rule khác tiếp tục pass nguyên trạng.
+
+**Sửa SRS:** mục 1008 (bảng kiến trúc) — bỏ `ApplicationUser` khỏi danh sách "Entities" của
+Domain Layer, ghi chú đây là entity của Infrastructure truy cập qua `IIdentityService`.
+
+---
+
+## D24 — Response của `POST /auth/register`: đầy đủ `AuthResponseDto`, không phải `{userId,email,displayName}`
+
+**Nguồn mâu thuẫn:** SRS Chương 3 (FR-AUTH-001, mô tả + luồng chính bước 7–12) nói **hai lần**
+rằng đăng ký xong thì "tự động được gán role Author và **nhận bộ token để truy cập ngay lập
+tức (auto-login sau đăng ký)**", rồi liệt chi tiết: tạo access token, tạo refresh token, lưu
+refresh token, trả về **`AuthResponseDto`** đầy đủ. Nhưng bảng tóm tắt endpoint ở Chương 8
+mục 8.1, dòng `POST /auth/register`, ghi response 201 chỉ là `{ userId, email, displayName }`
+— không có token nào.
+
+**Chốt:** Response `201 Created` của `POST /api/v1/auth/register` là **`AuthResponseDto`
+đầy đủ**, giống hệt response của `/auth/login` (FR-AUTH-002):
+
+```
+{ accessToken, refreshToken, expiresAt, user: { id, email, displayName, avatarUrl, bio, roles } }
+```
+
+(trường `user` theo đúng shape D5 của `GET /auth/me`, trừ khi `bio` mới tạo sẽ là `null`.)
+
+**Vì:** mô tả nghiệp vụ ở Chương 3 nhất quán nội bộ, lặp lại rõ ràng ý định "auto-login", và
+mô tả chi tiết từng bước sinh access token + refresh token + lưu DB — đây rõ ràng là hành vi
+có chủ đích, không phải lỗi đánh máy. Bảng Chương 8 mục 8.1 là bảng tóm tắt: nhiều dòng khác
+trong cùng bảng đó cũng lược bớt trường (ví dụ không dòng nào trong 8.1 liệt `roles` dù chắc
+chắn cần cho phân quyền FE) — nhiều khả năng người viết bảng tóm tắt chỉ ghi vài field đại
+diện. Vì vậy ở đây Chương 3 (mô tả luồng chi tiết) thắng Chương 8 (bảng tóm tắt) cho riêng
+nội dung response, dù nhìn chung Chương 8 vẫn là nguồn chuẩn cho method/path/endpoint shape
+(D9, D22 đã dùng lý lẽ ngược lại đúng chỗ của nó — ở đó chính luồng chi tiết Chương 3 mới là
+bản nháp cũ).
+
+**Sửa SRS:** Chương 8 mục 8.1, dòng `POST /auth/register` — sửa response 201 thành đầy đủ
+`AuthResponseDto` như trên.
+
+---
+
+## D25 — Độ dài refresh token: 128-bit, không phải 512-bit
+
+**Nguồn mâu thuẫn:** FR-AUTH-001 bước 9 (Chương 3) ghi "JwtService.GenerateRefreshToken() –
+tạo refresh token ngẫu nhiên (**512-bit**, 7 ngày)". NFR-SEC-002 (mục bảo mật) ghi "Refresh
+Token: **128-bit** cryptographically secure random bytes... TTL = 7 ngày".
+
+**Chốt:** **128-bit** (16 byte) random, sinh bằng `RandomNumberGenerator`, encode Base64
+cho client, hash SHA-256 (32 byte / 64 hex char, khớp `TokenHash varchar(64)` ở D20/SRS 7.8)
+trước khi lưu DB.
+
+**Vì:** NFR-SEC-002 là đặc tả bảo mật riêng, có chủ đích (nêu rõ thuật toán + TTL + cơ chế
+rotation trong cùng một đoạn nhất quán nội bộ) — đáng tin hơn một con số nhắc thoáng qua
+trong mô tả luồng nghiệp vụ ở Chương 3. `docs/roadmap.md` mục S2 (tài liệu điều phối công
+việc, viết sau khi đã đọc kỹ cả hai nguồn) cũng đã chốt sẵn "128-bit" — nhất quán với lựa
+chọn này.
+
+**Sửa SRS:** Chương 3, FR-AUTH-001 bước 9 — đổi "512-bit" thành "128-bit" cho khớp NFR-SEC-002.
 
 ---
 

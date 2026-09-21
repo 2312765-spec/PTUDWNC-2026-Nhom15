@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 
 namespace CulinaryBlog.IntegrationTests.Common;
 
@@ -17,17 +16,17 @@ public class CulinaryBlogApiFactory : WebApplicationFactory<Program>
     {
         builder.UseEnvironment("Testing");
 
-        builder.ConfigureAppConfiguration((_, config) =>
-        {
-            config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ConnectionStrings:Postgres"] = "Host=localhost;Port=5432;Database=culinaryblog_test;Username=postgres;Password=postgres",
-                ["ConnectionStrings:Redis"] = "localhost:6379",
-                ["Jwt:Key"] = "test-only-khoa-ky-jwt-toi-thieu-32-ky-tu-cho-integration-test",
-                ["Jwt:Issuer"] = "CulinaryBlog",
-                ["Jwt:Audience"] = "CulinaryBlogClient",
-                ["Cors:AllowedOrigins:0"] = "http://localhost:3000",
-            });
-        });
+        // LƯU Ý: Program.cs (top-level, WebApplicationBuilder) đọc builder.Configuration[...]
+        // ĐỒNG BỘ trước khi Build() (vd. connection string, Jwt:Key cho AddAuthentication).
+        // ConfigureAppConfiguration(...) của WebApplicationFactory chỉ merge nguồn config MỚI
+        // vào lúc Build() — QUÁ TRỄ cho các lần đọc đó, nên các giá trị test sẽ không tới nơi.
+        // UseSetting(...) ghi thẳng vào webHostBuilder settings — nguồn được nạp SỚM, tới trước
+        // khi Program.cs chạy code của nó. Dùng UseSetting cho mọi giá trị Program.cs cần sớm.
+        builder.UseSetting("ConnectionStrings:Postgres", "Host=localhost;Port=5432;Database=culinaryblog_test;Username=postgres;Password=postgres");
+        builder.UseSetting("ConnectionStrings:Redis", "localhost:6379");
+        builder.UseSetting("Jwt:Key", "test-only-khoa-ky-jwt-toi-thieu-32-ky-tu-cho-integration-test");
+        builder.UseSetting("Jwt:Issuer", "CulinaryBlog");
+        builder.UseSetting("Jwt:Audience", "CulinaryBlogClient");
+        builder.UseSetting("Cors:AllowedOrigins:0", "http://localhost:3000");
     }
 }

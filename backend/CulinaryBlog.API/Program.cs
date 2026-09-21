@@ -4,7 +4,9 @@ using CulinaryBlog.API.Extensions;
 using CulinaryBlog.API.Middleware;
 using CulinaryBlog.Application;
 using CulinaryBlog.Application.Common.Interfaces;
+using CulinaryBlog.Domain.Common;
 using CulinaryBlog.Infrastructure;
+using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
@@ -28,12 +30,22 @@ builder.Host.UseSerilog((context, services, config) => config
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// ---- Hangfire worker (FR-JOB-001) -----------------------------------------
+// AddHangfireServer() resolve JobStorage NGAY lúc host start → cần Postgres thật.
+// Không bật trong môi trường Testing (SmokeTests dùng WebApplicationFactory không có
+// Postgres thật — xem CulinaryBlog.Infrastructure.DependencyInjection).
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddHangfireServer();
+}
+
 // ---- ICurrentUser (hợp đồng chung — chủ sở hữu: A) -----------------------
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
 // ---- Xác thực JWT (CONS-004) ---------------------------------------------
-// TODO(S2 — A): thêm ASP.NET Core Identity + Google OAuth (D9).
+// ASP.NET Core Identity (AddIdentityCore) đã cấu hình trong AddInfrastructure (S2 — A, D23).
+// TODO(S9 — A): Google OAuth (D9).
 var jwtKey = builder.Configuration["Jwt:Key"];
 if (!string.IsNullOrWhiteSpace(jwtKey))
 {
