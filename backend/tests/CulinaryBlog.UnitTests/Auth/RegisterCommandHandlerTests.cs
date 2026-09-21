@@ -27,7 +27,7 @@ public class RegisterCommandHandlerTests
     [Fact(DisplayName = "FR-AUTH-001: đăng ký thành công trả AuthResponseDto đầy đủ token (D24), auto-login")]
     public async Task Handle_Success_ReturnsFullAuthResponse()
     {
-        var createdUser = new CreatedUser("user-1", "user@example.com", "Nguyễn Văn A", null, null, ["Author"]);
+        var createdUser = new AuthenticatedUser("user-1", "user@example.com", "Nguyễn Văn A", null, null, ["Author"]);
         var accessExpiresAt = DateTime.UtcNow.AddMinutes(15);
         var refreshExpiresAt = DateTime.UtcNow.AddDays(7);
 
@@ -57,7 +57,7 @@ public class RegisterCommandHandlerTests
     [Fact(DisplayName = "FR-AUTH-001/D20: refresh token được lưu với TokenHash (không phải raw) và SaveChanges được gọi")]
     public async Task Handle_Success_PersistsHashedRefreshToken()
     {
-        var createdUser = new CreatedUser("user-1", "user@example.com", "A", null, null, ["Author"]);
+        var createdUser = new AuthenticatedUser("user-1", "user@example.com", "A", null, null, ["Author"]);
         var refreshExpiresAt = DateTime.UtcNow.AddDays(7);
 
         _identityService
@@ -86,7 +86,7 @@ public class RegisterCommandHandlerTests
     [Fact(DisplayName = "FR-AUTH-001 bước 11: enqueue welcome email fire-and-forget sau khi đăng ký thành công")]
     public async Task Handle_Success_EnqueuesWelcomeEmail()
     {
-        var createdUser = new CreatedUser("user-1", "user@example.com", "Nguyễn Văn A", null, null, ["Author"]);
+        var createdUser = new AuthenticatedUser("user-1", "user@example.com", "Nguyễn Văn A", null, null, ["Author"]);
 
         _identityService
             .CreateUserAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
