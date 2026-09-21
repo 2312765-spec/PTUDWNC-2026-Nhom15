@@ -6,7 +6,7 @@ FR-AUTH-001 → 007. Slice S2 (tuần 2–3), S9 (tuần 4–5).
 Auth/
 ├── Commands/
 │   ├── Register/          ✅ RegisterCommand + Handler + Validator   FR-AUTH-001 (done)
-│   ├── Login/                                                        FR-AUTH-002
+│   ├── Login/              ✅ LoginCommand + Handler + Validator      FR-AUTH-002 (done)
 │   ├── GoogleLogin/                                                  FR-AUTH-003  (D9: body { idToken })
 │   ├── RefreshToken/                                                 FR-AUTH-004  (D20: rotation + reuse detection)
 │   ├── Logout/                                                       FR-AUTH-005

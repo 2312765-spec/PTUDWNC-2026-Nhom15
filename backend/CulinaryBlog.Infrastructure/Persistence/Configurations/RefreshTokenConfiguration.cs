@@ -27,6 +27,8 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
         builder.HasIndex(rt => rt.TokenHash)
             .IsUnique();
 
+        builder.HasIndex(rt => rt.UserId);
+
         builder.Property(rt => rt.ReplacedByTokenHash)
             .HasMaxLength(64);
 

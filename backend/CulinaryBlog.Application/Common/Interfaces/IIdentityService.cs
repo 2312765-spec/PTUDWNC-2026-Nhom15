@@ -12,15 +12,26 @@ public interface IIdentityService
     /// Ném ConflictException (AUTH_EMAIL_EXISTS, 409) nếu email đã tồn tại.
     /// Ném FluentValidation.ValidationException nếu Identity password policy fail (400, D4).
     /// </summary>
-    Task<CreatedUser> CreateUserAsync(
+    Task<AuthenticatedUser> CreateUserAsync(
         string email,
         string password,
         string displayName,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// FR-AUTH-002 — xác thực email/password. Thứ tự kiểm tra theo SRS Chương 3 bước 5-6 + D11:
+    /// email/password sai → UnauthorizedException (AUTH_INVALID_CREDENTIALS, 401, thông điệp
+    /// chung — chống User Enumeration). Tài khoản khóa → LockedException (AUTH_ACCOUNT_LOCKED,
+    /// 423, D17). IsActive == false → ForbiddenException (AUTH_ACCOUNT_DISABLED, 403, D11).
+    /// </summary>
+    Task<AuthenticatedUser> ValidateCredentialsAsync(
+        string email,
+        string password,
+        CancellationToken ct = default);
 }
 
-/// <summary>Kết quả sau khi tạo user — Application không cần biết gì thêm về ApplicationUser.</summary>
-public sealed record CreatedUser(
+/// <summary>Hồ sơ user sau khi tạo/đăng nhập thành công — Application không cần biết gì thêm về ApplicationUser.</summary>
+public sealed record AuthenticatedUser(
     string UserId,
     string Email,
     string DisplayName,

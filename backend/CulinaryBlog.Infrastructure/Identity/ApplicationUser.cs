@@ -19,7 +19,8 @@ public sealed class ApplicationUser : IdentityUser<string>
     /// <summary>D11 — Admin có thể deactivate (ban). false → 403 AUTH_ACCOUNT_DISABLED.</summary>
     public bool IsActive { get; set; } = true;
 
-    public DateTime CreatedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    /// <summary>Đồng bộ chiến lược sinh Id với BaseEntity (UUIDv7, time-ordered) thay vì Guid.NewGuid() mặc định của Identity.</summary>
     public ApplicationUser() => Id = Guid.CreateVersion7().ToString();
 }
