@@ -12,7 +12,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using Serilog;
-
+using CulinaryBlog.Domain.Interfaces;
+using CulinaryBlog.Infrastructure.Repositories;
 // ---------------------------------------------------------------------------
 // Culinary Blog API — .NET 10 Minimal APIs (CONS-003: KHÔNG dùng MVC Controllers)
 // Kiến trúc: Clean Architecture 4 tầng + CQRS/MediatR (CONS-001, CONS-002)
@@ -30,7 +31,7 @@ builder.Host.UseSerilog((context, services, config) => config
 // ---- Tầng ứng dụng --------------------------------------------------------
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 // ---- ICurrentUser (hợp đồng chung — chủ sở hữu: A) -----------------------
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
@@ -119,7 +120,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // ---- Endpoint groups ------------------------------------------------------
-app.MapHealthEndpoints();
+HealthEndpoints.MapHealthEndpoints(app);
 
 var api = app.MapGroup("/api/v1"); // CONS-005: version qua URL path
 api.MapAuthEndpoints();       // A
