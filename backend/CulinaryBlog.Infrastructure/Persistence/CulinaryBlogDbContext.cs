@@ -11,7 +11,8 @@ namespace CulinaryBlog.Infrastructure.Persistence;
 
 /// <summary>
 /// DbContext chính — CONS-006: PostgreSQL duy nhất, EF Core Code-First.
-/// Kế thừa IdentityDbContext để có sẵn AspNetUsers/AspNetRoles theo SRS 7.7.
+/// D23/ADR-0003: kế thừa IdentityDbContext để có AspNetUsers/AspNetRoles… (ApplicationUser
+/// ở Infrastructure, không phải Domain — xem ADR-0003).
 /// </summary>
 public class CulinaryBlogDbContext(DbContextOptions<CulinaryBlogDbContext> options)
     : IdentityDbContext<ApplicationUser, IdentityRole, string>(options), IUnitOfWork
@@ -65,7 +66,8 @@ public class CulinaryBlogDbContext(DbContextOptions<CulinaryBlogDbContext> optio
     /// mỗi lần update.
     ///
     /// Phương án thay thế (nếu muốn PostgreSQL tự lo): bỏ cột RowVersion và dùng
-    /// UseXminAsConcurrencyToken() — nhưng khác với SRS 7.1. Nếu đổi, ghi thành D23.
+    /// UseXminAsConcurrencyToken() — nhưng khác với SRS 7.1. Nếu đổi, ghi thành quyết định mới
+    /// (D23 đã dùng cho vị trí ApplicationUser — xem docs/decisions.md).
     /// </summary>
     private static void ApplyRowVersionConcurrencyToken(ModelBuilder modelBuilder)
     {
