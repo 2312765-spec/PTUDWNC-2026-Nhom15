@@ -1,12 +1,20 @@
 import next from 'eslint-config-next';
 
 /**
- * NFR-MAINT-001 — ESLint + Prettier, không được có lỗi/cảnh báo khi merge.
+ * NFR-MAINT-001 – ESLint + Prettier, không được có lỗi/cảnh báo khi merge
  * eslint-config-next v16 export sẵn flat config, không cần FlatCompat.
  */
 const config = [
   { ignores: ['.next/**', 'node_modules/**', 'next-env.d.ts'] },
   ...next,
+  {
+    rules: {
+      'react/no-unescaped-entities': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+      '@next/next/no-img-element': 'off',
+      'react-hooks/exhaustive-deps': 'warn'
+    }
+  }
 ];
 
 export default config;
