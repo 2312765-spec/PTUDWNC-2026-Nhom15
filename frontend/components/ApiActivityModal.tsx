@@ -35,13 +35,7 @@ export default function ApiActivityModal({ isOpen, onClose }: ApiActivityModalPr
     return unsubscribe;
   }, []);
 
-  useEffect(() => {
-    if (isOpen) {
-      pingHealth();
-    }
-  }, [isOpen]);
-
-  const pingHealth = async () => {
+   const pingHealth = async () => {
     setIsPinging(true);
     try {
       const data = await api.getHealth();
@@ -52,6 +46,13 @@ export default function ApiActivityModal({ isOpen, onClose }: ApiActivityModalPr
       setIsPinging(false);
     }
   };
+  useEffect(() => {
+    if (isOpen) {
+      pingHealth();
+    }
+  }, [isOpen]);
+
+ 
 
   if (!isOpen) return null;
 
