@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.RegularExpressions;
 using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Domain.Common;
 using Microsoft.AspNetCore.Mvc;
@@ -86,9 +87,11 @@ public sealed class GlobalExceptionMiddleware(
     private static (int Status, string ErrorCode, string Title, IDictionary<string, string[]>? Errors) Map(Exception exception) =>
         exception switch
         {
+            // D30: nếu mọi lỗi cùng mang một ErrorCode riêng (vd FILE_SIZE_EXCEEDED) thì dùng
+            // mã đó làm "type" — lỗi hỗn hợp nhiều field/mã khác nhau vẫn fallback VALIDATION_ERROR.
             FluentValidationException ve => (
                 (int)HttpStatusCode.BadRequest,
-                ErrorCodes.ValidationError,
+                SingleSharedErrorCode(ve) ?? ErrorCodes.ValidationError,
                 "Dữ liệu không hợp lệ",
                 ve.Errors
                     .GroupBy(e => e.PropertyName)
@@ -115,4 +118,22 @@ public sealed class GlobalExceptionMiddleware(
 
             _ => ((int)HttpStatusCode.InternalServerError, "INTERNAL_SERVER_ERROR", "Lỗi hệ thống", null),
         };
+
+    /// <summary>
+    /// D30 — FluentValidation tự gán ErrorCode mặc định = TÊN VALIDATOR (vd "NotEmptyValidator")
+    /// cho mọi rule không gọi .WithErrorCode(...)/không tự set ErrorCode — "khác rỗng" không đủ
+    /// để nhận biết một Application Error Code thật. Chỉ coi là Application Error Code khi khớp
+    /// đúng quy ước SCREAMING_SNAKE_CASE (docs/CLAUDE.md mục 6) VÀ tất cả lỗi dùng chung mã đó.
+    /// </summary>
+    private static readonly Regex ApplicationErrorCodePattern = new("^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$", RegexOptions.Compiled);
+
+    private static string? SingleSharedErrorCode(FluentValidationException ve)
+    {
+        var codes = ve.Errors
+            .Select(e => e.ErrorCode)
+            .Distinct()
+            .ToList();
+
+        return codes is [var code] && ApplicationErrorCodePattern.IsMatch(code) ? code : null;
+    }
 }

@@ -21,6 +21,16 @@
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
     <PackageReference Include="AspNetCore.HealthChecks.Redis" />
+    <!--
+      dotnet-ef cần Microsoft.EntityFrameworkCore.Design load được từ startup project (API).
+      Infrastructure có gói này với PrivateAssets="all" nên không lan truyền sang API — thiếu
+      dòng này thì "dotnet ef migrations add" báo lỗi "doesn't reference ...Design" dù build
+      bình thường vẫn qua (phát hiện lúc tạo migration AddRecipeImagePrimaryIndex, 2026-09-22).
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="CulinaryBlog.IntegrationTests" />
