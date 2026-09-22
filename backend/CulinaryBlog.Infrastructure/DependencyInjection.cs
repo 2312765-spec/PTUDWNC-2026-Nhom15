@@ -1,8 +1,11 @@
+using Amazon.S3;
 using CulinaryBlog.Application.Common.Interfaces;
+using CulinaryBlog.Domain.Common;
 using CulinaryBlog.Domain.Interfaces;
 using CulinaryBlog.Infrastructure.Auth;
 using CulinaryBlog.Infrastructure.Caching;
 using CulinaryBlog.Infrastructure.Email;
+using CulinaryBlog.Infrastructure.Files;
 using CulinaryBlog.Infrastructure.Identity;
 using CulinaryBlog.Infrastructure.Jobs;
 using CulinaryBlog.Infrastructure.Persistence;
@@ -90,8 +93,29 @@ public static class DependencyInjection
         // không resolve được ICategoryRepository → GET /api/v1/categories trả 500.
         services.AddScoped<ICategoryRepository, CategoryRepository>();
 
-        // TODO(S3 — B): ISlugHelper, RecipeRepository
-        // TODO(S8 — D): IFileStorageService (MinioFileStorageService)
+        // ---- Recipe images (FR-RCP-008/FR-FILE-001/002 — D, S8) ----
+        // IRecipeRepository chỉ có 1 method (GetByIdWithImagesAsync) — đủ cho S8. FR-RCP-001..007
+        // (C, S7) sẽ thêm method khác vào cùng interface khi tới lượt, không tạo interface riêng.
+        services.AddScoped<IRecipeRepository, RecipeRepository>();
+        services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+
+        services.AddSingleton<IAmazonS3>(sp =>
+        {
+            var config = sp.GetRequiredService<IConfiguration>();
+            var endpoint = config["Minio:Endpoint"] ?? throw new InvalidOperationException("Thiếu Minio:Endpoint.");
+            var accessKey = config["Minio:AccessKey"] ?? throw new InvalidOperationException("Thiếu Minio:AccessKey.");
+            var secretKey = config["Minio:SecretKey"] ?? throw new InvalidOperationException("Thiếu Minio:SecretKey.");
+
+            return new AmazonS3Client(accessKey, secretKey, new AmazonS3Config
+            {
+                ServiceURL = endpoint,
+                ForcePathStyle = true, // MinIO dùng path-style (bucket trong path, không phải subdomain).
+                UseHttp = endpoint.StartsWith("http://", StringComparison.OrdinalIgnoreCase),
+            });
+        });
+        services.AddScoped<IFileStorageService, MinioFileStorageService>();
+
+        // TODO(S3 — B): ISlugHelper
 
         return services;
     }
