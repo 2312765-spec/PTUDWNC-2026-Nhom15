@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using CulinaryBlog.Infrastructure.Services;
 using StackExchange.Redis;
 
 namespace CulinaryBlog.Infrastructure;
@@ -88,10 +89,11 @@ public static class DependencyInjection
             .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(connectionString)));
         services.AddScoped<IBackgroundJobService, HangfireBackgroundJobService>();
 
-        // ---- Category (FR-CAT-001 — B) ----
+        // ---- Category (FR-CAT-001/002/003 — B) ----
         // Bug phát hiện lúc rebase PR (2026-09-22): thiếu đăng ký này thì GetCategoriesQueryHandler
         // không resolve được ICategoryRepository → GET /api/v1/categories trả 500.
         services.AddScoped<ICategoryRepository, CategoryRepository>();
+        services.AddScoped<ISlugHelper, SlugHelper>();
 
         // ---- Recipe images (FR-RCP-008/FR-FILE-001/002 — D, S8) ----
         // IRecipeRepository chỉ có 1 method (GetByIdWithImagesAsync) — đủ cho S8. FR-RCP-001..007
@@ -114,8 +116,6 @@ public static class DependencyInjection
             });
         });
         services.AddScoped<IFileStorageService, MinioFileStorageService>();
-
-        // TODO(S3 — B): ISlugHelper
 
         return services;
     }
