@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -36,9 +37,6 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 // ---- Hangfire worker (FR-JOB-001) -----------------------------------------
-// AddHangfireServer() resolve JobStorage NGAY lúc host start → cần Postgres thật.
-// Không bật trong môi trường Testing (SmokeTests dùng WebApplicationFactory không có
-// Postgres thật — xem CulinaryBlog.Infrastructure.DependencyInjection).
 if (!builder.Environment.IsEnvironment("Testing"))
 {
     builder.Services.AddHangfireServer();
@@ -49,8 +47,6 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
 // ---- Xác thực JWT (CONS-004) ---------------------------------------------
-// ASP.NET Core Identity (AddIdentityCore) đã cấu hình trong AddInfrastructure (S2 — A, D23).
-// TODO(S9 — A): Google OAuth (D9).
 var jwtKey = builder.Configuration["Jwt:Key"];
 if (!string.IsNullOrWhiteSpace(jwtKey))
 {
@@ -73,7 +69,6 @@ if (!string.IsNullOrWhiteSpace(jwtKey))
 }
 
 // NFR-SEC-006: KHÔNG hardcode chuỗi role trong endpoint. Dùng policy.
-// D12: chỉ 2 policy — policy "VerifiedAuthor" đã bị bỏ khỏi v1.
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(Policies.Author, policy => policy.RequireRole(Roles.Author, Roles.Admin))
     .AddPolicy(Policies.Admin, policy => policy.RequireRole(Roles.Admin));
@@ -88,19 +83,72 @@ builder.Services.AddCors(options => options.AddPolicy(CorsPolicy, policy => poli
     .AllowCredentials()));
 
 // ---- OpenAPI / Scalar (NFR-MAINT-003) ------------------------------------
+// ---- OpenAPI / Scalar (NFR-MAINT-003) ------------------------------------
 builder.Services.AddOpenApi();
+builder.Services.AddOpenApi("v1", options =>
+{
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
+    {
+        document.Info = new()
+        {
+            Title = "Culinary Blog API",
+            Version = "v1",
+            Description = "API documentation with JWT Bearer Authentication"
+        };
+
+        // 1. Khai báo Bearer SecurityScheme
+        document.Components ??= new Microsoft.OpenApi.OpenApiComponents();
+        document.Components.SecuritySchemes ??= new Dictionary<string, Microsoft.OpenApi.IOpenApiSecurityScheme>();
+
+        document.Components.SecuritySchemes["bearerAuth"] = new Microsoft.OpenApi.OpenApiSecurityScheme
+        {
+            Type = Microsoft.OpenApi.SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            In = Microsoft.OpenApi.ParameterLocation.Header,
+            Description = "Nhập JWT Bearer token vào đây."
+        };
+
+        return Task.CompletedTask;
+    });
+
+    options.AddOperationTransformer((operation, context, cancellationToken) =>
+    {
+        // Kiểm tra xem endpoint có gắn .RequireAuthorization() hay không
+        var metadata = context.Description.ActionDescriptor.EndpointMetadata;
+        var hasAuth = metadata.Any(m => m is Microsoft.AspNetCore.Authorization.IAuthorizeData);
+        var allowAnonymous = metadata.Any(m => m is Microsoft.AspNetCore.Authorization.IAllowAnonymous);
+
+        if (hasAuth && !allowAnonymous)
+        {
+            // BẮT BUỘC: Gắn trực tiếp Requirement vào Operation
+            var securityRequirement = new Microsoft.OpenApi.OpenApiSecurityRequirement
+            {
+                [new Microsoft.OpenApi.OpenApiSecuritySchemeReference("bearerAuth")] = new List<string>()
+            };
+
+            operation.Security = new List<Microsoft.OpenApi.OpenApiSecurityRequirement>
+            {
+                securityRequirement
+            };
+        }
+        else
+        {
+            // Endpoint Guest/Public: Đặt danh sách rỗng thay vì null để Scalar không nhận nhầm
+            operation.Security = new List<Microsoft.OpenApi.OpenApiSecurityRequirement>();
+        }
+
+        return Task.CompletedTask;
+    });
+
+});
 
 // ---- Health checks (FR-OBS-001) ------------------------------------------
 builder.Services.AddAppHealthChecks(builder.Configuration);
 
-// TODO(S12 — A): Rate limiting theo D15 — /auth/* 10/phút/IP, API 100/phút/IP, upload 5/phút/IP.
-
 var app = builder.Build();
 
 // ---- Migration + seed (chỉ Development — Sprint 0, B) ---------------------
-// Seed role PHẢI chạy sau MigrateAsync (bảng AspNetRoles phải tồn tại trước) — xem
-// IdentityRoleSeeder. Ở môi trường "Testing" (integration test), PostgresApiFactory tự
-// gọi migration + seed role riêng vì host được build/start trước khi factory kịp can thiệp.
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
@@ -114,10 +162,10 @@ if (app.Environment.IsDevelopment())
 // Pipeline — THỨ TỰ QUAN TRỌNG, đừng đảo
 // ---------------------------------------------------------------------------
 
-// 1. CorrelationId phải đứng trước mọi thứ để mọi log đều có nó (CONS-010).
+// 1. CorrelationId
 app.UseMiddleware<CorrelationIdMiddleware>();
 
-// 2. Bắt mọi exception chưa xử lý → RFC 7807 (CONS-005, D4).
+// 2. RFC 7807 Global Exception Handling
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.UseSerilogRequestLogging();
@@ -129,7 +177,7 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
-    app.UseHsts(); // NFR-SEC-005
+    app.UseHsts();
 }
 
 app.UseCors(CorsPolicy);
@@ -139,7 +187,7 @@ app.UseAuthorization();
 // ---- Endpoint groups ------------------------------------------------------
 app.MapHealthEndpoints();
 
-var api = app.MapGroup("/api/v1"); // CONS-005: version qua URL path
+var api = app.MapGroup("/api/v1");
 api.MapAuthEndpoints();       // A
 api.MapCategoryEndpoints();   // B
 api.MapRecipeEndpoints();     // B (queries) + C (commands)
@@ -147,5 +195,4 @@ api.MapImageEndpoints();      // D
 
 app.Run();
 
-/// <summary>Điểm vào của API — public để WebApplicationFactory trong IntegrationTests dùng được.</summary>
 public partial class Program;

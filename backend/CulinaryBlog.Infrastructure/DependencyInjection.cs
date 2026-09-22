@@ -15,11 +15,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using StackExchange.Redis;
-
+using CulinaryBlog.Infrastructure.Services;
 namespace CulinaryBlog.Infrastructure;
 
 public static class DependencyInjection
 {
+    
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -89,10 +90,10 @@ public static class DependencyInjection
         // Bug phát hiện lúc rebase PR (2026-09-22): thiếu đăng ký này thì GetCategoriesQueryHandler
         // không resolve được ICategoryRepository → GET /api/v1/categories trả 500.
         services.AddScoped<ICategoryRepository, CategoryRepository>();
-
-        // TODO(S3 — B): ISlugHelper, RecipeRepository
+        services.AddScoped<ISlugHelper, SlugHelper>();
+        // TODO(S3 — B): ISlugHfservices.AddScoped<ISlugHelper, SlugHelper>();elper, RecipeRepository
         // TODO(S8 — D): IFileStorageService (MinioFileStorageService)
-
+        
         return services;
     }
 }

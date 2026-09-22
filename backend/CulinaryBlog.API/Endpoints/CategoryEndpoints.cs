@@ -1,51 +1,65 @@
-using CulinaryBlog.API.Extensions;
-using CulinaryBlog.Application.Categories.DTOs;
+using CulinaryBlog.Application.Categories.Commands.CreateCategory;
 using CulinaryBlog.Application.Categories.Queries.GetCategories;
+using CulinaryBlog.Application.Categories.Queries.GetCategoryBySlug;
+using CulinaryBlog.Application.Categories.DTOs;
 using MediatR;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CulinaryBlog.API.Endpoints;
 
-/// <summary>
-/// Module Danh mục — SRS mục 8.2. Chủ sở hữu: <b>B</b>. Slice S3.
-///
-/// Quyết định bắt buộc: D8 (Redis, categories:all TTL 30p, invalidate CẢ tag "recipes"),
-/// D2 (soft delete), D10 (slug auto-suffix).
-/// </summary>
 public static class CategoryEndpoints
 {
     public static void MapCategoryEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/categories").WithTags("Categories");
+        var group = app.MapGroup("/api/v1/categories")
+            .WithTags("Categories");
 
-        group.MapGet("/", GetCategoriesAsync)
-             .WithName("GetCategories")
-             .WithSummary("Danh sách danh mục kèm recipeCount — cache 30 phút")
-             .Produces<IReadOnlyList<CategoryDto>>(StatusCodes.Status200OK)
-             .AllowAnonymous();
+        // FR-CAT-001: Danh sách danh mục (Guest)
+        group.MapGet("/", async (ISender sender) =>
+        {
+            var result = await sender.Send(new GetCategoriesQuery());
+            return Results.Ok(result);
+        }).AllowAnonymous();
 
-        group.MapGet("/{slug}", (string slug) => NotImplementedResults.Pending("FR-CAT-002", "B"))
-             .WithSummary("Chi tiết danh mục + recipes phân trang");
+        // FR-CAT-002: Chi tiết danh mục theo slug (Guest / Author / Admin)
+        group.MapGet("/{slug}", async (
+            string slug,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 12,
+            System.Security.Claims.ClaimsPrincipal user = null!,
+            ISender sender = null!) =>
+        {
+            var currentUserId = user?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var query = new GetCategoryBySlugQuery(slug, page, pageSize, currentUserId);
+            var result = await sender.Send(query);
 
-        group.MapPost("/", () => NotImplementedResults.Pending("FR-CAT-003", "B"))
-             .RequireAuthorization(Policies.Admin)
-             .WithSummary("[Admin] Tạo danh mục — slug trùng thì auto-suffix (D10)");
+            if (result == null)
+            {
+                return Results.Problem(
+                    statusCode: StatusCodes.Status404NotFound,
+                    title: "Not Found",
+                    detail: $"Danh mục với slug '{slug}' không tồn tại."
+                );
+            }
 
-        group.MapPut("/{id:guid}", (Guid id) => NotImplementedResults.Pending("FR-CAT-004", "B"))
-             .RequireAuthorization(Policies.Admin)
-             .WithSummary("[Admin] Cập nhật danh mục — Slug KHÔNG đổi khi đổi Name");
+            return Results.Ok(result);
+        }).AllowAnonymous();
 
-        group.MapDelete("/{id:guid}", (Guid id) => NotImplementedResults.Pending("FR-CAT-005", "B"))
-             .RequireAuthorization(Policies.Admin)
-             .WithSummary("[Admin] Soft delete — còn recipe thì 409 (D2)");
-    }
+        
+     // FR-CAT-003: Tạo danh mục mới (Chỉ Admin)
+        group.MapPost("/", async (
+            [FromBody] CreateCategoryCommand command,
+            ISender sender) =>
+        {
+            var createdCategory = await sender.Send(command);
 
-    /// <summary>
-    /// CONS-008: endpoint chỉ nhận request → gửi query → trả kết quả. Không business logic,
-    /// không validate ở đây.
-    /// </summary>
-    private static async Task<IResult> GetCategoriesAsync(ISender sender, CancellationToken ct)
-    {
-        var result = await sender.Send(new GetCategoriesQuery(), ct);
-        return TypedResults.Ok(result);
+            return Results.Created(
+                $"/api/v1/categories/{createdCategory.Slug}",
+                createdCategory
+            );
+        })
+        .WithName("CreateCategory")
+        .WithSummary("Tạo danh mục công thức mới (Yêu cầu quyền Admin)")
+        .RequireAuthorization("AdminPolicy"); // <-- Bắt buộc xác thực // Hoặc dùng hằng số Policies.Admin
     }
 }
