@@ -2,10 +2,7 @@ using CulinaryBlog.Domain.Common;
 
 namespace CulinaryBlog.Domain.Entities;
 
-/// <summary>
-/// SRS 7.5. TODO(S8 — D): logic IsPrimary (ảnh đầu tự động, xóa → ảnh kế lên) chưa
-/// hiện thực ở đây — Sprint 0 chỉ tạo shape dữ liệu cho seeding.
-/// </summary>
+/// <summary>SRS 7.5. Logic IsPrimary/OrderIndex (D22/D27) nằm ở <see cref="Recipe"/> — RecipeImage chỉ giữ state.</summary>
 public sealed class RecipeImage : BaseEntity
 {
     public Guid RecipeId { get; private set; }
@@ -39,5 +36,22 @@ public sealed class RecipeImage : BaseEntity
             IsPrimary = isPrimary,
             OrderIndex = orderIndex,
         };
+    }
+
+    /// <summary>Chỉ <see cref="Recipe"/> (aggregate root, cùng assembly) được đổi ảnh nào là primary (D22).</summary>
+    internal void SetPrimary(bool value) => IsPrimary = value;
+
+    /// <summary>D27 — field nào null thì giữ nguyên giá trị cũ (PATCH từng phần).</summary>
+    internal void UpdateMetadata(string? altText, int? orderIndex)
+    {
+        if (altText is not null)
+        {
+            AltText = altText;
+        }
+
+        if (orderIndex is not null)
+        {
+            OrderIndex = orderIndex.Value;
+        }
     }
 }
