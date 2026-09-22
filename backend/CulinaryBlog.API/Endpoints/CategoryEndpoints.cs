@@ -1,4 +1,7 @@
 using CulinaryBlog.API.Extensions;
+using CulinaryBlog.Application.Categories.DTOs;
+using CulinaryBlog.Application.Categories.Queries.GetCategories;
+using MediatR;
 
 namespace CulinaryBlog.API.Endpoints;
 
@@ -14,8 +17,11 @@ public static class CategoryEndpoints
     {
         var group = app.MapGroup("/categories").WithTags("Categories");
 
-        group.MapGet("/", () => NotImplementedResults.Pending("FR-CAT-001", "B"))
-             .WithSummary("Danh sách danh mục kèm recipeCount — cache 30 phút");
+        group.MapGet("/", GetCategoriesAsync)
+             .WithName("GetCategories")
+             .WithSummary("Danh sách danh mục kèm recipeCount — cache 30 phút")
+             .Produces<IReadOnlyList<CategoryDto>>(StatusCodes.Status200OK)
+             .AllowAnonymous();
 
         group.MapGet("/{slug}", (string slug) => NotImplementedResults.Pending("FR-CAT-002", "B"))
              .WithSummary("Chi tiết danh mục + recipes phân trang");
@@ -31,5 +37,15 @@ public static class CategoryEndpoints
         group.MapDelete("/{id:guid}", (Guid id) => NotImplementedResults.Pending("FR-CAT-005", "B"))
              .RequireAuthorization(Policies.Admin)
              .WithSummary("[Admin] Soft delete — còn recipe thì 409 (D2)");
+    }
+
+    /// <summary>
+    /// CONS-008: endpoint chỉ nhận request → gửi query → trả kết quả. Không business logic,
+    /// không validate ở đây.
+    /// </summary>
+    private static async Task<IResult> GetCategoriesAsync(ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(new GetCategoriesQuery(), ct);
+        return TypedResults.Ok(result);
     }
 }
