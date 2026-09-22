@@ -41,6 +41,10 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D23 | Vị trí `ApplicationUser` | **Infrastructure**, không phải Domain — qua `IIdentityService` (ADR-0003) |
 | D24 | Response `POST /auth/register` | **Đầy đủ `AuthResponseDto`** (auto-login), không phải `{userId,email,displayName}` |
 | D25 | Độ dài refresh token | **128-bit** (theo NFR-SEC-002), không phải 512-bit |
+| D26 | Vị trí `RefreshToken` | **Domain**, không phải Infrastructure — POCO thuần, không như `ApplicationUser` |
+| D27 | Hợp đồng dữ liệu ảnh (FR-RCP-008) | Response 201 theo 8.4 · `orderIndex` = Max+1 · PATCH rỗng → 400 · mọi status đều sửa được ảnh |
+| D28 | Magic bytes upload | JPEG · PNG · WebP · AVIF — đuôi file lấy từ định dạng phát hiện được |
+| D29 | Bug: role hệ thống chưa seed | `IdentityRoleSeeder` — thiếu thì register/login trả 500 |
 
 ---
 
@@ -655,6 +659,215 @@ việc, viết sau khi đã đọc kỹ cả hai nguồn) cũng đã chốt sẵ
 chọn này.
 
 **Sửa SRS:** Chương 3, FR-AUTH-001 bước 9 — đổi "512-bit" thành "128-bit" cho khớp NFR-SEC-002.
+
+---
+
+## D26 — `RefreshToken` đặt ở Domain, không phải Infrastructure
+
+**Nguồn mâu thuẫn:** đây không phải mâu thuẫn trong SRS mà là va chạm giữa hai nhánh code
+độc lập. Sprint 0 (đã merge vào `main`) tự tạo `RefreshToken` tại
+`Infrastructure/Identity/RefreshToken.cs` cùng lúc PR FR-AUTH-001 (nhánh
+`2312800_VCVinh_FR-AUTH-001`, code trước khi rebase) tạo một bản khác gần như y hệt tại
+`Domain/Entities/RefreshToken.cs` — hai bên không biết nhau vì nhánh PR rẽ ra từ trước khi
+Sprint 0 được merge. Merge hai nhánh tạo `add/add conflict` thật trên
+`ApplicationUser.cs`, `RefreshTokenConfiguration.cs`, `CulinaryBlogDbContextModelSnapshot.cs`.
+
+**Chốt:** giữ `RefreshToken` ở **`Domain/Entities/RefreshToken.cs`** (theo bản PR FR-AUTH-001),
+bỏ bản ở `Infrastructure/Identity/RefreshToken.cs` (bản Sprint 0).
+
+**Vì:** `RefreshToken` là POCO thuần, không kế thừa kiểu gì từ NuGet package nào — đặt ở
+Domain không vi phạm CONS-001. Đặt ở Domain còn cho phép `RegisterCommandHandler` (và các
+handler FR-AUTH-002/004 sau này) ở tầng Application **tạo `RefreshToken` trực tiếp** qua
+`RefreshToken.Create(...)`, đúng CONS-001 (Application → Domain, không → Infrastructure).
+Nếu để `RefreshToken` ở Infrastructure như Sprint 0 làm, Application sẽ phải thêm một lớp
+gián tiếp kiểu `IIdentityService` chỉ để tạo một POCO không có logic phụ thuộc gì — không
+cần thiết. `ApplicationUser` là trường hợp khác: nó **bắt buộc** kế thừa `IdentityUser<TKey>`
+(gói `Microsoft.Extensions.Identity.Stores`) nên không có lựa chọn nào khác ngoài Infrastructure
+(xem D23/ADR-0003) — hai entity không cùng ràng buộc nên không cần cùng vị trí.
+
+**Hệ quả:**
+
+- `RefreshTokenConfiguration.cs` tham chiếu `CulinaryBlog.Domain.Entities.RefreshToken`.
+- Không cần migration mới: shape cột trong `RefreshTokens` table giữa hai bản giống hệt
+  nhau (namespace không ảnh hưởng schema DB) — migration `InitialCreate` (Sprint 0) vẫn đúng.
+- `IRefreshTokenRepository` ở `Domain/Interfaces` (không phải `Application/Common/Interfaces`)
+  vì `RefreshToken` không kế thừa `BaseEntity` nên không dùng chung `IRepository<T>` (D20).
+
+**Bài học quy trình:** trước khi mở PR cho một FR đã có người khác chạm vào scaffold
+(Sprint 0 tạo entity cho toàn bộ Chương 7, kể cả `ApplicationUser`/`RefreshToken`), phải
+`git fetch && git rebase origin/main` trước khi bắt đầu code, không chỉ trước khi mở PR.
+
+---
+
+## D27 — Hợp đồng dữ liệu ảnh công thức (FR-RCP-008)
+
+> Phát hiện lúc lập kế hoạch FR-RCP-008 (2026-09-20). Bổ sung D22, không thay thế.
+
+**Chốt:**
+
+| Vấn đề | Quyết định |
+|---|---|
+| Response `POST /images` | **201** `{ imageId, originalUrl, altText, isPrimary }` (theo mục 8.4) |
+| Body `POST /images` | multipart `file` (bắt buộc) + `altText?`. **Không nhận `isPrimary`** — server tự quyết (D22) |
+| `orderIndex` khi upload | `Max(orderIndex của các ảnh hiện có) + 1`; ảnh đầu tiên = `0` |
+| `PATCH` không có field nào | **400** `VALIDATION_ERROR` |
+| `PATCH.orderIndex` | Phải `>= 0`. **Được phép trùng** với ảnh khác (chỉ là thứ tự hiển thị, không renumber) |
+| `PATCH.altText` | Tối đa 200 ký tự (theo 7.5) |
+| Recipe ở status nào được sửa ảnh | **Mọi status** (Draft / Published / Archived) — quyền chỉ phụ thuộc ownership |
+| Bảo đảm "chỉ 1 ảnh primary" | Domain (`Recipe`) **và** partial unique index `(RecipeId) WHERE "IsPrimary"` ở DB |
+
+**Vì:**
+
+- SRS mâu thuẫn: FR-RCP-008 ghi response `{ url, isPrimary }`, mục 8.4 ghi
+  `{ imageId, originalUrl, altText, isPrimary }`. Theo D22, Chương 8 là nguồn chuẩn cho endpoint;
+  FE cần `imageId` để gọi PATCH/DELETE nên bản 8.4 mới dùng được.
+- SRS 8.4 cho client gửi `isPrimary?` khi upload, trái D22 ("client không gửi").
+- `orderIndex`, PATCH rỗng, status của recipe: SRS không nói. Chọn hành vi đơn giản nhất,
+  không thêm ràng buộc SRS không yêu cầu.
+- Partial unique index hiện thực dòng "Chỉ có 1 ảnh IsPrimary=true / Recipe" của mục 7.5 ở tầng DB.
+
+**Sửa SRS:** FR-RCP-008 — response 201 theo mục 8.4; bỏ `isPrimary` khỏi body POST (mục 8.4);
+mục 7.5 bổ sung partial unique index.
+
+---
+
+## D28 — Magic bytes cho upload ảnh (CONS-007, NFR-SEC-004)
+
+> Phát hiện lúc lập kế hoạch FR-RCP-008 (2026-09-20).
+
+**Chốt:** SRS chỉ liệt kê signature của JPEG và PNG, trong khi CONS-007 cho phép 4 định dạng.
+Signature đầy đủ:
+
+| MIME | Signature | Đuôi file sinh ra |
+|---|---|---|
+| `image/jpeg` | `FF D8 FF` | `.jpg` |
+| `image/png` | `89 50 4E 47 0D 0A 1A 0A` | `.png` |
+| `image/webp` | `52 49 46 46` (`RIFF`) · 4 byte size · `57 45 42 50` (`WEBP`) | `.webp` |
+| `image/avif` | 4 byte size · `66 74 79 70` (`ftyp`) · brand `avif` hoặc `avis` (offset 8) | `.avif` |
+
+- Kiểm tra **cả hai**: signature phải khớp một trong bốn định dạng, **và** khớp với `Content-Type`
+  client khai báo. Lệch → 400 `FILE_MIME_INVALID`.
+- **Đuôi file lấy từ định dạng phát hiện được**, không lấy từ tên file client gửi
+  (chống path traversal, NFR-SEC-004). Tên object: `recipes/{recipeId}/{Guid}{ext}`.
+
+**Vì:** không bổ sung thì WebP/AVIF hoặc bị chặn oan, hoặc lọt qua không được kiểm tra.
+Chỉ kiểm 4 byte đầu (như SRS bước 4) cũng không phân biệt được WebP với các file RIFF khác (WAV, AVI).
+
+**Sửa SRS:** FR-RCP-008 bước 4 và FR-FILE-001 — bổ sung signature của WebP, AVIF.
+
+---
+
+## D29 — Bug: role hệ thống chưa từng được seed → register/login trả 500
+
+> Phát hiện qua CI thật (2026-09-22), không phải qua đọc SRS — ghi lại vì đây là lỗ hổng
+> tồn tại từ Sprint 0, không chỉ riêng PR FR-AUTH-001.
+
+**Hiện tượng:** `POST /auth/register` (và mọi luồng gọi `AddToRoleAsync`) trả 500 khi chạy
+với Postgres thật. Không FR nào trong SRS mô tả sai — đây là thiếu sót hiện thực.
+
+**Nguyên nhân:** `.AddRoles<IdentityRole>()` trong `DependencyInjection.cs` chỉ đăng ký
+`RoleManager<IdentityRole>`, không tự tạo role nào. Chưa nơi nào trong code (Sprint 0,
+`DbSeeder`, hay PR FR-AUTH-001) từng gọi `RoleManager.CreateAsync` để tạo row `"Author"`/
+`"Admin"` trong `AspNetRoles`. `UserManager.AddToRoleAsync` khi role không tồn tại **ném
+thẳng `InvalidOperationException`** (không phải `IdentityResult.Failed`), không khớp exception
+nào của `GlobalExceptionMiddleware` nên rơi vào nhánh 500 mặc định.
+
+**Chốt:** seed 2 role hệ thống qua `IdentityRoleSeeder.SeedAsync(RoleManager<IdentityRole>)`
+(`Infrastructure/Identity/IdentityRoleSeeder.cs`), gọi **sau** `Database.MigrateAsync()`:
+
+- `Program.cs`, trong nhánh `IsDevelopment()`.
+- `PostgresApiFactory` (integration test), sau migration riêng của factory — vì host được
+  build/start trước khi `IsDevelopment()`-block của `Program.cs` kịp chạy trong môi trường
+  `"Testing"`.
+
+**Vì:** role là dữ liệu hệ thống bắt buộc để app chạy đúng (khác dữ liệu mẫu của `DbSeeder`),
+không phải lựa chọn kiến trúc — không cần ADR, chỉ cần ghi lại để không ai vô tình xóa
+`IdentityRoleSeeder` mà không hiểu tại sao nó tồn tại.
+
+**Còn thiếu:** môi trường Production hiện không chạy migration/seed tự động (chỉ
+`IsDevelopment()`) — seed role cho Production cần một cơ chế riêng (job/CLI khi deploy),
+chưa có trong scope hiện tại. Cần Sprint sau xử lý trước khi go-live.
+
+---
+
+## D30 — GlobalExceptionMiddleware phải giữ ErrorCode riêng của FluentValidation.ValidationException
+
+> Phát hiện lúc lập kế hoạch FR-RCP-008 (2026-09-22) — không phải mâu thuẫn SRS, mà là code
+> có sẵn (`GlobalExceptionMiddleware.cs`) không khớp với bảng Application Error Code đã chốt.
+
+**Hiện tượng:** `GlobalExceptionMiddleware` map **mọi** `FluentValidation.ValidationException` về
+`type: VALIDATION_ERROR`, bất kể `ValidationFailure.ErrorCode` là gì. Nhưng bảng Application
+Error Code (cuối file này) đã chốt `FILE_SIZE_EXCEEDED` và `FILE_MIME_INVALID` là hai mã
+**riêng**, khác `VALIDATION_ERROR` — nếu không sửa middleware, response thật của
+FR-RCP-008 (upload ảnh sai/quá size) luôn trả sai `type`.
+
+**Chốt:** nếu **mọi** `ValidationFailure` trong exception có cùng một `ErrorCode`, **và** mã đó
+đúng định dạng `SCREAMING_SNAKE_CASE` (quy ước Application Error Code — mục 6 CLAUDE.md) → dùng
+mã đó làm `type`. Ngược lại (nhiều mã khác nhau, hoặc mã không đúng định dạng) → fallback
+`VALIDATION_ERROR` như cũ.
+
+**Vì:** `ValidationFailure.ErrorCode` là cơ chế FluentValidation có sẵn để gắn Application Error
+Code riêng cho từng rule (`.WithErrorCode(...)` hoặc gán trực tiếp) — `UploadRecipeImageCommandValidator`
+đã dùng nó cho `FILE_SIZE_EXCEEDED`/`FILE_MIME_INVALID`. **Lưu ý quan trọng phát hiện lúc code:**
+FluentValidation tự gán `ErrorCode` mặc định = **tên class validator** (vd `"NotEmptyValidator"`,
+`"PredicateValidator"`) cho mọi rule KHÔNG tự set — nghĩa là "khác rỗng" không đủ để nhận biết
+một Application Error Code thật, bắt buộc phải lọc theo định dạng SCREAMING_SNAKE_CASE, nếu
+không middleware sẽ rò rỉ tên validator nội bộ ra `type` cho toàn bộ `ValidationException` có
+đúng 1 lỗi trong cả hệ thống (vỡ `RegisterTests`/`LoginTests` hiện có). Trường hợp lỗi hỗn hợp
+(nhiều field, nhiều mã) vẫn trả `VALIDATION_ERROR` generic vì frontend không thể hành động theo
+một mã duy nhất khi có nhiều loại lỗi khác nhau trong cùng response.
+
+**Sửa code:** `CulinaryBlog.API/Middleware/GlobalExceptionMiddleware.cs`, case
+`FluentValidationException` — xem code, không cần sửa SRS (đây không phải mâu thuẫn SRS).
+
+---
+
+## D31 — Bug: thêm child entity vào aggregate đã track bị EF Core hiểu nhầm thành UPDATE
+
+> Phát hiện qua chạy integration test thật lúc code FR-RCP-008 (2026-09-22). **Ảnh hưởng cả
+> FR-RCP-009 (ingredient) và FR-RCP-010 (step) — C sẽ gặp đúng lỗi này nếu theo pattern
+> tương tự, đọc trước khi code Add/Update ingredient/step.**
+
+**Hiện tượng:** `POST /recipes/{id}/images` (upload ảnh cho recipe đã có sẵn) trả 409
+`RECIPE_CONCURRENCY_CONFLICT` dù không ai sửa recipe đồng thời. Log SQL cho thấy EF Core sinh
+`UPDATE "RecipeImages" SET ... WHERE "Id" = @p AND "RowVersion" = @p` — tức EF nghĩ ảnh mới là
+một dòng **đã tồn tại** cần UPDATE, trong khi nó chưa từng có trong DB, nên `RowVersion` không
+khớp → "affected 0 row(s)".
+
+**Nguyên nhân:** Pattern `var image = recipe.AttachImage(...)` chỉ thêm entity mới vào List
+backing field của navigation collection (`Recipe.Images`) — KHÔNG gọi `DbSet.Add()`/`AddAsync()`
+tường minh. Khi `Recipe` cha đã được EF track (`Unchanged`, load qua
+`GetByIdWithImagesAsync`), `ChangeTracker.DetectChanges()` tự phát hiện entity mới này qua
+navigation fixup, và phải TỰ ĐOÁN entity đó là `Added` hay `Modified/Unchanged`. Vì
+`RecipeImage.Id` (Guid) được gán giá trị thật ngay trong constructor
+(`Guid.CreateVersion7()`, xem `BaseEntity`) — KHÔNG phải giá trị CLR default — EF Core coi
+"key đã có giá trị" là dấu hiệu "đây là entity đã tồn tại trong DB", nên đoán nhầm thành
+`Modified` thay vì `Added`. Heuristic đoán này **chỉ áp dụng khi entity được phát hiện qua
+navigation fixup**, không áp dụng khi gọi `Add()`/`AddAsync()` tường minh — gọi tường minh
+luôn thắng, bất kể giá trị key.
+
+**Chốt:** mọi Command thêm child entity vào một aggregate root **đã được track từ trước**
+(load qua repository rồi mutate, khác với tạo mới toàn bộ graph rồi `AddRange()` một lần như
+`DbSeeder`) PHẢI gọi `IRepository<TChild>.AddAsync(child)` tường minh ngay sau khi domain
+method trả về entity mới, TRƯỚC `SaveChangesAsync()`. Không được chỉ dựa vào navigation fixup.
+
+```csharp
+var image = recipe.AttachImage(url, altText);   // domain: chỉ thêm vào _images
+await imageRepository.AddAsync(image, ct);      // BẮT BUỘC — nếu thiếu dòng này sẽ lỗi 409 giả
+await unitOfWork.SaveChangesAsync(ct);
+```
+
+**Vì:** đây là hành vi mặc định của EF Core với Guid key tự sinh client-side (không phải lỗi
+cấu hình RowVersion — xem ghi chú trong `CulinaryBlogDbContext.ApplyRowVersionConcurrencyToken`,
+vẫn đúng như thiết kế). Sửa ở Application layer (nơi gọi `AddAsync`) đơn giản và cục bộ hơn
+nhiều so với đổi cách sinh Id hoặc cấu hình `ValueGeneratedNever()` cho toàn bộ `BaseEntity`
+(ảnh hưởng mọi entity, rủi ro cao hơn lợi ích).
+
+**Cảnh báo cho C (S6/S7 — FR-RCP-009/010):** `Recipe.AddIngredient()`/`AddStep()` hiện tại
+(Sprint 0) chỉ dùng cho seeding — nơi cả `Recipe` LẪN children đều mới toanh rồi `AddRange()`
+một lần nên không dính bug này. Khi hiện thực `AddIngredientCommand`/`AddStepCommand` thật
+(load recipe đã tồn tại qua repository rồi mới thêm ingredient/step), PHẢI áp dụng đúng pattern
+`AddAsync()` tường minh ở trên, nếu không sẽ gặp lại đúng lỗi 409 giả này.
 
 ---
 

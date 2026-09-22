@@ -22,6 +22,8 @@ public static class ErrorCodes
     public const string RecipePublishIncomplete = "RECIPE_PUBLISH_INCOMPLETE";       // 400 (D3)
     public const string RecipeForbidden = "RECIPE_FORBIDDEN";                        // 403
     public const string RecipeConcurrencyConflict = "RECIPE_CONCURRENCY_CONFLICT";   // 409 (D4)
+    public const string RecipeImageNotFound = "RECIPE_IMAGE_NOT_FOUND";             // 404 (D27)
+    public const string RecipePrimaryImageRequired = "RECIPE_PRIMARY_IMAGE_REQUIRED"; // 400 (D22)
 
     // Category
     public const string CategoryNotFound = "CATEGORY_NOT_FOUND";                     // 404

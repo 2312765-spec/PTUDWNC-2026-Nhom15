@@ -12,4 +12,8 @@ public sealed class HangfireBackgroundJobService(IBackgroundJobClient background
 {
     public void EnqueueWelcomeEmail(string email, string displayName) =>
         backgroundJobClient.Enqueue<IEmailService>(s => s.SendWelcomeEmailAsync(email, displayName, CancellationToken.None));
+
+    /// <summary>FR-FILE-002: DeleteAsync đã idempotent (không throw nếu object không tồn tại) — an toàn để Hangfire retry.</summary>
+    public void EnqueueDeleteImageFile(string fileUrl) =>
+        backgroundJobClient.Enqueue<IFileStorageService>(s => s.DeleteAsync(fileUrl, CancellationToken.None));
 }

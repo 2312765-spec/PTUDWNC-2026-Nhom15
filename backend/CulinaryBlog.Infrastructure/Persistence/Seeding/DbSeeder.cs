@@ -130,7 +130,8 @@ public static class DbSeeder
                     unit: faker.Random.Bool() ? faker.PickRandom("gram", "ml", "thìa canh", "quả", "củ") : null);
             }
 
-            recipe.AddImage($"https://placehold.co/800x600?text={Uri.EscapeDataString(title)}", isPrimary: true);
+            // D27: ảnh đầu tiên tự động primary — không cần (và giờ không còn) truyền isPrimary.
+            recipe.AttachImage($"https://placehold.co/800x600?text={Uri.EscapeDataString(title)}");
 
             recipes.Add(recipe);
         }

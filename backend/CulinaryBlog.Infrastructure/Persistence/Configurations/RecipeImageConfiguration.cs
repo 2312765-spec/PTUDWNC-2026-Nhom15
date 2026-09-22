@@ -18,6 +18,15 @@ public sealed class RecipeImageConfiguration : IEntityTypeConfiguration<RecipeIm
         builder.Property(i => i.IsPrimary).HasDefaultValue(false);
         builder.Property(i => i.OrderIndex).HasDefaultValue(0);
 
-        builder.HasIndex(i => i.RecipeId);
+        // Đặt tên tường minh ngay tại HasIndex() (không phải .HasDatabaseName() sau) — đây là
+        // cách EF Core phân biệt HAI index khác nhau trên CÙNG một property, nếu không sẽ bị
+        // coi là cùng một index và cái thêm sau ghi đè cái trước (phát hiện lúc tạo migration).
+        builder.HasIndex(i => i.RecipeId, "IX_RecipeImages_RecipeId");
+
+        // D27: bảo đảm "chỉ 1 ảnh IsPrimary=true / Recipe" ở TẦNG DB — lớp phòng thủ thứ hai,
+        // độc lập với business rule ở Recipe.UpdateImage/AttachImage/RemoveImage (Domain).
+        builder.HasIndex(i => i.RecipeId, "IX_RecipeImages_RecipeId_IsPrimary")
+            .IsUnique()
+            .HasFilter("\"IsPrimary\" = true");
     }
 }
