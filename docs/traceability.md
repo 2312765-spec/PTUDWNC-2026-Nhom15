@@ -14,7 +14,8 @@
 > Tóm tắt: **A** = FR-AUTH + FR-JOB-001 · **B** = FR-CAT + FR-RCP-001/002 + FR-SRCH ·
 > **C** = FR-RCP-003/004/005/006/007/009/010 · **D** = FR-RCP-008 + FR-FILE + FR-JOB-002/003 + FR-OBS.
 
-**Tiến độ:** 3 / 34 FR (9%) — A 2/8 · B 1/11 · C 0/7 · D 0/8
+**Tiến độ:** 6 / 34 FR (18%) — A 2/8 · B 1/11 · C 0/7 · D 3/8 (FR-RCP-008, FR-FILE-001/002 —
+FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
 
 ---
 
@@ -77,7 +78,7 @@
 | FR-RCP-005 | Publish / Unpublish | M | `PATCH /api/v1/recipes/{id}/publish` `/unpublish` → 200 | S7 | `PublishRecipeCommand(+Handler)` | `recipe.Publish()` ném `DomainException` | `Recipes/PublishTests.cs` | **D3** | ⬜ |
 | FR-RCP-006 | Lưu trữ (Archive) | S | `PATCH /api/v1/recipes/{id}/archive` → 200 | S7 | `ArchiveRecipeCommand(+Handler)` | `recipe.Archive()` | `Recipes/ArchiveTests.cs` | — | ⬜ |
 | FR-RCP-007 | Xóa công thức | M | `DELETE /api/v1/recipes/{id}` → 204 | S7 | `DeleteRecipeCommand(+Handler)` | **Soft delete** — không cascade, không xóa file MinIO | `Recipes/DeleteTests.cs` | **D1** | ⬜ |
-| FR-RCP-008 | Quản lý ảnh | M | `POST /recipes/{id}/images` · `PATCH .../{imageId}` · `DELETE .../{imageId}` | S8 | `UploadRecipeImageCommand`, `UpdateRecipeImageCommand`, `DeleteRecipeImageCommand` | `MinioFileStorageService`, magic-byte validation | `Recipes/ImagesTests.cs` | **D22**, D16 | ⬜ |
+| FR-RCP-008 | Quản lý ảnh | M | `POST /recipes/{id}/images` · `PATCH .../{imageId}` · `DELETE .../{imageId}` | S8 | `UploadRecipeImageCommand`, `UpdateRecipeImageCommand`, `DeleteRecipeImageCommand` | `Recipe.AttachImage/UpdateImage/RemoveImage`, `MinioFileStorageService`, magic-byte validation | `Recipes/ImagesTests.cs` (14 test) + 5 file `UnitTests/Images` + `UnitTests/Domain/RecipeImageTests.cs` | **D22, D27, D28, D30, D31**, D16 | ✅ |
 | FR-RCP-009 | CRUD nguyên liệu | M | `POST/PUT/DELETE /recipes/{id}/ingredients/{ingId?}` | S6 | `Add/Update/DeleteIngredientCommand` | `RecipeIngredient.Create()` | `Recipes/IngredientsTests.cs` | **D7** | ⬜ |
 | FR-RCP-010 | CRUD bước thực hiện | M | `POST/PUT/DELETE /recipes/{id}/steps/{stepId?}` | S6 | `Add/Update/DeleteStepCommand` | Auto-renumber `StepNumber` | `Recipes/StepsTests.cs` | **D6** | ⬜ |
 
@@ -143,11 +144,16 @@
 
 | FR | Tên | Gọi từ đâu | Slice | Hiện thực | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|
-| FR-FILE-001 | Upload file lên MinIO | FR-RCP-008 | S8 | `IFileStorageService.UploadAsync()` → `MinioFileStorageService`. Bucket `culinary-blog` (public-read), filename `recipes/{recipeId}/{Guid}{ext}`, max 5MB, magic bytes | `Files/UploadTests.cs` | D16 | ⬜ |
-| FR-FILE-002 | Xóa file khỏi MinIO | **Chỉ** từ `DELETE /recipes/{id}/images/{imageId}` | S8 | `IFileStorageService.DeleteAsync()`. Idempotent. Hangfire retry 3× | `Files/DeleteTests.cs` | **D1** | ⬜ |
+| FR-FILE-001 | Upload file lên MinIO | FR-RCP-008 | S8 | `IFileStorageService.UploadAsync()` → `MinioFileStorageService` (AWSSDK.S3). Bucket `culinary-blog` (public-read), key `recipes/{recipeId}/{Guid}{ext}` (`ObjectKey`), max 5MB, magic bytes (`ImageSignature`) | `UnitTests/Images/{ImageSignatureTests,ObjectKeyTests}.cs`. **`MinioFileStorageService` chạy thật (S3 client) chưa có test riêng** — `ImagesTests.cs` dùng `FakeFileStorageService`, chỉ xác nhận Command/Handler/Domain/endpoint | D16 | ✅* |
+| FR-FILE-002 | Xóa file khỏi MinIO | **Chỉ** từ `DELETE /recipes/{id}/images/{imageId}` | S8 | `IFileStorageService.DeleteAsync()`. Idempotent (bắt `AmazonS3Exception` 404). Enqueue qua `IBackgroundJobService.EnqueueDeleteImageFile()` — Hangfire retry 3× mặc định | Như trên (`ImagesTests.cs` xác nhận enqueue qua Fake, chưa test job Hangfire chạy thật) | **D1** | ✅* |
 
 > **D1 thu hẹp phạm vi FR-FILE-002:** vì Recipe là soft delete, không có job xóa hàng loạt
 > file khi xóa recipe. FR-FILE-002 chỉ chạy khi Author xóa **một ảnh cụ thể**.
+>
+> **\* Còn thiếu:** test tích hợp `MinioFileStorageService` với MinIO thật (Testcontainers hoặc
+> docker-compose) — việc gọi S3 API thật (`PutObjectAsync`/`DeleteObjectAsync`) chưa được xác
+> nhận bằng test tự động, chỉ được review bằng mắt. Cần làm trước khi coi FR-FILE-001/002 "xong"
+> theo đúng nghĩa `docs/CLAUDE.md` mục 7 (integration test mỗi endpoint).
 
 ---
 
@@ -156,8 +162,15 @@
 | FR | Job | Loại | Trigger | Slice | Hiện thực | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|---|
 | FR-JOB-001 | Welcome Email | Fire-and-forget | Sau FR-AUTH-001 | S9 | `WelcomeEmailJob`, `MailKitEmailService`. Retry 3× (1p/5p/30p) | `Jobs/WelcomeEmailTests.cs` | **D12** | ⬜ |
-| FR-JOB-002 | Image Resize / Thumbnail | Fire-and-forget | Sau FR-RCP-008 upload | S8 | `ImageResizeJob` → medium 800×600 + thumbnail 300×300, cập nhật `MediumUrl`/`ThumbnailUrl`. Retry 3× | `Jobs/ImageResizeTests.cs` | — | ⬜ |
+| FR-JOB-002 | Image Resize / Thumbnail | Fire-and-forget | Sau FR-RCP-008 upload | S8 | **Cố ý CHƯA làm** — xem ghi chú dưới | `Jobs/ImageResizeTests.cs` | — | ⬜ |
 | FR-JOB-003 | Sitemap Generation | Recurring | Cron `0 2 * * *` (02:00 UTC) | S11 | `SitemapGenerationJob` → sitemap.xml (Published recipes + categories + trang tĩnh), ping Google. Retry 2× | `Jobs/SitemapTests.cs` | — | ⬜ |
+
+> **FR-JOB-002 cố ý để lại (2026-09-22):** roadmap gộp FR-JOB-002 vào S8 cùng FR-RCP-008, nhưng
+> chưa có test nào cho nó (khác FR-RCP-008/FR-FILE-001/002 đã có 14+ test tích hợp và unit
+> pass). Theo quy tắc "Test first" (CLAUDE.md mục 9), không code phần resize/thumbnail (cần
+> S3 client + ImageSharp + cập nhật DB ngoài luồng MediatR) khi chưa có test dẫn dắt, để tránh
+> giao logic ảnh xử lý bất đồng bộ chưa qua CI thật. Làm ở slice riêng, viết integration test
+> trước.
 
 > **D12:** email chào mừng **không có link kích hoạt** — chỉ chào mừng + link về trang chủ
 > và `/dashboard`.
