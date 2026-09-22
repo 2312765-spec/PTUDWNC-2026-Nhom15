@@ -122,6 +122,7 @@ app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.UseSerilogRequestLogging();
 
+// ✅ ĐÃ SỬA: Gộp chung thành 1 khối kiểm tra IsDevelopment duy nhất
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -131,12 +132,6 @@ if (app.Environment.IsDevelopment())
                .WithTheme(ScalarTheme.Purple)
                .WithDefaultHttpClient(ScalarTarget.JavaScript, ScalarClient.Axios);
     });
-}
-
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-    app.MapScalarApiReference();
 }
 else
 {
