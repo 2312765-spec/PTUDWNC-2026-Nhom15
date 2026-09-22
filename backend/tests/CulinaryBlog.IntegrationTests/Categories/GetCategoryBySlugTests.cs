@@ -44,7 +44,8 @@ public sealed class GetCategoryBySlugTests(PostgresApiFactory factory) : IClassF
     [Fact(DisplayName = "FR-CAT-002 (regression): danh mục có công thức Published thật → phải xuất hiện trong danh sách")]
     public async Task Recipes_IncludesPublishedRecipe_InSameCategory()
     {
-        var (categorySlug, recipeId) = await SeedCategoryWithPublishedRecipeAsync();
+        var (_, authorId) = await RegisterAuthorAsync();
+        var (categorySlug, recipeId) = await SeedCategoryWithRecipeAsync(authorId, RecipeStatus.Published);
 
         var response = await _client.GetAsync($"/api/v1/categories/{categorySlug}");
 
@@ -59,7 +60,8 @@ public sealed class GetCategoryBySlugTests(PostgresApiFactory factory) : IClassF
     [Fact(DisplayName = "FR-CAT-002: Guest không thấy Draft của người khác")]
     public async Task Recipes_Guest_DoesNotSeeOtherAuthorsDraft()
     {
-        var (categorySlug, _) = await SeedCategoryWithDraftRecipeAsync(authorId: "someone-else");
+        var (_, otherAuthorId) = await RegisterAuthorAsync();
+        var (categorySlug, _) = await SeedCategoryWithRecipeAsync(otherAuthorId, RecipeStatus.Draft);
 
         var response = await _client.GetAsync($"/api/v1/categories/{categorySlug}");
 
@@ -71,7 +73,7 @@ public sealed class GetCategoryBySlugTests(PostgresApiFactory factory) : IClassF
     public async Task Recipes_Owner_SeesOwnDraft()
     {
         var (token, userId) = await RegisterAuthorAsync();
-        var (categorySlug, recipeId) = await SeedCategoryWithDraftRecipeAsync(authorId: userId);
+        var (categorySlug, recipeId) = await SeedCategoryWithRecipeAsync(userId, RecipeStatus.Draft);
 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         var response = await _client.GetAsync($"/api/v1/categories/{categorySlug}");
@@ -92,19 +94,14 @@ public sealed class GetCategoryBySlugTests(PostgresApiFactory factory) : IClassF
         return (body!.AccessToken, body.User.Id);
     }
 
-    private async Task<(string Slug, Guid RecipeId)> SeedCategoryWithPublishedRecipeAsync() =>
-        await SeedCategoryWithRecipeAsync("author-published", RecipeStatus.Published);
-
-    private async Task<(string Slug, Guid RecipeId)> SeedCategoryWithDraftRecipeAsync(string authorId) =>
-        await SeedCategoryWithRecipeAsync(authorId, RecipeStatus.Draft);
-
     private async Task<(string Slug, Guid RecipeId)> SeedCategoryWithRecipeAsync(string authorId, RecipeStatus status)
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
 
-        var slug = $"danh-muc-{Guid.NewGuid():N}"[..20];
-        var category = Category.Create("Danh mục test", slug, "desc", null, 0);
+        var unique = Guid.NewGuid().ToString("N")[..12];
+        var slug = $"danh-muc-{unique}";
+        var category = Category.Create($"Danh mục test {unique}", slug, "desc", null, 0);
         db.Categories.Add(category);
 
         var recipe = Recipe.Create(
