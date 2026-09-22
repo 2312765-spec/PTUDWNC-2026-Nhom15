@@ -1,4 +1,5 @@
 using CulinaryBlog.API.Extensions;
+using CulinaryBlog.Application.Auth.Commands.Login;
 using CulinaryBlog.Application.Auth.Commands.Register;
 using CulinaryBlog.Application.Auth.Dtos;
 using MediatR;
@@ -24,8 +25,13 @@ public static class AuthEndpoints
              .ProducesValidationProblem()
              .ProducesProblem(StatusCodes.Status409Conflict);
 
-        group.MapPost("/login", () => NotImplementedResults.Pending("FR-AUTH-002", "A"))
-             .WithSummary("Đăng nhập email/password — body { email, password }");
+        group.MapPost("/login", LoginAsync)
+             .WithSummary("Đăng nhập email/password — body { email, password }")
+             .Produces<AuthResponseDto>(StatusCodes.Status200OK)
+             .ProducesValidationProblem()
+             .ProducesProblem(StatusCodes.Status401Unauthorized)
+             .ProducesProblem(StatusCodes.Status403Forbidden)
+             .ProducesProblem(StatusCodes.Status423Locked);
 
         group.MapPost("/google", () => NotImplementedResults.Pending("FR-AUTH-003", "A"))
              .WithSummary("Đăng nhập Google — body { idToken } (D9)");
@@ -66,7 +72,26 @@ public static class AuthEndpoints
 
         return TypedResults.Created((string?)null, result);
     }
+
+    private static async Task<IResult> LoginAsync(
+        LoginRequest request,
+        HttpContext httpContext,
+        ISender sender,
+        CancellationToken ct)
+    {
+        var command = new LoginCommand(
+            request.Email,
+            request.Password,
+            httpContext.Connection.RemoteIpAddress?.ToString());
+
+        var result = await sender.Send(command, ct);
+
+        return TypedResults.Ok(result);
+    }
 }
 
 /// <summary>D5 — wire contract của POST /auth/register.</summary>
 public sealed record RegisterRequest(string Email, string Password, string DisplayName);
+
+/// <summary>D5 — wire contract của POST /auth/login.</summary>
+public sealed record LoginRequest(string Email, string Password);

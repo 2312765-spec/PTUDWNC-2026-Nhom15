@@ -7,6 +7,7 @@ using CulinaryBlog.Infrastructure.Identity;
 using CulinaryBlog.Infrastructure.Jobs;
 using CulinaryBlog.Infrastructure.Persistence;
 using CulinaryBlog.Infrastructure.Persistence.Repositories;
+using CulinaryBlog.Infrastructure.Repositories;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Identity;
@@ -84,7 +85,12 @@ public static class DependencyInjection
             .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(connectionString)));
         services.AddScoped<IBackgroundJobService, HangfireBackgroundJobService>();
 
-        // TODO(S3 — B): ISlugHelper, CategoryRepository, RecipeRepository
+        // ---- Category (FR-CAT-001 — B) ----
+        // Bug phát hiện lúc rebase PR (2026-09-22): thiếu đăng ký này thì GetCategoriesQueryHandler
+        // không resolve được ICategoryRepository → GET /api/v1/categories trả 500.
+        services.AddScoped<ICategoryRepository, CategoryRepository>();
+
+        // TODO(S3 — B): ISlugHelper, RecipeRepository
         // TODO(S8 — D): IFileStorageService (MinioFileStorageService)
 
         return services;
