@@ -128,10 +128,67 @@ public sealed class Recipe : BaseEntity
         _ingredients.Add(RecipeIngredient.Create(Id, name, quantity, unit, notes, orderIndex));
     }
 
-    /// <summary>Dùng cho seeding — thêm ảnh trực tiếp.</summary>
-    public void AddImage(string originalUrl, bool isPrimary = false)
+    /// <summary>
+    /// FR-RCP-008/D27 — ảnh đầu tiên tự động là primary, client không được chọn (D22).
+    /// orderIndex = Max(orderIndex hiện có) + 1, ảnh đầu tiên = 0.
+    /// </summary>
+    public RecipeImage AttachImage(string originalUrl, string? altText = null)
     {
-        var orderIndex = _images.Count;
-        _images.Add(RecipeImage.Create(Id, originalUrl, isPrimary, orderIndex));
+        var isPrimary = _images.Count == 0;
+        var orderIndex = _images.Count == 0 ? 0 : _images.Max(i => i.OrderIndex) + 1;
+
+        var image = RecipeImage.Create(Id, originalUrl, isPrimary, orderIndex, altText: altText);
+        _images.Add(image);
+        return image;
     }
+
+    /// <summary>
+    /// FR-RCP-008/D22 — PATCH metadata ảnh. Handler phải tự kiểm tra ảnh tồn tại trước (404
+    /// RECIPE_IMAGE_NOT_FOUND) — đó không phải business rule nên không nằm ở đây.
+    /// </summary>
+    public void UpdateImage(Guid imageId, string? altText, bool? isPrimary, int? orderIndex)
+    {
+        var image = FindImageOrThrow(imageId);
+
+        if (isPrimary == false && image.IsPrimary)
+        {
+            throw new DomainException(
+                "RECIPE_PRIMARY_IMAGE_REQUIRED",
+                "Công thức phải luôn có đúng một ảnh chính — không thể bỏ primary mà không chọn ảnh khác thay thế.");
+        }
+
+        if (isPrimary == true)
+        {
+            foreach (var other in _images.Where(i => i.Id != imageId))
+            {
+                other.SetPrimary(false);
+            }
+
+            image.SetPrimary(true);
+        }
+
+        image.UpdateMetadata(altText, orderIndex);
+    }
+
+    /// <summary>FR-RCP-008/D22 — xóa ảnh đang primary thì ảnh còn lại có orderIndex nhỏ nhất tự lên thay.</summary>
+    public RecipeImage RemoveImage(Guid imageId)
+    {
+        var image = FindImageOrThrow(imageId);
+        _images.Remove(image);
+
+        if (image.IsPrimary && _images.Count > 0)
+        {
+            _images.OrderBy(i => i.OrderIndex).First().SetPrimary(true);
+        }
+
+        return image;
+    }
+
+    /// <summary>
+    /// Không throw NotFoundException (404) — lớp đó thuộc Application. Nhánh này chỉ chạy nếu
+    /// handler gọi sai (bỏ qua bước kiểm tra tồn tại) — coi là lỗi lập trình, không phải business rule.
+    /// </summary>
+    private RecipeImage FindImageOrThrow(Guid imageId) =>
+        _images.FirstOrDefault(i => i.Id == imageId)
+            ?? throw new InvalidOperationException($"Recipe {Id} không có ảnh {imageId}.");
 }

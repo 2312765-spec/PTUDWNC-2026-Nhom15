@@ -11,7 +11,7 @@ public static class CategoryEndpoints
 {
     public static void MapCategoryEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/categories")
+        var group = app.MapGroup("/categories")
             .WithTags("Categories");
 
         // FR-CAT-001: Danh sách danh mục (Guest)

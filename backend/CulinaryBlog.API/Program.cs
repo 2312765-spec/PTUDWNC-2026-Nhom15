@@ -84,8 +84,8 @@ builder.Services.AddCors(options => options.AddPolicy(CorsPolicy, policy => poli
 
 // ---- OpenAPI / Scalar (NFR-MAINT-003) ------------------------------------
 // ---- OpenAPI / Scalar (NFR-MAINT-003) ------------------------------------
-builder.Services.AddOpenApi();
-builder.Services.AddOpenApi("v1", options =>
+// XÓA DÒNG builder.Services.AddOpenApi(); THỪA ĐI! Chỉ giữ lại 1 cấu hình chuẩn này:
+builder.Services.AddOpenApi(options =>
 {
     options.AddDocumentTransformer((document, context, cancellationToken) =>
     {
@@ -114,33 +114,29 @@ builder.Services.AddOpenApi("v1", options =>
 
     options.AddOperationTransformer((operation, context, cancellationToken) =>
     {
-        // Kiểm tra xem endpoint có gắn .RequireAuthorization() hay không
         var metadata = context.Description.ActionDescriptor.EndpointMetadata;
         var hasAuth = metadata.Any(m => m is Microsoft.AspNetCore.Authorization.IAuthorizeData);
         var allowAnonymous = metadata.Any(m => m is Microsoft.AspNetCore.Authorization.IAllowAnonymous);
 
         if (hasAuth && !allowAnonymous)
         {
-            // BẮT BUỘC: Gắn trực tiếp Requirement vào Operation
-            var securityRequirement = new Microsoft.OpenApi.OpenApiSecurityRequirement
-            {
-                [new Microsoft.OpenApi.OpenApiSecuritySchemeReference("bearerAuth")] = new List<string>()
-            };
-
+            // BẮT BUỘC: Thêm Requirement vào operation
             operation.Security = new List<Microsoft.OpenApi.OpenApiSecurityRequirement>
             {
-                securityRequirement
+                new()
+                {
+                    [new Microsoft.OpenApi.OpenApiSecuritySchemeReference("bearerAuth")] = new List<string>()
+                }
             };
         }
         else
         {
-            // Endpoint Guest/Public: Đặt danh sách rỗng thay vì null để Scalar không nhận nhầm
-            operation.Security = new List<Microsoft.OpenApi.OpenApiSecurityRequirement>();
+            // Endpoint Guest/Public thì không có SecurityRequirement
+            operation.Security = null;
         }
 
         return Task.CompletedTask;
     });
-
 });
 
 // ---- Health checks (FR-OBS-001) ------------------------------------------
