@@ -89,7 +89,7 @@ builder.Services.AddCors(options => options.AddPolicy(CorsPolicy, policy => poli
 
 // ---- OpenAPI / Scalar (NFR-MAINT-003) ------------------------------------
 builder.Services.AddOpenApi();
-
+builder.Services.AddEndpointsApiExplorer();
 // ---- Health checks (FR-OBS-001) ------------------------------------------
 builder.Services.AddAppHealthChecks(builder.Configuration);
 
@@ -121,6 +121,17 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.UseSerilogRequestLogging();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference(options =>
+    {
+        options.WithTitle("CulinaryBlog API")
+               .WithTheme(ScalarTheme.Purple)
+               .WithDefaultHttpClient(ScalarTarget.JavaScript, ScalarClient.Axios);
+    });
+}
 
 if (app.Environment.IsDevelopment())
 {
