@@ -45,6 +45,9 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D27 | Hợp đồng dữ liệu ảnh (FR-RCP-008) | Response 201 theo 8.4 · `orderIndex` = Max+1 · PATCH rỗng → 400 · mọi status đều sửa được ảnh |
 | D28 | Magic bytes upload | JPEG · PNG · WebP · AVIF — đuôi file lấy từ định dạng phát hiện được |
 | D29 | Bug: role hệ thống chưa seed | `IdentityRoleSeeder` — thiếu thì register/login trả 500 |
+| D30 | Bug: mất ErrorCode của FluentValidation | `GlobalExceptionMiddleware` phải giữ ErrorCode riêng của từng rule |
+| D31 | Bug: thêm child entity vào aggregate đã track | EF Core hiểu nhầm thành UPDATE thay vì INSERT |
+| D32 | Bug: `CategoryRepository.GetBySlugAsync` thiếu Include | `category.Recipes` luôn rỗng — FR-CAT-002 không hoạt động |
 
 ---
 
@@ -868,6 +871,34 @@ nhiều so với đổi cách sinh Id hoặc cấu hình `ValueGeneratedNever()`
 một lần nên không dính bug này. Khi hiện thực `AddIngredientCommand`/`AddStepCommand` thật
 (load recipe đã tồn tại qua repository rồi mới thêm ingredient/step), PHẢI áp dụng đúng pattern
 `AddAsync()` tường minh ở trên, nếu không sẽ gặp lại đúng lỗi 409 giả này.
+
+---
+
+## D32 — Bug: `CategoryRepository.GetBySlugAsync` thiếu `.Include(Recipes)` → FR-CAT-002 không hoạt động
+
+> Phát hiện lúc review PR #10 (2026-09-23), trước khi merge — không phải mâu thuẫn SRS.
+
+**Hiện tượng:** `GET /api/v1/categories/{slug}` luôn trả `recipes.items = []`, kể cả khi danh
+mục có công thức Published thật. Không lỗi biên dịch, không lỗi khi chạy — chỉ sai dữ liệu.
+
+**Nguyên nhân:** `CategoryRepository.GetBySlugAsync` gọi `.AsNoTracking().FirstOrDefaultAsync(...)`
+không kèm `.Include(c => c.Recipes)`. Dự án không bật EF Core lazy-loading proxy, nên
+`category.Recipes` sau khi query giữ nguyên giá trị khởi tạo field (`= []`) — rỗng vĩnh viễn,
+không phải lỗi tạm thời hay N+1 query, mà là dữ liệu sai hoàn toàn im lặng.
+
+**Chốt:** thêm `.Include(c => c.Recipes).ThenInclude(r => r.Images)` vào `GetBySlugAsync`
+(cần `Images` để tính `FeaturedImageUrl`). Đây đúng là quy tắc CLAUDE.md mục 6 đã nói rõ:
+*"Mọi query EF Core phải có `.Include()`/`.ThenInclude()` hoặc projection — cấm N+1"* — PR chỉ
+đơn giản là quên áp dụng, dù method `GetAllWithRecipesAsync` trong cùng file làm đúng.
+
+**Vì sao CI không bắt được:** PR #10 không có integration test nào cho FR-CAT-002. Bug loại
+này (sai dữ liệu, không sai HTTP status) chỉ lộ ra khi test thật sự assert nội dung response —
+xem `Categories/GetCategoryBySlugTests.cs` (test `Recipes_IncludesPublishedRecipe_InSameCategory`
+là test lẽ ra phải fail trước khi vá).
+
+**Bài học:** một handler đọc `entity.NavigationCollection` sau khi gọi repository luôn cần
+kiểm tra ngược lại repository có `.Include()` đúng navigation đó không — compiler không giúp
+được ở đây vì `IReadOnlyCollection<T>` rỗng và `IReadOnlyCollection<T>` có dữ liệu có cùng kiểu.
 
 ---
 

@@ -14,8 +14,9 @@
 > Tóm tắt: **A** = FR-AUTH + FR-JOB-001 · **B** = FR-CAT + FR-RCP-001/002 + FR-SRCH ·
 > **C** = FR-RCP-003/004/005/006/007/009/010 · **D** = FR-RCP-008 + FR-FILE + FR-JOB-002/003 + FR-OBS.
 
-**Tiến độ:** 6 / 34 FR (18%) — A 2/8 · B 1/11 · C 0/7 · D 3/8 (FR-RCP-008, FR-FILE-001/002 —
-FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
+**Tiến độ:** 6 / 34 FR xong hẳn (18%), 2 🟡 đang làm (FR-CAT-002, FR-CAT-003: build + unit
+test xanh; integration test cần Docker, chưa chạy được lúc vá PR #10) — A 2/8 · B 1/11 (2 🟡)
+· C 0/7 · D 3/8 (FR-RCP-008, FR-FILE-001/002 — FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
 
 ---
 
@@ -50,8 +51,8 @@ FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
 | FR | Tên | Ưu tiên | Endpoint | Slice | Application Layer | Infrastructure / Domain | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|---|---|
 | FR-CAT-001 | Xem danh sách danh mục | M | `GET /api/v1/categories` → 200 | S3 | `GetCategoriesQuery(+Handler)` `ICacheable` | `CategoryRepository.GetAllWithRecipesAsync()` | `Categories/GetCategoriesTests.cs` | **D8** | ✅ |
-| FR-CAT-002 | Chi tiết danh mục + recipes | M | `GET /api/v1/categories/{slug}` → 200/404 | S3 | `GetCategoryBySlugQuery(+Handler)` | `CategoryRepository.GetBySlugAsync()` | `Categories/DetailTests.cs` | D8 | ⬜ |
-| FR-CAT-003 | Tạo danh mục [Admin] | M | `POST /api/v1/categories` → 201 | S3 | `CreateCategoryCommand(+Handler,+Validator)` `ICacheInvalidator` | `Category.Create()`, `SlugHelper.Generate()` | `Categories/CreateTests.cs` | D10, D8 | ⬜ |
+| FR-CAT-002 | Chi tiết danh mục + recipes | M | `GET /api/v1/categories/{slug}` → 200/404 | S3 | `GetCategoryBySlugQuery(+Handler)` | `CategoryRepository.GetBySlugAsync()` (D32) | `Categories/GetCategoryBySlugTests.cs` | D8, **D32** | 🟡 |
+| FR-CAT-003 | Tạo danh mục [Admin] | M | `POST /api/v1/categories` → 201 | S3 | `CreateCategoryCommand(+Handler,+Validator)` `ICacheInvalidator` | `Category.Create()`, `SlugHelper.Generate()` | `Categories/CreateCategoryTests.cs` | D10, D8 | 🟡 |
 | FR-CAT-004 | Cập nhật danh mục [Admin] | M | `PUT /api/v1/categories/{id}` → 200 | S3 | `UpdateCategoryCommand(+Handler,+Validator)` | Slug **KHÔNG** đổi khi đổi Name | `Categories/UpdateTests.cs` | D8 | ⬜ |
 | FR-CAT-005 | Xóa danh mục [Admin] | S | `DELETE /api/v1/categories/{id}` → 204 | S3 | `DeleteCategoryCommand(+Handler)` | **Soft delete**, đếm recipe > 0 → 409 | `Categories/DeleteTests.cs` | **D2** | ⬜ |
 
