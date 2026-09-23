@@ -5,7 +5,7 @@ import next from 'eslint-config-next';
  * eslint-config-next v16 export sẵn flat config, không cần FlatCompat.
  */
 const config = [
-  { ignores: ['.next/**', 'node_modules/**', 'next-env.d.ts'] },
+  { ignores: ['.next/**', 'node_modules/**', 'coverage/**', 'next-env.d.ts'] },
   ...next,
 ];
 

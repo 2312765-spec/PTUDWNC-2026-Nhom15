@@ -123,6 +123,10 @@ services:
       - api
     environment:
       NEXT_PUBLIC_API_URL: "http://localhost:5000/api/v1"
+      # Auth.js gọi API từ server — trong mạng compose, không phải localhost
+      API_INTERNAL_URL: "http://api:8080/api/v1"
+      AUTH_SECRET: "dev-only-auth-secret-khong-dung-cho-production-32ky"
+      AUTH_TRUST_HOST: "true"
     ports:
       - "3000:3000"
 

@@ -42,10 +42,13 @@ export interface UserProfile {
   roles: string[];
 }
 
+/** D24 — khớp AuthResponseDto của backend (register, login, refresh). */
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
-  expiresIn: number;
+  /** ISO 8601 — thời điểm access token hết hạn. */
+  expiresAt: string;
+  user: UserProfile;
 }
 
 // TODO(S3 — B): CategoryDto, CategoryDetailDto
