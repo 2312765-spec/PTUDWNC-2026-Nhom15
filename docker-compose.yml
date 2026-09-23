@@ -82,6 +82,9 @@ services:
     restart: unless-stopped
     environment:
       ACCEPT_EULA: "Y"
+      # Dev-only, không expose ra ngoài docker-compose network — bỏ auth như cb-mailhog
+      # thay vì bắt nhớ thêm 1 password chỉ để xem log local.
+      SEQ_FIRSTRUN_NOAUTHENTICATION: "true"
     ports:
       - "5341:80"   # UI xem log: http://localhost:5341
     volumes:
