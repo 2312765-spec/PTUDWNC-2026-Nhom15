@@ -1,4 +1,5 @@
 using CulinaryBlog.API.Extensions;
+using CulinaryBlog.Application.Auth.Commands.GoogleLogin;
 using CulinaryBlog.Application.Auth.Commands.Login;
 using CulinaryBlog.Application.Auth.Commands.Register;
 using CulinaryBlog.Application.Auth.Dtos;
@@ -33,8 +34,12 @@ public static class AuthEndpoints
              .ProducesProblem(StatusCodes.Status403Forbidden)
              .ProducesProblem(StatusCodes.Status423Locked);
 
-        group.MapPost("/google", () => NotImplementedResults.Pending("FR-AUTH-003", "A"))
-             .WithSummary("Đăng nhập Google — body { idToken } (D9)");
+        group.MapPost("/google", GoogleLoginAsync)
+             .WithSummary("Đăng nhập/đăng ký Google — body { idToken } (D9)")
+             .Produces<AuthResponseDto>(StatusCodes.Status200OK)
+             .ProducesValidationProblem()
+             .ProducesProblem(StatusCodes.Status400BadRequest)
+             .ProducesProblem(StatusCodes.Status502BadGateway);
 
         group.MapPost("/refresh", () => NotImplementedResults.Pending("FR-AUTH-004", "A"))
              .WithSummary("Làm mới access token — rotation + reuse detection (D20)");
@@ -88,6 +93,21 @@ public static class AuthEndpoints
 
         return TypedResults.Ok(result);
     }
+
+    private static async Task<IResult> GoogleLoginAsync(
+        GoogleLoginRequest request,
+        HttpContext httpContext,
+        ISender sender,
+        CancellationToken ct)
+    {
+        var command = new GoogleLoginCommand(
+            request.IdToken,
+            httpContext.Connection.RemoteIpAddress?.ToString());
+
+        var result = await sender.Send(command, ct);
+
+        return TypedResults.Ok(result);
+    }
 }
 
 /// <summary>D5 — wire contract của POST /auth/register.</summary>
@@ -95,3 +115,6 @@ public sealed record RegisterRequest(string Email, string Password, string Displ
 
 /// <summary>D5 — wire contract của POST /auth/login.</summary>
 public sealed record LoginRequest(string Email, string Password);
+
+/// <summary>D9 — wire contract của POST /auth/google.</summary>
+public sealed record GoogleLoginRequest(string IdToken);

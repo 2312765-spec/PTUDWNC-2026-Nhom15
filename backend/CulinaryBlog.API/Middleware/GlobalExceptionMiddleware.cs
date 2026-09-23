@@ -24,6 +24,7 @@ namespace CulinaryBlog.API.Middleware;
 /// | ConflictException                | 409  | *_EXISTS…                     |
 /// | DbUpdateConcurrencyException     | 409  | RECIPE_CONCURRENCY_CONFLICT   |
 /// | LockedException                  | 423  | AUTH_ACCOUNT_LOCKED           |
+/// | BadGatewayException               | 502  | AUTH_GOOGLE_UNAVAILABLE (D33) |
 /// | còn lại                          | 500  | — (không lộ stack trace)      |
 /// </summary>
 public sealed class GlobalExceptionMiddleware(
@@ -108,6 +109,14 @@ public sealed class GlobalExceptionMiddleware(
             NotFoundException nfe => ((int)HttpStatusCode.NotFound, nfe.ErrorCode, "Không tìm thấy", null),
             ConflictException ce => ((int)HttpStatusCode.Conflict, ce.ErrorCode, "Xung đột dữ liệu", null),
             LockedException le => (423, le.ErrorCode, "Tài khoản bị khóa", null),
+
+            // D33: 502 có chủ đích khi phụ thuộc ngoài (Google) không gọi được vì hạ tầng —
+            // khác bản chất với DomainException 400 (token client gửi sai).
+            BadGatewayException be => (
+                (int)HttpStatusCode.BadGateway,
+                be.ErrorCode,
+                "Dịch vụ bên ngoài không khả dụng",
+                null),
 
             // D4: concurrency conflict là 409, KHÔNG phải 422 như Phụ lục A/B của SRS ghi.
             DbUpdateConcurrencyException => (

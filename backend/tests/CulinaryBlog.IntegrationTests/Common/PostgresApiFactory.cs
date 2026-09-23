@@ -1,8 +1,10 @@
+using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Infrastructure.Identity;
 using CulinaryBlog.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
@@ -62,5 +64,10 @@ public sealed class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncL
         builder.UseSetting("Cors:AllowedOrigins:0", "http://localhost:3000");
         builder.UseSetting("Smtp:Host", "localhost");
         builder.UseSetting("Smtp:Port", "1");
+
+        // FR-AUTH-003: không thể tạo ID Token Google hợp lệ trong test — thay IGoogleTokenValidator
+        // thật bằng FakeGoogleTokenValidator (xem GoogleLoginTests).
+        builder.ConfigureTestServices(services =>
+            services.AddScoped<IGoogleTokenValidator, FakeGoogleTokenValidator>());
     }
 }

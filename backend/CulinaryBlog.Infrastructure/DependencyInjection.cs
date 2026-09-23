@@ -73,6 +73,7 @@ public static class DependencyInjection
 
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IJwtService, JwtService>();
+        services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IEmailService, MailKitEmailService>();
 

@@ -28,6 +28,19 @@ public interface IIdentityService
         string email,
         string password,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// FR-AUTH-003, D9 — sau khi <c>IGoogleTokenValidator</c> đã verify ID Token. Đã có user với
+    /// email đó (đăng ký thủ công trước) → liên kết (AddLoginAsync), <c>IsNewUser=false</c>.
+    /// Chưa có → tạo mới, gán role "Author", <c>displayName</c>/<c>avatarUrl</c> lấy từ Google
+    /// profile, <c>IsNewUser=true</c>. Không bao giờ tạo tài khoản thứ hai cho cùng một email.
+    /// </summary>
+    Task<(AuthenticatedUser User, bool IsNewUser)> LoginOrRegisterWithGoogleAsync(
+        string email,
+        string displayName,
+        string? avatarUrl,
+        string providerKey,
+        CancellationToken ct = default);
 }
 
 /// <summary>Hồ sơ user sau khi tạo/đăng nhập thành công — Application không cần biết gì thêm về ApplicationUser.</summary>

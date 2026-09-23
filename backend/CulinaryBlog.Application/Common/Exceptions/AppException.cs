@@ -28,3 +28,7 @@ public sealed class UnauthorizedException(string errorCode, string message)
 /// <summary>423 — tài khoản bị khóa tạm thời (D17).</summary>
 public sealed class LockedException(string errorCode, string message)
     : AppException(errorCode, message);
+
+/// <summary>502 — phụ thuộc bên ngoài (vd. Google API) không gọi được vì lý do hạ tầng (D33).</summary>
+public sealed class BadGatewayException(string errorCode, string message)
+    : AppException(errorCode, message);

@@ -14,6 +14,7 @@ public static class ErrorCodes
     public const string AuthRefreshTokenExpired = "AUTH_REFRESH_TOKEN_EXPIRED";      // 401
     public const string AuthRefreshTokenRevoked = "AUTH_REFRESH_TOKEN_REVOKED";      // 401
     public const string AuthGoogleTokenInvalid = "AUTH_GOOGLE_TOKEN_INVALID";        // 400
+    public const string AuthGoogleUnavailable = "AUTH_GOOGLE_UNAVAILABLE";           // 502 (D33)
     public const string AuthAccountDisabled = "AUTH_ACCOUNT_DISABLED";               // 403
     public const string AuthAccountLocked = "AUTH_ACCOUNT_LOCKED";                   // 423 (D17)
 
