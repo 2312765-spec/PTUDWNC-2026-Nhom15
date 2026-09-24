@@ -50,8 +50,8 @@ public static class CategoryEndpoints
              .Produces<CategoryDto>(StatusCodes.Status200OK)
              .ProducesValidationProblem()
              .ProducesProblem(StatusCodes.Status404NotFound)
-             .ProducesProblem(StatusCodes.Status409Conflict);
-            // .RequireAuthorization(Policies.Admin);
+             .ProducesProblem(StatusCodes.Status409Conflict)
+            .RequireAuthorization(Policies.Admin);
 
         group.MapDelete("/{id:guid}", (Guid id) => NotImplementedResults.Pending("FR-CAT-005", "B"))
              .RequireAuthorization(Policies.Admin)
