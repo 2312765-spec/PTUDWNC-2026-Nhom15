@@ -19,6 +19,17 @@ public sealed class Category : BaseEntity
     }
 
     /// <summary>
+    /// FR-CAT-004: Cập nhật tên và mô tả.
+    /// Quyết định bắt buộc: Slug KHÔNG thay đổi khi cập nhật Name.
+    /// </summary>
+    public void Update(string name, string? description)
+    {
+        Name = name;
+        Description = description;
+        // Nếu entity có thuộc tính LastModifiedAt / UpdatedAt thì gán thêm:
+        // LastModifiedAt = DateTime.UtcNow;
+    }
+    /// <summary>
     /// Dùng cho seeding Sprint 0. Validate + auto-suffix slug (D10) là việc của
     /// FR-CAT-003 (Sprint 1 — B), chưa hiện thực ở đây.
     /// </summary>
