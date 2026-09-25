@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/Toast';
 import { apiClient, toProblemDetails } from '@/lib/api-client';
-import type { RecipeImageDto } from '@/lib/types';
+import type { UploadRecipeImageResponse } from '@/lib/types';
 import { IMAGE_MIME_ERROR_MESSAGE, IMAGE_SIZE_ERROR_MESSAGE } from '@/lib/validation/imageFile';
 
 /**
@@ -64,7 +64,7 @@ export function useRecipeImages(recipeId: string) {
       // Không tự set header Content-Type: axios phát hiện body là FormData và tự bỏ
       // header mặc định 'application/json' của apiClient để trình duyệt gắn boundary
       // multipart đúng — set tay ở đây sẽ làm mất boundary và server không đọc được file.
-      const { data } = await apiClient.post<RecipeImageDto>(`/recipes/${recipeId}/images`, form, {
+      const { data } = await apiClient.post<UploadRecipeImageResponse>(`/recipes/${recipeId}/images`, form, {
         onUploadProgress: (event) => {
           if (onProgress && event.total) {
             onProgress(Math.round((event.loaded / event.total) * 100));

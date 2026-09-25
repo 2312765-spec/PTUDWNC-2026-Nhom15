@@ -97,3 +97,14 @@ export interface RecipeImageDto {
   isPrimary: boolean;
   orderIndex: number;
 }
+
+/**
+ * D27 — response THẬT của `POST /recipes/{id}/images` (SRS 8.4): chỉ 4 trường. Không có
+ * `orderIndex`/`mediumUrl`/`thumbnailUrl` — gallery phải điền để thành `RecipeImageDto`.
+ */
+export interface UploadRecipeImageResponse {
+  imageId: string;
+  originalUrl: string;
+  altText: string | null;
+  isPrimary: boolean;
+}

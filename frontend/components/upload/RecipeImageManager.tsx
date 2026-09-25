@@ -22,11 +22,18 @@ export function RecipeImageManager({ recipeId, initialImages = [] }: RecipeImage
   const gallery = useRecipeImageGallery(recipeId, initialImages);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const draggedImageId = useRef<string | null>(null);
+  const uploadQueue = useRef<Promise<void>>(Promise.resolve());
 
   function handleFilesSelected(files: File[]) {
+    // Hàng đợi TUẦN TỰ dùng chung cho mọi lần chọn/thả file, không Promise.all: recipe chưa có ảnh thì
+    // mọi upload đồng thời cùng thấy "chưa có ảnh" và cùng đòi làm ảnh primary (D22/D27). Xếp vào cùng
+    // một chuỗi (không phải mỗi lần chọn một chuỗi) để thả thêm file lúc đợt trước còn chạy cũng
+    // không chạy song song.
     for (const file of files) {
-      // Lỗi đã hiện toast ở useRecipeImages — chặn unhandled rejection ở đây, không xử lý lại.
-      gallery.upload(file).catch(() => {});
+      uploadQueue.current = uploadQueue.current
+        .then(() => gallery.upload(file))
+        // Lỗi đã hiện toast ở useRecipeImages — bỏ qua file lỗi, vẫn tải tiếp các file còn lại.
+        .catch(() => {});
     }
   }
 

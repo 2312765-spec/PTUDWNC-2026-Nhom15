@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import type { RecipeImageDto } from '@/lib/types';
+import type { RecipeImageDto, UploadRecipeImageResponse } from '@/lib/types';
 import { useRecipeImageGallery } from '@/lib/hooks/useRecipeImageGallery';
 
 /**
@@ -25,6 +25,17 @@ jest.mock('@/lib/hooks/useRecipeImages', () => ({
 
 const RECIPE_ID = '11111111-1111-1111-1111-111111111111';
 
+/** Đúng 4 trường backend trả về ở POST /images (D27) — KHÔNG có orderIndex/mediumUrl/thumbnailUrl. */
+function uploadResponse(overrides: Partial<UploadRecipeImageResponse> = {}): UploadRecipeImageResponse {
+  return {
+    imageId: 'img-new',
+    originalUrl: 'http://minio/img-new.jpg',
+    altText: null,
+    isPrimary: false,
+    ...overrides,
+  };
+}
+
 function image(overrides: Partial<RecipeImageDto>): RecipeImageDto {
   return {
     imageId: 'img-1',
@@ -44,13 +55,13 @@ beforeEach(() => {
 
 describe('useRecipeImageGallery — upload', () => {
   it('thêm placeholder đang tải, báo tiến trình, rồi thay bằng ảnh thật khi xong', async () => {
-    let resolveUpload!: (image: RecipeImageDto) => void;
+    let resolveUpload!: (image: UploadRecipeImageResponse) => void;
     let capturedOnProgress: ((percent: number) => void) | undefined;
 
     mockUploadImage.mockImplementationOnce(
       (_file: File, _altText: string | undefined, onProgress?: (percent: number) => void) => {
         capturedOnProgress = onProgress;
-        return new Promise<RecipeImageDto>((resolve) => {
+        return new Promise<UploadRecipeImageResponse>((resolve) => {
           resolveUpload = resolve;
         });
       },
@@ -72,14 +83,62 @@ describe('useRecipeImageGallery — upload', () => {
     });
     expect(result.current.uploadingFiles[0].progress).toBe(40);
 
-    const uploaded = image({ imageId: 'img-1', isPrimary: true });
     await act(async () => {
-      resolveUpload(uploaded);
+      resolveUpload(uploadResponse({ imageId: 'img-1', isPrimary: true }));
       await uploadPromise;
     });
 
     expect(result.current.uploadingFiles).toHaveLength(0);
-    expect(result.current.images).toEqual([uploaded]);
+    // Backend không trả orderIndex/mediumUrl/thumbnailUrl → gallery phải điền: ảnh đầu tiên = 0, url resize = null.
+    expect(result.current.images).toEqual([
+      expect.objectContaining({
+        imageId: 'img-1',
+        isPrimary: true,
+        orderIndex: 0,
+        mediumUrl: null,
+        thumbnailUrl: null,
+      }),
+    ]);
+  });
+
+  it('upload vào gallery đã có ảnh → orderIndex = lớn nhất hiện có + 1, ảnh mới xếp cuối (không NaN/undefined)', async () => {
+    mockUploadImage.mockResolvedValueOnce(uploadResponse({ imageId: 'img-new' }));
+    const { result } = renderHook(() =>
+      useRecipeImageGallery(RECIPE_ID, [
+        image({ imageId: 'a', orderIndex: 0, isPrimary: true }),
+        image({ imageId: 'b', orderIndex: 4 }),
+      ]),
+    );
+
+    await act(async () => {
+      await result.current.upload(new File(['x'], 'moi.jpg', { type: 'image/jpeg' }));
+    });
+
+    expect(result.current.images.map((img) => [img.imageId, img.orderIndex])).toEqual([
+      ['a', 0],
+      ['b', 4],
+      ['img-new', 5],
+    ]);
+  });
+
+  it('upload liên tiếp nhiều ảnh → orderIndex tăng dần 0, 1, 2 và chỉ ảnh đầu là primary', async () => {
+    mockUploadImage
+      .mockResolvedValueOnce(uploadResponse({ imageId: 'i1', isPrimary: true }))
+      .mockResolvedValueOnce(uploadResponse({ imageId: 'i2' }))
+      .mockResolvedValueOnce(uploadResponse({ imageId: 'i3' }));
+    const { result } = renderHook(() => useRecipeImageGallery(RECIPE_ID));
+
+    for (const name of ['1.jpg', '2.jpg', '3.jpg']) {
+      await act(async () => {
+        await result.current.upload(new File(['x'], name, { type: 'image/jpeg' }));
+      });
+    }
+
+    expect(result.current.images.map((img) => [img.imageId, img.orderIndex, img.isPrimary])).toEqual([
+      ['i1', 0, true],
+      ['i2', 1, false],
+      ['i3', 2, false],
+    ]);
   });
 
   it('upload lỗi → dọn placeholder, không kẹt trạng thái đang tải, không thêm ảnh giả', async () => {

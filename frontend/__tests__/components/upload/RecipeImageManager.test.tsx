@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RecipeImageManager } from '@/components/upload/RecipeImageManager';
 import { useRecipeImageGallery } from '@/lib/hooks/useRecipeImageGallery';
@@ -75,6 +75,63 @@ describe('RecipeImageManager', () => {
     await userEvent.upload(input, file);
 
     expect(gallery.upload).toHaveBeenCalledWith(file);
+  });
+
+  it('chọn nhiều file cùng lúc → upload TUẦN TỰ, file sau chỉ bắt đầu khi file trước xong (tránh đua tranh primary ở server)', async () => {
+    let finishFirst!: () => void;
+    const upload = jest
+      .fn()
+      .mockImplementationOnce(() => new Promise<void>((resolve) => (finishFirst = resolve)))
+      .mockResolvedValue(undefined);
+    setupGallery({ upload });
+    render(<RecipeImageManager recipeId={RECIPE_ID} />);
+
+    const first = new File([new Uint8Array(1024)], '1.jpg', { type: 'image/jpeg' });
+    const second = new File([new Uint8Array(1024)], '2.jpg', { type: 'image/jpeg' });
+    const input = screen.getByLabelText(/chọn ảnh/i, { selector: 'input' });
+    await userEvent.upload(input, [first, second]);
+
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(upload).toHaveBeenLastCalledWith(first);
+
+    finishFirst();
+    await waitFor(() => expect(upload).toHaveBeenCalledTimes(2));
+    expect(upload).toHaveBeenLastCalledWith(second);
+  });
+
+  it('thả thêm file khi đợt trước còn đang tải → vẫn xếp hàng, không chạy song song', async () => {
+    let finishFirst!: () => void;
+    const upload = jest
+      .fn()
+      .mockImplementationOnce(() => new Promise<void>((resolve) => (finishFirst = resolve)))
+      .mockResolvedValue(undefined);
+    setupGallery({ upload });
+    render(<RecipeImageManager recipeId={RECIPE_ID} />);
+
+    const first = new File([new Uint8Array(1024)], '1.jpg', { type: 'image/jpeg' });
+    const second = new File([new Uint8Array(1024)], '2.jpg', { type: 'image/jpeg' });
+    const input = screen.getByLabelText(/chọn ảnh/i, { selector: 'input' });
+    await userEvent.upload(input, first);
+    await userEvent.upload(input, second);
+
+    expect(upload).toHaveBeenCalledTimes(1);
+
+    finishFirst();
+    await waitFor(() => expect(upload).toHaveBeenCalledTimes(2));
+    expect(upload).toHaveBeenLastCalledWith(second);
+  });
+
+  it('file đầu upload lỗi → vẫn tiếp tục upload file kế tiếp (lỗi đã có toast ở hook)', async () => {
+    const upload = jest.fn().mockRejectedValueOnce(new Error('FILE_SIZE_EXCEEDED')).mockResolvedValue(undefined);
+    setupGallery({ upload });
+    render(<RecipeImageManager recipeId={RECIPE_ID} />);
+
+    const first = new File([new Uint8Array(1024)], '1.jpg', { type: 'image/jpeg' });
+    const second = new File([new Uint8Array(1024)], '2.jpg', { type: 'image/jpeg' });
+    await userEvent.upload(screen.getByLabelText(/chọn ảnh/i, { selector: 'input' }), [first, second]);
+
+    await waitFor(() => expect(upload).toHaveBeenCalledTimes(2));
+    expect(upload).toHaveBeenLastCalledWith(second);
   });
 
   it('uploadingFiles có item → hiện tile tiến trình với tên file + %', () => {

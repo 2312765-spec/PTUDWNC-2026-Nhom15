@@ -41,7 +41,13 @@ export function useRecipeImageGallery(recipeId: string, initialImages: RecipeIma
           );
         });
 
-        setImages((current) => [...current, uploaded].sort(byOrderIndex));
+        // Backend chỉ trả 4 trường (D27), không có orderIndex — server gán Max(hiện có)+1 (ảnh đầu = 0),
+        // gallery tính lại cùng công thức để sort/reorder không gặp `undefined`. mediumUrl/thumbnailUrl
+        // = null cho tới khi FR-JOB-002 resize xong.
+        setImages((current) => {
+          const orderIndex = current.length === 0 ? 0 : Math.max(...current.map((img) => img.orderIndex)) + 1;
+          return [...current, { ...uploaded, mediumUrl: null, thumbnailUrl: null, orderIndex }].sort(byOrderIndex);
+        });
       } finally {
         setUploadingFiles((current) => current.filter((item) => item.id !== placeholderId));
       }
