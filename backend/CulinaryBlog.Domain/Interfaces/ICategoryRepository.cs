@@ -13,6 +13,5 @@ public interface ICategoryRepository
     Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken = default);
     Task AddAsync(Category category, CancellationToken cancellationToken = default);
     Task<int> GetPublishedRecipeCountAsync(Guid categoryId, CancellationToken cancellationToken = default);
-     Task<Category?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
-
+    Task<Category?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 }

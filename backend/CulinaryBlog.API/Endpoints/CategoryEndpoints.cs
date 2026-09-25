@@ -6,7 +6,6 @@ using CulinaryBlog.Application.Categories.Queries.GetCategories;
 using CulinaryBlog.Application.Categories.Queries.GetCategoryBySlug;
 using CulinaryBlog.Application.Common.Interfaces;
 using MediatR;
-using Microsoft.AspNetCore.Mvc;
 
 namespace CulinaryBlog.API.Endpoints;
 
@@ -27,7 +26,7 @@ public static class CategoryEndpoints
              .WithSummary("Danh sách danh mục kèm recipeCount — cache 30 phút")
              .Produces<IReadOnlyList<CategoryDto>>(StatusCodes.Status200OK)
              .AllowAnonymous();
-        
+
         group.MapGet("/{slug}", GetCategoryBySlugAsync)
              .WithName("GetCategoryBySlug")
              .WithSummary("Chi tiết danh mục + recipes phân trang — Guest chỉ thấy Published")
@@ -49,9 +48,11 @@ public static class CategoryEndpoints
              .WithSummary("[Admin] Cập nhật danh mục — Slug KHÔNG đổi khi đổi Name")
              .Produces<CategoryDto>(StatusCodes.Status200OK)
              .ProducesValidationProblem()
+             .ProducesProblem(StatusCodes.Status401Unauthorized)
+             .ProducesProblem(StatusCodes.Status403Forbidden)
              .ProducesProblem(StatusCodes.Status404NotFound)
              .ProducesProblem(StatusCodes.Status409Conflict)
-            .RequireAuthorization(Policies.Admin);
+             .RequireAuthorization(Policies.Admin);
 
         group.MapDelete("/{id:guid}", (Guid id) => NotImplementedResults.Pending("FR-CAT-005", "B"))
              .RequireAuthorization(Policies.Admin)
@@ -94,7 +95,7 @@ public static class CategoryEndpoints
     /// </summary>
     private static async Task<IResult> UpdateCategoryAsync(
         Guid id,
-        [FromBody] UpdateCategoryRequest request,
+        UpdateCategoryRequest request,
         ISender sender,
         CancellationToken ct)
     {

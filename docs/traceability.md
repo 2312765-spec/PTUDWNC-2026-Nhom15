@@ -52,7 +52,7 @@ FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
 | FR-CAT-001 | Xem danh sách danh mục | M | `GET /api/v1/categories` → 200 | S3 | `GetCategoriesQuery(+Handler)` `ICacheable` | `CategoryRepository.GetAllWithRecipesAsync()` | `Categories/GetCategoriesTests.cs` | **D8** | ✅ |
 | FR-CAT-002 | Chi tiết danh mục + recipes | M | `GET /api/v1/categories/{slug}` → 200/404 | S3 | `GetCategoryBySlugQuery(+Handler)` | `CategoryRepository.GetBySlugAsync()` (D32) | `Categories/GetCategoryBySlugTests.cs` | D8, **D32** | ✅ |
 | FR-CAT-003 | Tạo danh mục [Admin] | M | `POST /api/v1/categories` → 201 | S3 | `CreateCategoryCommand(+Handler,+Validator)` `ICacheInvalidator` | `Category.Create()`, `SlugHelper.Generate()` | `Categories/CreateCategoryTests.cs` | D10, D8 | ✅ |
-| FR-CAT-004 | Cập nhật danh mục [Admin] | M | `PUT /api/v1/categories/{id}` → 200 | S3 | `UpdateCategoryCommand(+Handler,+Validator)` | Slug **KHÔNG** đổi khi đổi Name | `Categories/UpdateTests.cs` | D8 | ⬜ |
+| FR-CAT-004 | Cập nhật danh mục [Admin] | M | `PUT /api/v1/categories/{id}` → 200 | S3 | `UpdateCategoryCommand(+Handler,+Validator)` `ICacheInvalidator` | `Category.Update()`, Slug **KHÔNG** đổi khi đổi Name | `Categories/UpdateCategoryTests.cs`, `Categories/UpdateCategoryCommand{Validator,Handler}Tests.cs` | D4, D8, D10 | 🟡 |
 | FR-CAT-005 | Xóa danh mục [Admin] | S | `DELETE /api/v1/categories/{id}` → 204 | S3 | `DeleteCategoryCommand(+Handler)` | **Soft delete**, đếm recipe > 0 → 409 | `Categories/DeleteTests.cs` | **D2** | ⬜ |
 
 **Điểm kiểm thử bắt buộc**

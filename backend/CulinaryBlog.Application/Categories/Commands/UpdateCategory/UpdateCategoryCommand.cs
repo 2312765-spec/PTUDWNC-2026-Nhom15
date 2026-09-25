@@ -15,4 +15,5 @@ public record UpdateCategoryCommand(
 {
     // D8: Xóa cả 2 cache tag "categories" và "recipes"
     [JsonIgnore]
-public IReadOnlyList<string> TagsToInvalidate => new[] { "categories", "recipes" };}
+    public IReadOnlyList<string> TagsToInvalidate => ["categories", "recipes"];
+}

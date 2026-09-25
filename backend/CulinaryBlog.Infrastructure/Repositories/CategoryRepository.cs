@@ -1,8 +1,9 @@
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Interfaces;
 using CulinaryBlog.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
 using CulinaryBlog.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
+
 namespace CulinaryBlog.Infrastructure.Repositories;
 
 public sealed class CategoryRepository : ICategoryRepository
@@ -14,7 +15,6 @@ public sealed class CategoryRepository : ICategoryRepository
         _context = context;
     }
 
-    
     public async Task<IReadOnlyList<Category>> GetAllWithRecipesAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Categories

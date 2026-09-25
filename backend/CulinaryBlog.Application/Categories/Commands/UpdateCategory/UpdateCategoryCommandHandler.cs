@@ -44,7 +44,8 @@ public sealed class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategor
         }
 
         // 3. Cập nhật Category (Slug tuyệt đối KHÔNG đổi theo D10)
-       category.Update(nameTrimmed, request.Description);
+        category.Update(nameTrimmed, request.Description?.Trim());
+
         // 4. Lưu vào CSDL
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
