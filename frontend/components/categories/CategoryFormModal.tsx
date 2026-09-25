@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { CategoryDto, createCategory, updateCategory } from "@/lib/categories";
 
 interface Props {
@@ -8,34 +8,33 @@ interface Props {
   onClose: () => void;
   categoryToEdit?: CategoryDto | null;
   onSuccess: () => void;
-  token?: string; // Token Bearer của Admin
+  token?: string;
 }
 
-export default function CategoryFormModal({
-  isOpen,
+// Component cha: Điều khiển ẩn/hiện và tự động reset form bằng key
+export default function CategoryFormModal(props: Props) {
+  if (!props.isOpen) return null;
+
+  return (
+    <CategoryFormModalContent
+      key={props.categoryToEdit?.id ?? "create-new-category"}
+      {...props}
+    />
+  );
+}
+
+// Component con: Khởi tạo state trực tiếp từ props mà KHÔNG CẦN useEffect
+function CategoryFormModalContent({
   onClose,
   categoryToEdit,
   onSuccess,
   token,
 }: Props) {
   const isEdit = !!categoryToEdit;
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const [name, setName] = useState(categoryToEdit?.name ?? "");
+  const [description, setDescription] = useState(categoryToEdit?.description ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (categoryToEdit) {
-      setName(categoryToEdit.name);
-      setDescription(categoryToEdit.description || "");
-    } else {
-      setName("");
-      setDescription("");
-    }
-    setError(null);
-  }, [categoryToEdit, isOpen]);
-
-  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,15 +49,26 @@ export default function CategoryFormModal({
     try {
       if (isEdit && categoryToEdit) {
         // FR-CAT-004: Cập nhật danh mục
-        await updateCategory(categoryToEdit.id, { name: name.trim(), description: description.trim() }, token);
+        await updateCategory(
+          categoryToEdit.id,
+          { name: name.trim(), description: description.trim() },
+          token
+        );
       } else {
         // FR-CAT-003: Tạo mới danh mục
-        await createCategory({ name: name.trim(), description: description.trim() }, token);
+        await createCategory(
+          { name: name.trim(), description: description.trim() },
+          token
+        );
       }
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err.message || "Đã xảy ra lỗi");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Đã xảy ra lỗi không xác định.");
+      }
     } finally {
       setLoading(false);
     }
@@ -71,7 +81,12 @@ export default function CategoryFormModal({
           <h3 className="text-lg font-bold text-gray-900">
             {isEdit ? "Cập Nhật Danh Mục (FR-CAT-004)" : "Tạo Mới Danh Mục (FR-CAT-003)"}
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 font-bold">✕</button>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 font-bold p-1 text-base"
+          >
+            ✕
+          </button>
         </div>
 
         {error && (
@@ -91,7 +106,7 @@ export default function CategoryFormModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="VD: Món nướng hải sản..."
-              className="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+              className="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
             />
           </div>
 
@@ -108,7 +123,7 @@ export default function CategoryFormModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Mô tả về các công thức thuộc danh mục này..."
-              className="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none resize-none"
+              className="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-hidden resize-none"
             />
           </div>
 
