@@ -73,6 +73,32 @@ public sealed class ImagesTests(RecipeImagesApiFactory factory) : IClassFixture<
         images.Select(i => i.OrderIndex).Should().BeEquivalentTo([0, 1, 2]);
     }
 
+    [Fact(DisplayName = "FR-RCP-008/D22 (regression): 2 PATCH isPrimary=true đồng thời vào 2 ảnh khác nhau → cả 2 đều 200, đúng 1 primary")]
+    public async Task Patch_ConcurrentSetPrimary_BothSucceedWithExactlyOnePrimary()
+    {
+        var (token, userId) = await RegisterAuthorAsync();
+        var recipeId = await SeedRecipeAsync(userId, recipe =>
+        {
+            recipe.AttachImage("https://fake/1.jpg");
+            recipe.AttachImage("https://fake/2.jpg");
+            recipe.AttachImage("https://fake/3.jpg");
+        });
+        var ids = (await GetImagesAsync(recipeId)).OrderBy(i => i.OrderIndex).Select(i => i.Id).ToList();
+
+        var responses = await Task.WhenAll(new[] { ids[1], ids[2] }.Select(imageId =>
+        {
+            var request = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/recipes/{recipeId}/images/{imageId}")
+            {
+                Content = JsonContent.Create(new { isPrimary = true }),
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            return _client.SendAsync(request);
+        }));
+
+        responses.Should().OnlyContain(r => r.StatusCode == HttpStatusCode.OK);
+        (await GetImagesAsync(recipeId)).Should().ContainSingle(i => i.IsPrimary);
+    }
+
     [Fact(DisplayName = "permissions.md: Author khác không phải chủ sở hữu → 403 RECIPE_FORBIDDEN")]
     public async Task Upload_AsOtherAuthor_Returns403()
     {
