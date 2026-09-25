@@ -22,7 +22,15 @@ function byOrderIndex(a: RecipeImageDto, b: RecipeImageDto): number {
  * Recipe) vẫn là nguồn sự thật, nếu lệch thì lần load lại sau ghi đè state này.
  */
 export function useRecipeImageGallery(recipeId: string, initialImages: RecipeImageDto[] = []) {
-  const [images, setImages] = useState<RecipeImageDto[]>([...initialImages].sort(byOrderIndex));
+  const [images, setImagesState] = useState<RecipeImageDto[]>([...initialImages].sort(byOrderIndex));
+  // Nguồn sự thật ĐỒNG BỘ. Không dựa vào updater của setState: React chạy updater lười (nhất là khi
+  // đã có update khác chờ trong cùng batch), nên kết quả tính trong updater KHÔNG dùng được ngay sau
+  // khi gọi setState — reorder cần biết ảnh nào đổi orderIndex để PATCH.
+  const imagesRef = useRef(images);
+  const setImages = useCallback((update: (current: RecipeImageDto[]) => RecipeImageDto[]) => {
+    imagesRef.current = update(imagesRef.current);
+    setImagesState(imagesRef.current);
+  }, []);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const placeholderSeq = useRef(0);
 
@@ -52,7 +60,7 @@ export function useRecipeImageGallery(recipeId: string, initialImages: RecipeIma
         setUploadingFiles((current) => current.filter((item) => item.id !== placeholderId));
       }
     },
-    [uploadImage],
+    [uploadImage, setImages],
   );
 
   const setPrimary = useCallback(
@@ -60,7 +68,7 @@ export function useRecipeImageGallery(recipeId: string, initialImages: RecipeIma
       await updateImage(imageId, { isPrimary: true });
       setImages((current) => current.map((img) => ({ ...img, isPrimary: img.imageId === imageId })));
     },
-    [updateImage],
+    [updateImage, setImages],
   );
 
   const updateAltText = useCallback(
@@ -68,7 +76,7 @@ export function useRecipeImageGallery(recipeId: string, initialImages: RecipeIma
       await updateImage(imageId, { altText });
       setImages((current) => current.map((img) => (img.imageId === imageId ? { ...img, altText } : img)));
     },
-    [updateImage],
+    [updateImage, setImages],
   );
 
   const remove = useCallback(
@@ -87,7 +95,7 @@ export function useRecipeImageGallery(recipeId: string, initialImages: RecipeIma
         return [{ ...next, isPrimary: true }, ...others];
       });
     },
-    [deleteImage],
+    [deleteImage, setImages],
   );
 
   const reorder = useCallback(
@@ -96,36 +104,47 @@ export function useRecipeImageGallery(recipeId: string, initialImages: RecipeIma
         return;
       }
 
-      // Đọc kết quả từ trong updater để tránh stale closure trên `images`, đồng thời lấy
-      // ra danh sách thật sự đổi orderIndex — chỉ PATCH đúng những ảnh đó (D27: cho phép
-      // trùng orderIndex, không cần renumber toàn bộ).
-      let changed: { imageId: string; orderIndex: number }[] = [];
+      const previous = imagesRef.current;
+      const fromIndex = previous.findIndex((img) => img.imageId === draggedImageId);
+      const toIndex = previous.findIndex((img) => img.imageId === targetImageId);
+      if (fromIndex === -1 || toIndex === -1) {
+        return;
+      }
 
-      setImages((current) => {
-        const fromIndex = current.findIndex((img) => img.imageId === draggedImageId);
-        const toIndex = current.findIndex((img) => img.imageId === targetImageId);
-        if (fromIndex === -1 || toIndex === -1) {
-          return current;
+      const reordered = [...previous];
+      const [moved] = reordered.splice(fromIndex, 1);
+      reordered.splice(toIndex, 0, moved);
+
+      // Chỉ PATCH đúng những ảnh thật sự đổi orderIndex (D27: cho phép trùng, không renumber toàn bộ).
+      const changed: { imageId: string; orderIndex: number }[] = [];
+      const next = reordered.map((img, index) => {
+        if (img.orderIndex !== index) {
+          changed.push({ imageId: img.imageId, orderIndex: index });
         }
-
-        const reordered = [...current];
-        const [moved] = reordered.splice(fromIndex, 1);
-        reordered.splice(toIndex, 0, moved);
-
-        changed = [];
-        return reordered.map((img, index) => {
-          if (img.orderIndex !== index) {
-            changed.push({ imageId: img.imageId, orderIndex: index });
-          }
-          return { ...img, orderIndex: index };
-        });
+        return { ...img, orderIndex: index };
       });
 
-      await Promise.all(
-        changed.map(({ imageId, orderIndex }) => updateImage(imageId, { orderIndex }).catch(() => {})),
+      // Optimistic: UI đổi ngay, không đợi server.
+      setImages(() => next);
+
+      const results = await Promise.allSettled(
+        changed.map(({ imageId, orderIndex }) => updateImage(imageId, { orderIndex })),
       );
+
+      // Lỗi đã hiện toast ở useRecipeImages. Trả UI về thứ tự cũ để không hiển thị một thứ tự mà server
+      // không có. Nếu chỉ một phần PATCH thành công thì server có thể lệch tạm tới lần tải lại kế tiếp.
+      if (results.some((result) => result.status === 'rejected')) {
+        // Chỉ khôi phục orderIndex (không ghi đè cả mảng): trong lúc chờ có thể đã có ảnh mới upload
+        // xong hoặc alt text vừa sửa — những thay đổi đó phải được giữ.
+        const previousOrder = new Map(previous.map((img) => [img.imageId, img.orderIndex]));
+        setImages((current) =>
+          current
+            .map((img) => ({ ...img, orderIndex: previousOrder.get(img.imageId) ?? img.orderIndex }))
+            .sort(byOrderIndex),
+        );
+      }
     },
-    [updateImage],
+    [updateImage, setImages],
   );
 
   return {

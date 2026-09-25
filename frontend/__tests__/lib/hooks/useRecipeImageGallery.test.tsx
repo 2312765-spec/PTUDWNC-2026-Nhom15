@@ -287,6 +287,82 @@ describe('useRecipeImageGallery — reorder (D27: PATCH orderIndex, cho phép tr
     expect(mockUpdateImage).not.toHaveBeenCalledWith('img-3', expect.anything());
   });
 
+  it('hai lần reorder liên tiếp trong cùng một lượt render → cả hai đều được PATCH đúng (không phụ thuộc updater chạy lười của React)', async () => {
+    mockUpdateImage.mockResolvedValue(undefined);
+
+    const initial = [
+      image({ imageId: 'img-1', orderIndex: 0 }),
+      image({ imageId: 'img-2', orderIndex: 1 }),
+      image({ imageId: 'img-3', orderIndex: 2 }),
+    ];
+    const { result } = renderHook(() => useRecipeImageGallery(RECIPE_ID, initial));
+
+    await act(async () => {
+      // 1: [1,2,3] → [2,3,1]   2: [2,3,1] → [3,2,1]
+      const first = result.current.reorder('img-1', 'img-3');
+      const second = result.current.reorder('img-2', 'img-3');
+      await Promise.all([first, second]);
+    });
+
+    expect(result.current.images.map((i) => [i.imageId, i.orderIndex])).toEqual([
+      ['img-3', 0],
+      ['img-2', 1],
+      ['img-1', 2],
+    ]);
+    // Lần 2 đổi img-3: 1→0 và img-2: 0→1 — phải có PATCH cho chúng.
+    expect(mockUpdateImage).toHaveBeenCalledWith('img-3', { orderIndex: 0 });
+    expect(mockUpdateImage).toHaveBeenCalledWith('img-2', { orderIndex: 1 });
+  });
+
+  it('PATCH orderIndex lỗi → trả UI về thứ tự cũ (không để UI lệch với server), không ném lỗi', async () => {
+    mockUpdateImage.mockRejectedValue(new Error('RECIPE_FORBIDDEN'));
+
+    const initial = [
+      image({ imageId: 'img-1', orderIndex: 0 }),
+      image({ imageId: 'img-2', orderIndex: 1 }),
+      image({ imageId: 'img-3', orderIndex: 2 }),
+    ];
+    const { result } = renderHook(() => useRecipeImageGallery(RECIPE_ID, initial));
+
+    await act(async () => {
+      await expect(result.current.reorder('img-1', 'img-3')).resolves.toBeUndefined();
+    });
+
+    expect(result.current.images.map((i) => [i.imageId, i.orderIndex])).toEqual([
+      ['img-1', 0],
+      ['img-2', 1],
+      ['img-3', 2],
+    ]);
+  });
+
+  it('PATCH lỗi → chỉ khôi phục orderIndex, giữ nguyên ảnh mới upload xong trong lúc chờ', async () => {
+    // reorder('img-1','img-2') đổi orderIndex của CẢ HAI ảnh → 2 PATCH đang chờ, phải từ chối cả hai.
+    const pendingRejects: ((reason: Error) => void)[] = [];
+    mockUpdateImage.mockImplementation(
+      () => new Promise<void>((_resolve, reject) => pendingRejects.push(reject)),
+    );
+    mockUploadImage.mockResolvedValueOnce(uploadResponse({ imageId: 'img-new' }));
+
+    const initial = [image({ imageId: 'img-1', orderIndex: 0 }), image({ imageId: 'img-2', orderIndex: 1 })];
+    const { result } = renderHook(() => useRecipeImageGallery(RECIPE_ID, initial));
+
+    let reorderPromise!: Promise<void>;
+    act(() => {
+      reorderPromise = result.current.reorder('img-1', 'img-2');
+    });
+    await act(async () => {
+      await result.current.upload(new File(['x'], 'moi.jpg', { type: 'image/jpeg' }));
+    });
+    await act(async () => {
+      pendingRejects.forEach((reject) => reject(new Error('boom')));
+      await reorderPromise;
+    });
+
+    const ids = result.current.images.map((i) => i.imageId);
+    expect(ids).toContain('img-new');
+    expect(ids.indexOf('img-1')).toBeLessThan(ids.indexOf('img-2'));
+  });
+
   it('thả vào đúng vị trí cũ của chính nó → không đổi gì, không gọi updateImage', async () => {
     const initial = [image({ imageId: 'img-1', orderIndex: 0 }), image({ imageId: 'img-2', orderIndex: 1 })];
     const { result } = renderHook(() => useRecipeImageGallery(RECIPE_ID, initial));
