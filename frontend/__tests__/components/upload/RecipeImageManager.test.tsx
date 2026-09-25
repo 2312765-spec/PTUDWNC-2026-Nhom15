@@ -214,4 +214,50 @@ describe('RecipeImageManager', () => {
 
     expect(gallery.reorder).toHaveBeenCalledWith('img-a', 'img-b');
   });
+
+  // ---- Sắp xếp bằng nút (thay thế kéo-thả cho bàn phím / cảm ứng) ----
+
+  function threeImages() {
+    return [
+      image({ imageId: 'img-a', orderIndex: 0, altText: 'Ảnh A' }),
+      image({ imageId: 'img-b', orderIndex: 1, altText: 'Ảnh B' }),
+      image({ imageId: 'img-c', orderIndex: 2, altText: 'Ảnh C' }),
+    ];
+  }
+
+  it('ảnh đầu không có nút "lên trước", ảnh cuối không có nút "ra sau", ảnh giữa có cả hai', () => {
+    setupGallery({ images: threeImages() });
+    render(<RecipeImageManager recipeId={RECIPE_ID} />);
+
+    const [first, middle, last] = screen.getAllByTestId('recipe-image-card').map((card) => card.parentElement!);
+
+    expect(within(first).queryByRole('button', { name: /đưa ảnh lên trước/i })).not.toBeInTheDocument();
+    expect(within(first).getByRole('button', { name: /đưa ảnh ra sau/i })).toBeInTheDocument();
+    expect(within(middle).getByRole('button', { name: /đưa ảnh lên trước/i })).toBeInTheDocument();
+    expect(within(middle).getByRole('button', { name: /đưa ảnh ra sau/i })).toBeInTheDocument();
+    expect(within(last).getByRole('button', { name: /đưa ảnh lên trước/i })).toBeInTheDocument();
+    expect(within(last).queryByRole('button', { name: /đưa ảnh ra sau/i })).not.toBeInTheDocument();
+  });
+
+  it('bấm "ra sau" ở ảnh A → reorder(A, B); bấm "lên trước" ở ảnh C → reorder(C, B)', async () => {
+    const gallery = setupGallery({ images: threeImages() });
+    render(<RecipeImageManager recipeId={RECIPE_ID} />);
+    const [first, , last] = screen.getAllByTestId('recipe-image-card').map((card) => card.parentElement!);
+
+    await userEvent.click(within(first).getByRole('button', { name: /đưa ảnh ra sau/i }));
+    expect(gallery.reorder).toHaveBeenLastCalledWith('img-a', 'img-b');
+
+    await userEvent.click(within(last).getByRole('button', { name: /đưa ảnh lên trước/i }));
+    expect(gallery.reorder).toHaveBeenLastCalledWith('img-c', 'img-b');
+  });
+
+  it('sau khi di chuyển → vùng thông báo (aria-live) đọc vị trí mới cho trình đọc màn hình', async () => {
+    setupGallery({ images: threeImages() });
+    render(<RecipeImageManager recipeId={RECIPE_ID} />);
+    const [first] = screen.getAllByTestId('recipe-image-card').map((card) => card.parentElement!);
+
+    await userEvent.click(within(first).getByRole('button', { name: /đưa ảnh ra sau/i }));
+
+    expect(screen.getByRole('status')).toHaveTextContent(/Ảnh A.*vị trí 2\/3/);
+  });
 });

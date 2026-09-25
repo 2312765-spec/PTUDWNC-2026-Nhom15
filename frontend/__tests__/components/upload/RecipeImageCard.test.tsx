@@ -189,4 +189,108 @@ describe('RecipeImageCard', () => {
     screen.getByTestId('recipe-image-card').dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
     expect(onDrop).toHaveBeenCalledTimes(1);
   });
+
+  // ---- Sắp xếp bằng nút (WCAG 2.1.1: mọi chức năng phải dùng được bằng bàn phím, không chỉ kéo-thả chuột) ----
+
+  it('có onMoveEarlier/onMoveLater → hiện 2 nút "Đưa ảnh lên trước"/"ra sau", bấm gọi đúng handler', async () => {
+    const onMoveEarlier = jest.fn();
+    const onMoveLater = jest.fn();
+    render(
+      <RecipeImageCard
+        image={makeImage()}
+        onSetPrimary={jest.fn()}
+        onUpdateAltText={jest.fn()}
+        onDelete={jest.fn()}
+        onMoveEarlier={onMoveEarlier}
+        onMoveLater={onMoveLater}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /đưa ảnh lên trước/i }));
+    await userEvent.click(screen.getByRole('button', { name: /đưa ảnh ra sau/i }));
+
+    expect(onMoveEarlier).toHaveBeenCalledTimes(1);
+    expect(onMoveLater).toHaveBeenCalledTimes(1);
+  });
+
+  it('không truyền onMoveEarlier (ảnh đầu) → không có nút "lên trước"; không truyền onMoveLater (ảnh cuối) → không có nút "ra sau"', () => {
+    const { rerender } = render(
+      <RecipeImageCard
+        image={makeImage()}
+        onSetPrimary={jest.fn()}
+        onUpdateAltText={jest.fn()}
+        onDelete={jest.fn()}
+        onMoveLater={jest.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /đưa ảnh lên trước/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /đưa ảnh ra sau/i })).toBeInTheDocument();
+
+    rerender(
+      <RecipeImageCard
+        image={makeImage()}
+        onSetPrimary={jest.fn()}
+        onUpdateAltText={jest.fn()}
+        onDelete={jest.fn()}
+        onMoveEarlier={jest.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /đưa ảnh lên trước/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /đưa ảnh ra sau/i })).not.toBeInTheDocument();
+  });
+
+  it('bàn phím: Tab tới nút rồi Enter/Space kích hoạt được (là <button> thật)', async () => {
+    const onMoveLater = jest.fn();
+    render(
+      <RecipeImageCard
+        image={makeImage({ isPrimary: true })}
+        onSetPrimary={jest.fn()}
+        onUpdateAltText={jest.fn()}
+        onDelete={jest.fn()}
+        onMoveLater={onMoveLater}
+      />,
+    );
+
+    const moveLater = screen.getByRole('button', { name: /đưa ảnh ra sau/i });
+    moveLater.focus();
+    await userEvent.keyboard('{Enter}');
+    await userEvent.keyboard(' ');
+
+    expect(onMoveLater).toHaveBeenCalledTimes(2);
+  });
+
+  it('focusAction="later" → focus quay lại nút "ra sau" sau khi card render lại ở vị trí mới, rồi gọi onFocusHandled', () => {
+    const onFocusHandled = jest.fn();
+    render(
+      <RecipeImageCard
+        image={makeImage()}
+        onSetPrimary={jest.fn()}
+        onUpdateAltText={jest.fn()}
+        onDelete={jest.fn()}
+        onMoveEarlier={jest.fn()}
+        onMoveLater={jest.fn()}
+        focusAction="later"
+        onFocusHandled={onFocusHandled}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /đưa ảnh ra sau/i })).toHaveFocus();
+    expect(onFocusHandled).toHaveBeenCalledTimes(1);
+  });
+
+  it('focusAction="later" nhưng ảnh đã ở cuối (không còn nút "ra sau") → focus chuyển sang nút "lên trước" thay vì mất focus', () => {
+    render(
+      <RecipeImageCard
+        image={makeImage()}
+        onSetPrimary={jest.fn()}
+        onUpdateAltText={jest.fn()}
+        onDelete={jest.fn()}
+        onMoveEarlier={jest.fn()}
+        focusAction="later"
+        onFocusHandled={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /đưa ảnh lên trước/i })).toHaveFocus();
+  });
 });

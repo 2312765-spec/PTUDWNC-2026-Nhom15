@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ImageDeleteDialog } from '@/components/upload/ImageDeleteDialog';
 import { ImageUploadDropzone } from '@/components/upload/ImageUploadDropzone';
 import { RecipeImageCard } from '@/components/upload/RecipeImageCard';
@@ -23,6 +23,25 @@ export function RecipeImageManager({ recipeId, initialImages = [] }: RecipeImage
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const draggedImageId = useRef<string | null>(null);
   const uploadQueue = useRef<Promise<void>>(Promise.resolve());
+  const [moveFocus, setMoveFocus] = useState<{ imageId: string; action: 'earlier' | 'later' } | null>(null);
+  const [announcement, setAnnouncement] = useState('');
+  const handleFocusHandled = useCallback(() => setMoveFocus(null), []);
+
+  /** Sắp xếp bằng nút: dời ảnh `index` tới vị trí của ảnh liền trước/liền sau nó (dùng lại reorder của kéo-thả). */
+  function moveImage(index: number, action: 'earlier' | 'later') {
+    const image = gallery.images[index];
+    const target = gallery.images[action === 'earlier' ? index - 1 : index + 1];
+    if (!image || !target) {
+      return;
+    }
+
+    const newPosition = action === 'earlier' ? index : index + 2; // 1-based
+    setMoveFocus({ imageId: image.imageId, action });
+    setAnnouncement(
+      `Đã chuyển ảnh "${image.altText || 'chưa có mô tả'}" sang vị trí ${newPosition}/${gallery.images.length}`,
+    );
+    gallery.reorder(image.imageId, target.imageId).catch(() => {});
+  }
 
   function handleFilesSelected(files: File[]) {
     // Hàng đợi TUẦN TỰ dùng chung cho mọi lần chọn/thả file, không Promise.all: recipe chưa có ảnh thì
@@ -57,10 +76,14 @@ export function RecipeImageManager({ recipeId, initialImages = [] }: RecipeImage
 
       {hasTiles && (
         <div className="grid grid-cols-3 gap-5">
-          {gallery.images.map((img) => (
+          {gallery.images.map((img, index) => (
             <RecipeImageCard
               key={img.imageId}
               image={img}
+              onMoveEarlier={index > 0 ? () => moveImage(index, 'earlier') : undefined}
+              onMoveLater={index < gallery.images.length - 1 ? () => moveImage(index, 'later') : undefined}
+              focusAction={moveFocus?.imageId === img.imageId ? moveFocus.action : undefined}
+              onFocusHandled={handleFocusHandled}
               onSetPrimary={gallery.setPrimary}
               onUpdateAltText={gallery.updateAltText}
               onDelete={setPendingDeleteId}
@@ -94,6 +117,11 @@ export function RecipeImageManager({ recipeId, initialImages = [] }: RecipeImage
       )}
 
       <ImageUploadDropzone onFilesSelected={handleFilesSelected} disabled={gallery.isUploading} />
+
+      {/* Đọc vị trí mới cho trình đọc màn hình sau khi sắp xếp bằng nút. */}
+      <div role="status" className="sr-only">
+        {announcement}
+      </div>
 
       <ImageDeleteDialog
         open={pendingDeleteId !== null}

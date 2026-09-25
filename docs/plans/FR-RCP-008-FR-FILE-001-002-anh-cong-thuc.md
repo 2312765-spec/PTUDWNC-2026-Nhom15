@@ -121,6 +121,14 @@ giữ id ảnh đang kéo qua `useRef` và gọi `gallery.reorder` khi thả. 3 
 `useRecipeImageGallery.test.tsx`, 4 test ở `RecipeImageCard.test.tsx`, 1 test ở
 `RecipeImageManager.test.tsx` — tổng 61 test / 7 suite, tất cả pass. `tsc`/`eslint`/`next build` sạch.
 
+**Sắp xếp bằng nút (WCAG 2.1.1) — ✅ Xong.** Kéo-thả chuột không dùng được bằng bàn phím/cảm ứng, nên mỗi
+`RecipeImageCard` có thêm nút "Đưa ảnh lên trước" / "Đưa ảnh ra sau" (ảnh đầu không có nút trước, ảnh cuối
+không có nút sau). `RecipeImageManager.moveImage` dùng lại `gallery.reorder` (dời ảnh tới vị trí ảnh liền
+trước/sau) nên không thêm logic sắp xếp mới. Vì React đặt lại card ở vị trí mới trong DOM làm mất focus,
+Manager truyền `focusAction` để card lấy lại focus vào đúng nút vừa bấm (hết chỗ đi thì sang nút còn lại);
+vùng `role="status"` đọc vị trí mới cho trình đọc màn hình. Có test dùng gallery thật
+(`RecipeImageManager.keyboardReorder.test.tsx`) kiểm chuỗi bấm nút → đổi DOM → PATCH → giữ focus.
+
 **Còn lại (ngoài phạm vi FR-RCP-008 FE, không làm ở đây):** nhúng `RecipeImageManager` vào wizard
 thật của C — file `dashboard/recipes/[id]/edit` thuộc sở hữu C theo `team-assignment.md`.
 
