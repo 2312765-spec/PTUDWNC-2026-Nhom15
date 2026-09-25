@@ -1,6 +1,7 @@
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Interfaces;
 using CulinaryBlog.Infrastructure.Persistence;
+using CulinaryBlog.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace CulinaryBlog.Infrastructure.Repositories;
@@ -37,7 +38,20 @@ public sealed class CategoryRepository : ICategoryRepository
                 .ThenInclude(r => r.Images)
             .FirstOrDefaultAsync(c => c.Slug == slug, cancellationToken);
     }
-
+    
+     /// <summary>
+    /// Đếm số công thức đã xuất bản (Published) để trả về recipeCount trong CategoryDto.
+    /// </summary>
+    public async Task<int> GetPublishedRecipeCountAsync(Guid categoryId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Recipes
+            .CountAsync(r => r.CategoryId == categoryId && r.Status == RecipeStatus.Published && !r.IsDeleted, cancellationToken);
+    }
+    public async Task<Category?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await _context.Categories
+            .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+    }
     public async Task<bool> ExistsByNameAsync(string name, CancellationToken cancellationToken = default)
     {
         return await _context.Categories

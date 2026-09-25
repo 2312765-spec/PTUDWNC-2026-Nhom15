@@ -1,5 +1,6 @@
 using CulinaryBlog.API.Extensions;
 using CulinaryBlog.Application.Categories.Commands.CreateCategory;
+using CulinaryBlog.Application.Categories.Commands.UpdateCategory;
 using CulinaryBlog.Application.Categories.DTOs;
 using CulinaryBlog.Application.Categories.Queries.GetCategories;
 using CulinaryBlog.Application.Categories.Queries.GetCategoryBySlug;
@@ -41,9 +42,17 @@ public static class CategoryEndpoints
              .ProducesProblem(StatusCodes.Status409Conflict)
              .RequireAuthorization(Policies.Admin);
 
-        group.MapPut("/{id:guid}", (Guid id) => NotImplementedResults.Pending("FR-CAT-004", "B"))
-             .RequireAuthorization(Policies.Admin)
-             .WithSummary("[Admin] Cập nhật danh mục — Slug KHÔNG đổi khi đổi Name");
+        // FR-CAT-004: Cập nhật Danh mục (Admin)
+        group.MapPut("/{id:guid}", UpdateCategoryAsync)
+             .WithName("UpdateCategory")
+             .WithSummary("[Admin] Cập nhật danh mục — Slug KHÔNG đổi khi đổi Name")
+             .Produces<CategoryDto>(StatusCodes.Status200OK)
+             .ProducesValidationProblem()
+             .ProducesProblem(StatusCodes.Status401Unauthorized)
+             .ProducesProblem(StatusCodes.Status403Forbidden)
+             .ProducesProblem(StatusCodes.Status404NotFound)
+             .ProducesProblem(StatusCodes.Status409Conflict)
+             .RequireAuthorization(Policies.Admin);
 
         group.MapDelete("/{id:guid}", (Guid id) => NotImplementedResults.Pending("FR-CAT-005", "B"))
              .RequireAuthorization(Policies.Admin)
@@ -80,4 +89,23 @@ public static class CategoryEndpoints
         var result = await sender.Send(command, ct);
         return TypedResults.Created($"/api/v1/categories/{result.Slug}", result);
     }
+
+    /// <summary>
+    /// FR-CAT-004: Admin cập nhật danh mục. Nhận ID từ URL Route và Name, Description từ Request Body.
+    /// </summary>
+    private static async Task<IResult> UpdateCategoryAsync(
+        Guid id,
+        UpdateCategoryRequest request,
+        ISender sender,
+        CancellationToken ct)
+    {
+        var command = new UpdateCategoryCommand(id, request.Name, request.Description);
+        var result = await sender.Send(command, ct);
+        return TypedResults.Ok(result);
+    }
 }
+
+/// <summary>
+/// DTO nhận dữ liệu body từ Client khi gọi PUT /categories/{id}
+/// </summary>
+public sealed record UpdateCategoryRequest(string Name, string? Description);
