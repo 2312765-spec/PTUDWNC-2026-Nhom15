@@ -81,4 +81,30 @@ export interface CategoryDetailResponseDto {
 
 // TODO(S4 — B): RecipeDetailDto
 // TODO(S6 — C): RecipeStepDto (timerMinutes — D6), RecipeIngredientDto (orderIndex — D7)
-// TODO(S8 — D): RecipeImageDto
+
+/**
+ * D27 — khớp response `POST /recipes/{id}/images` của backend
+ * (`UploadRecipeImageResult`) + state đầy đủ của `RecipeImage` (SRS 7.5).
+ * `mediumUrl`/`thumbnailUrl` là `null` cho tới khi FR-JOB-002 (resize job, chạy nền,
+ * không SignalR) xử lý xong — FE phải fallback về `originalUrl`.
+ */
+export interface RecipeImageDto {
+  imageId: string;
+  originalUrl: string;
+  mediumUrl: string | null;
+  thumbnailUrl: string | null;
+  altText: string | null;
+  isPrimary: boolean;
+  orderIndex: number;
+}
+
+/**
+ * D27 — response THẬT của `POST /recipes/{id}/images` (SRS 8.4): chỉ 4 trường. Không có
+ * `orderIndex`/`mediumUrl`/`thumbnailUrl` — gallery phải điền để thành `RecipeImageDto`.
+ */
+export interface UploadRecipeImageResponse {
+  imageId: string;
+  originalUrl: string;
+  altText: string | null;
+  isPrimary: boolean;
+}
