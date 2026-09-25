@@ -19,6 +19,21 @@ public sealed class Category : BaseEntity
     }
 
     /// <summary>
+    /// FR-CAT-004: Cập nhật tên và mô tả.
+    /// Quyết định bắt buộc: Slug KHÔNG thay đổi khi cập nhật Name. UpdatedAt do AuditInterceptor set.
+    /// </summary>
+    public void Update(string name, string? description)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new DomainException("CATEGORY_NAME_REQUIRED", "Tên danh mục không được để trống.");
+        }
+
+        Name = name;
+        Description = description;
+    }
+
+    /// <summary>
     /// Dùng cho seeding Sprint 0. Validate + auto-suffix slug (D10) là việc của
     /// FR-CAT-003 (Sprint 1 — B), chưa hiện thực ở đây.
     /// </summary>
