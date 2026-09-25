@@ -48,8 +48,38 @@ export interface AuthResponse {
   expiresIn: number;
 }
 
-// TODO(S3 — B): CategoryDto, CategoryDetailDto
-// TODO(S4 — B): RecipeSummaryDto, RecipeDetailDto
+/** FR-CAT-001 — khớp CategoryDto của backend. */
+export interface CategoryDto {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  recipeCount: number;
+}
+
+/** FR-CAT-002 — khớp RecipeSummaryDto của backend. `status`/`difficulty` là tên enum dạng chuỗi. */
+export interface RecipeSummaryDto {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  featuredImageUrl: string | null;
+  status: string;
+  prepTimeMinutes: number;
+  cookTimeMinutes: number;
+  difficulty: string;
+  authorId: string;
+  authorName: string | null;
+  createdAt: string;
+}
+
+/** FR-CAT-002 — SRS 3.2: `{ category, recipes }` (KHÔNG phẳng). */
+export interface CategoryDetailResponseDto {
+  category: CategoryDto;
+  recipes: PagedResult<RecipeSummaryDto>;
+}
+
+// TODO(S4 — B): RecipeDetailDto
 // TODO(S6 — C): RecipeStepDto (timerMinutes — D6), RecipeIngredientDto (orderIndex — D7)
 
 /**
