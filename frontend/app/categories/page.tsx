@@ -1,146 +1,65 @@
-"use client";
+import type { Metadata } from 'next';
+import { unstable_noStore as noStore } from 'next/cache';
+import Link from 'next/link';
+import { Badge, Card, CardBody } from '@/components/ui';
+import { getCategories } from '@/lib/categories';
 
-import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
-import { CategoryDto, getCategories } from "@/lib/categories";
-import CategoryFormModal from "@/components/categories/CategoryFormModal";
+/**
+ * FR-CAT-001 — SRS mục 5.1: ISR revalidate = 3600. Server Component: không cần state/effect.
+ * Khi API lỗi lúc revalidate, Next giữ lại bản cũ; lần đầu lỗi thì rơi vào error.tsx.
+ */
+export const revalidate = 3600;
 
-export default function CategoriesPage() {
-  const [categories, setCategories] = useState<CategoryDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<CategoryDto | null>(null);
+export const metadata: Metadata = {
+  title: 'Danh mục công thức',
+  description: 'Khám phá các danh mục món ăn và số lượng công thức đã xuất bản trong từng danh mục.',
+};
 
-  // Hàm tải dữ liệu dùng cho nút bấm hoặc sau khi tạo/sửa
-  const reloadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await getCategories();
-      setCategories(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Khi component vừa mount: tải dữ liệu bất đồng bộ không gọi setState đồng bộ
-  useEffect(() => {
-    let isMounted = true;
-
-    getCategories()
-      .then((data) => {
-        if (isMounted) {
-          setCategories(data);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        console.error(err);
-        if (isMounted) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const filtered = categories.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.description?.toLowerCase().includes(search.toLowerCase())
-  );
+export default async function CategoriesPage() {
+  // `noStore()` khi API lỗi: lúc `next build` (CI/Docker không có API) nó chuyển route sang render
+  // động thay vì làm vỡ build; lúc chạy thật nó ngăn cache một trang lỗi trong 3600 giây.
+  const categories = await getCategories().catch((error: unknown) => {
+    noStore();
+    throw error;
+  });
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-5">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Danh Mục Công Thức (FR-CAT-001)</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Tổng hợp danh mục món ăn thơm ngon kèm số lượng công thức đã xuất bản.
-          </p>
-        </div>
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
+      <header className="border-b border-border pb-5">
+        <h1 className="text-3xl font-bold">Danh mục công thức</h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          Tổng hợp danh mục món ăn kèm số lượng công thức đã xuất bản.
+        </p>
+      </header>
 
-        <button
-          onClick={() => {
-            setSelectedCategory(null);
-            setIsModalOpen(true);
-          }}
-          className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-gray-950 font-bold rounded-xl text-sm transition-all shadow-sm"
-        >
-          + Thêm Danh Mục (Admin)
-        </button>
-      </div>
-
-      <div className="w-full sm:w-80">
-        <input
-          type="text"
-          placeholder="Tìm theo tên danh mục..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full px-4 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
-        />
-      </div>
-
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-40 bg-gray-100 animate-pulse rounded-2xl border" />
-          ))}
-        </div>
+      {categories.length === 0 ? (
+        <Card>
+          <CardBody className="py-10 text-center text-ink-muted">Chưa có danh mục nào.</CardBody>
+        </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {filtered.map((cat) => (
-            <div
-              key={cat.id}
-              className="bg-white p-5 rounded-2xl border border-gray-200 hover:border-amber-400 hover:shadow-md transition-all flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-semibold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
-                    {cat.recipeCount} công thức
-                  </span>
-                  <span className="text-[11px] text-gray-400 font-mono">/{cat.slug}</span>
-                </div>
-                <h3 className="font-bold text-gray-900 text-lg hover:text-amber-600 transition-colors">
-                  <Link href={`/categories/${cat.slug}`}>{cat.name}</Link>
-                </h3>
-                <p className="text-gray-600 text-xs mt-1 line-clamp-2">
-                  {cat.description || "Chưa có mô tả."}
-                </p>
-              </div>
-
-              <div className="pt-3 mt-4 border-t flex justify-between items-center text-xs">
-                <button
-                  onClick={() => {
-                    setSelectedCategory(cat);
-                    setIsModalOpen(true);
-                  }}
-                  className="text-sky-600 hover:underline font-semibold"
-                >
-                  Sửa (Admin)
-                </button>
-                <Link
-                  href={`/categories/${cat.slug}`}
-                  className="text-amber-600 hover:underline font-semibold"
-                >
-                  Xem món &rarr;
-                </Link>
-              </div>
-            </div>
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {categories.map((category) => (
+            <li key={category.id}>
+              <Link
+                href={`/categories/${category.slug}`}
+                className="block h-full rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+              >
+                <Card className="h-full transition-colors hover:border-brand-500">
+                  <CardBody className="flex h-full flex-col gap-2">
+                    <Badge variant="warning" className="self-start">
+                      {category.recipeCount} công thức
+                    </Badge>
+                    <h2 className="text-lg font-semibold">{category.name}</h2>
+                    <p className="line-clamp-2 text-sm text-ink-muted">
+                      {category.description || 'Chưa có mô tả.'}
+                    </p>
+                  </CardBody>
+                </Card>
+              </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
-
-      <CategoryFormModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        categoryToEdit={selectedCategory}
-        onSuccess={reloadData}
-      />
     </div>
   );
 }

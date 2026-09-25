@@ -26,18 +26,10 @@ public sealed class UpdateRecipeImageCommandHandler(
             throw new NotFoundException(ErrorCodes.RecipeImageNotFound, "Không tìm thấy ảnh.");
         }
 
-        // D22: Nếu đặt làm ảnh chính, hạ ảnh chính cũ về false và LƯU TRƯỚC VÀO DB
-        // Tránh lỗi 500 do vi phạm Unique Index ("ix_recipe_images_recipe_id_is_primary") trên PostgreSQL
-        if (request.IsPrimary == true)
-        {
-            recipe.DemoteCurrentPrimaryImage(request.ImageId);
-            await unitOfWork.SaveChangesAsync(cancellationToken); // <-- Lưu đợt 1
-        }
-
-        // D22/D27: Cập nhật ảnh mục tiêu thành Primary và cập nhật Metadata
+        // D22/D27: DomainException (vd RECIPE_PRIMARY_IMAGE_REQUIRED) nằm trong Recipe.UpdateImage.
         recipe.UpdateImage(request.ImageId, request.AltText, request.IsPrimary, request.OrderIndex);
 
-        await unitOfWork.SaveChangesAsync(cancellationToken); // <-- Lưu đợt 2
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         request.TagsToInvalidate = ["recipes", $"recipe:{recipe.Slug}"];
     }

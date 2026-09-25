@@ -127,16 +127,6 @@ public sealed class Recipe : BaseEntity
         var orderIndex = _ingredients.Count;
         _ingredients.Add(RecipeIngredient.Create(Id, name, quantity, unit, notes, orderIndex));
     }
-    /// <summary>
-    /// D22: Hạ ảnh chính hiện tại về false trước khi lưu DB để tránh vi phạm Unique Index trên PostgreSQL.
-    /// </summary>
-    public void DemoteCurrentPrimaryImage(Guid targetNewPrimaryId)
-    {
-        foreach (var other in _images.Where(i => i.Id != targetNewPrimaryId && i.IsPrimary))
-        {
-            other.SetPrimary(false);
-        }
-    }
 
     /// <summary>
     /// FR-RCP-008/D27 — ảnh đầu tiên tự động là primary, client không được chọn (D22).
