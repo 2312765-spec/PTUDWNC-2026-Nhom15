@@ -170,6 +170,36 @@ public sealed class ImagesTests(RecipeImagesApiFactory factory) : IClassFixture<
         images.Single(i => i.Id == firstImageId).IsPrimary.Should().BeFalse();
     }
 
+    [Fact(DisplayName = "FR-RCP-008/D22 (regression): đổi ảnh primary qua lại nhiều lần → luôn 200 và đúng 1 ảnh primary")]
+    public async Task Patch_SwapPrimaryBackAndForth_AlwaysExactlyOnePrimary()
+    {
+        var (token, userId) = await RegisterAuthorAsync();
+        var recipeId = await SeedRecipeAsync(userId, recipe =>
+        {
+            recipe.AttachImage("https://fake/1.jpg");
+            recipe.AttachImage("https://fake/2.jpg");
+            recipe.AttachImage("https://fake/3.jpg");
+        });
+        var imageIds = (await GetImagesAsync(recipeId)).Select(i => i.Id).ToList();
+
+        // Đảo chiều (3 → 1 → 2 → 1 → 3): ảnh được nâng nằm TRƯỚC ảnh đang primary theo thứ tự nạp
+        // thì trước đây EF nâng trước khi hạ → vi phạm unique index → 500.
+        foreach (var target in new[] { imageIds[2], imageIds[0], imageIds[1], imageIds[0], imageIds[2] })
+        {
+            var request = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/recipes/{recipeId}/images/{target}")
+            {
+                Content = JsonContent.Create(new { isPrimary = true }),
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await _client.SendAsync(request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK, $"đặt ảnh {target} làm primary");
+            var images = await GetImagesAsync(recipeId);
+            images.Should().ContainSingle(i => i.IsPrimary).Which.Id.Should().Be(target);
+        }
+    }
+
     [Fact(DisplayName = "D22/D27: PATCH isPrimary=false trên ảnh đang primary → 400 RECIPE_PRIMARY_IMAGE_REQUIRED")]
     public async Task Patch_UnsetPrimaryOnOnlyImage_Returns400()
     {

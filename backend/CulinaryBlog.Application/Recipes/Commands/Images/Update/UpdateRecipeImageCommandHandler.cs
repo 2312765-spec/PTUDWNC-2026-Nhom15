@@ -13,24 +13,38 @@ public sealed class UpdateRecipeImageCommandHandler(
 {
     public async Task Handle(UpdateRecipeImageCommand request, CancellationToken cancellationToken)
     {
-        var recipe = await recipeRepository.GetByIdWithImagesAsync(request.RecipeId, cancellationToken)
-            ?? throw new NotFoundException(ErrorCodes.RecipeNotFound, "Không tìm thấy công thức.");
+        string recipeSlug = string.Empty;
 
-        if (recipe.AuthorId != currentUser.UserId && !currentUser.IsAdmin)
+        // D22/D27: đổi primary cần 2 lần SaveChanges (hạ ảnh cũ → nâng ảnh mới) để không vi phạm unique
+        // index; gói cả hai trong 1 transaction để lần lưu thứ hai lỗi thì ảnh cũ không bị mất primary.
+        await unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
-            throw new ForbiddenException(ErrorCodes.RecipeForbidden, "Bạn không có quyền sửa ảnh của công thức này.");
-        }
+            var recipe = await recipeRepository.GetByIdWithImagesAsync(request.RecipeId, ct)
+                ?? throw new NotFoundException(ErrorCodes.RecipeNotFound, "Không tìm thấy công thức.");
 
-        if (!recipe.Images.Any(i => i.Id == request.ImageId))
-        {
-            throw new NotFoundException(ErrorCodes.RecipeImageNotFound, "Không tìm thấy ảnh.");
-        }
+            if (recipe.AuthorId != currentUser.UserId && !currentUser.IsAdmin)
+            {
+                throw new ForbiddenException(ErrorCodes.RecipeForbidden, "Bạn không có quyền sửa ảnh của công thức này.");
+            }
 
-        // D22/D27: DomainException (vd RECIPE_PRIMARY_IMAGE_REQUIRED) nằm trong Recipe.UpdateImage.
-        recipe.UpdateImage(request.ImageId, request.AltText, request.IsPrimary, request.OrderIndex);
+            if (!recipe.Images.Any(i => i.Id == request.ImageId))
+            {
+                throw new NotFoundException(ErrorCodes.RecipeImageNotFound, "Không tìm thấy ảnh.");
+            }
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+            if (request.IsPrimary == true)
+            {
+                recipe.DemoteOtherPrimaryImages(request.ImageId);
+                await unitOfWork.SaveChangesAsync(ct);
+            }
 
-        request.TagsToInvalidate = ["recipes", $"recipe:{recipe.Slug}"];
+            // D22/D27: DomainException (vd RECIPE_PRIMARY_IMAGE_REQUIRED) nằm trong Recipe.UpdateImage.
+            recipe.UpdateImage(request.ImageId, request.AltText, request.IsPrimary, request.OrderIndex);
+            await unitOfWork.SaveChangesAsync(ct);
+
+            recipeSlug = recipe.Slug;
+        }, cancellationToken);
+
+        request.TagsToInvalidate = ["recipes", $"recipe:{recipeSlug}"];
     }
 }

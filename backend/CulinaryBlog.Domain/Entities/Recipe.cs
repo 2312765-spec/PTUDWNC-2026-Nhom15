@@ -129,6 +129,20 @@ public sealed class Recipe : BaseEntity
     }
 
     /// <summary>
+    /// FR-RCP-008/D22/D27 — hạ mọi ảnh primary khác về false. Handler gọi và SaveChanges riêng TRƯỚC khi
+    /// đặt ảnh mới thành primary: EF cập nhật theo thứ tự nạp, không theo thứ tự "hạ trước, nâng sau",
+    /// nên đổi primary trong 1 lần SaveChanges có thể vi phạm unique index
+    /// IX_RecipeImages_RecipeId_IsPrimary (D27) trên PostgreSQL.
+    /// </summary>
+    public void DemoteOtherPrimaryImages(Guid newPrimaryImageId)
+    {
+        foreach (var other in _images.Where(i => i.Id != newPrimaryImageId && i.IsPrimary))
+        {
+            other.SetPrimary(false);
+        }
+    }
+
+    /// <summary>
     /// FR-RCP-008/D27 — ảnh đầu tiên tự động là primary, client không được chọn (D22).
     /// orderIndex = Max(orderIndex hiện có) + 1, ảnh đầu tiên = 0.
     /// </summary>
@@ -159,11 +173,7 @@ public sealed class Recipe : BaseEntity
 
         if (isPrimary == true)
         {
-            foreach (var other in _images.Where(i => i.Id != imageId))
-            {
-                other.SetPrimary(false);
-            }
-
+            DemoteOtherPrimaryImages(imageId);
             image.SetPrimary(true);
         }
 

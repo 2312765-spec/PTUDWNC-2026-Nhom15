@@ -35,6 +35,28 @@ public class CulinaryBlogDbContext(DbContextOptions<CulinaryBlogDbContext> optio
         ApplyRowVersionConcurrencyToken(modelBuilder);
     }
 
+    /// <inheritdoc />
+    public Task ExecuteInTransactionAsync(Func<CancellationToken, Task> operation, CancellationToken ct = default)
+    {
+        // EnableRetryOnFailure đang bật (DependencyInjection.cs) nên transaction thủ công BẮT BUỘC
+        // đi qua execution strategy. Retry = chạy lại cả khối: tracker còn giữ trạng thái của lần
+        // đã rollback nên phải Clear để operation nạp lại entity từ DB.
+        var strategy = Database.CreateExecutionStrategy();
+        var attempt = 0;
+
+        return strategy.ExecuteAsync(async () =>
+        {
+            if (attempt++ > 0)
+            {
+                ChangeTracker.Clear();
+            }
+
+            await using var transaction = await Database.BeginTransactionAsync(ct);
+            await operation(ct);
+            await transaction.CommitAsync(ct);
+        });
+    }
+
     /// <summary>
     /// D1/D2 — Global Query Filter cho soft delete.
     /// Áp tự động cho MỌI entity kế thừa BaseEntity, kể cả entity thêm sau này.
