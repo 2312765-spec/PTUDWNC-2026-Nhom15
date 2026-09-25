@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { CategoryDto, getCategories } from "@/lib/categories";
 import CategoryFormModal from "@/components/categories/CategoryFormModal";
@@ -12,7 +12,8 @@ export default function CategoriesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<CategoryDto | null>(null);
 
-  const loadData = async () => {
+  // Hàm tải dữ liệu dùng cho nút bấm hoặc sau khi tạo/sửa
+  const reloadData = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getCategories();
@@ -22,20 +23,39 @@ export default function CategoriesPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadData();
   }, []);
 
-  const filtered = categories.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.description?.toLowerCase().includes(search.toLowerCase())
+  // Khi component vừa mount: tải dữ liệu bất đồng bộ không gọi setState đồng bộ
+  useEffect(() => {
+    let isMounted = true;
+
+    getCategories()
+      .then((data) => {
+        if (isMounted) {
+          setCategories(data);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        if (isMounted) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const filtered = categories.filter(
+    (c) =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.description?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-      {/* Header Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-5">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Danh Mục Công Thức (FR-CAT-001)</h1>
@@ -44,7 +64,6 @@ export default function CategoriesPage() {
           </p>
         </div>
 
-        {/* Nút Tạo Danh Mục [Admin - FR-CAT-003] */}
         <button
           onClick={() => {
             setSelectedCategory(null);
@@ -56,18 +75,16 @@ export default function CategoriesPage() {
         </button>
       </div>
 
-      {/* Ô tìm kiếm */}
       <div className="w-full sm:w-80">
         <input
           type="text"
           placeholder="Tìm theo tên danh mục..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full px-4 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+          className="w-full px-4 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
         />
       </div>
 
-      {/* Grid danh mục */}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
@@ -96,9 +113,7 @@ export default function CategoriesPage() {
                 </p>
               </div>
 
-              {/* Action Buttons */}
               <div className="pt-3 mt-4 border-t flex justify-between items-center text-xs">
-                {/* Nút Cập Nhật [Admin - FR-CAT-004] */}
                 <button
                   onClick={() => {
                     setSelectedCategory(cat);
@@ -108,8 +123,6 @@ export default function CategoriesPage() {
                 >
                   Sửa (Admin)
                 </button>
-
-                {/* Nút Xem Chi Tiết [FR-CAT-002] */}
                 <Link
                   href={`/categories/${cat.slug}`}
                   className="text-amber-600 hover:underline font-semibold"
@@ -122,12 +135,11 @@ export default function CategoriesPage() {
         </div>
       )}
 
-      {/* Modal Form */}
       <CategoryFormModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         categoryToEdit={selectedCategory}
-        onSuccess={loadData}
+        onSuccess={reloadData}
       />
     </div>
   );
