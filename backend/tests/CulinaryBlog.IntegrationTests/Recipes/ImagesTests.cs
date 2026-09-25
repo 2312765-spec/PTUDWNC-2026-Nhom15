@@ -57,6 +57,22 @@ public sealed class ImagesTests(RecipeImagesApiFactory factory) : IClassFixture<
         body.OriginalUrl.Should().NotBeNullOrWhiteSpace();
     }
 
+    [Fact(DisplayName = "FR-RCP-008/D22 (regression): 3 upload đồng thời vào recipe chưa có ảnh → cả 3 đều 201, đúng 1 ảnh primary")]
+    public async Task Upload_ConcurrentToEmptyRecipe_AllSucceedWithExactlyOnePrimary()
+    {
+        var (token, userId) = await RegisterAuthorAsync();
+        var recipeId = await SeedRecipeAsync(userId);
+
+        var responses = await Task.WhenAll(Enumerable.Range(0, 3).Select(i =>
+            _client.SendAsync(MultipartUploadRequest(recipeId, JpegBytes(), "image/jpeg", $"a{i}.jpg", token))));
+
+        responses.Should().OnlyContain(r => r.StatusCode == HttpStatusCode.Created);
+        var images = await GetImagesAsync(recipeId);
+        images.Should().HaveCount(3);
+        images.Should().ContainSingle(i => i.IsPrimary);
+        images.Select(i => i.OrderIndex).Should().BeEquivalentTo([0, 1, 2]);
+    }
+
     [Fact(DisplayName = "permissions.md: Author khác không phải chủ sở hữu → 403 RECIPE_FORBIDDEN")]
     public async Task Upload_AsOtherAuthor_Returns403()
     {
