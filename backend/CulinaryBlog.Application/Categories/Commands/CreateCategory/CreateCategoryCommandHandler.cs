@@ -39,17 +39,17 @@ public sealed class CreateCategoryCommandHandler : IRequestHandler<CreateCategor
 
         var trimmedName = request.Name.Trim();
 
-        // 1. Kiểm tra trùng tên danh mục
+        // 1. Kiểm tra trùng tên danh mục (Yêu cầu mã lỗi: CATEGORY_NAME_EXISTS)
         var exists = await _categoryRepository.ExistsByNameAsync(trimmedName, cancellationToken);
         if (exists)
         {
-            throw new ConflictException("CATEGORY_EXISTS", $"Danh mục với tên '{trimmedName}' đã tồn tại trong hệ thống.");
+            throw new ConflictException("CATEGORY_NAME_EXISTS", $"Danh mục với tên '{trimmedName}' đã tồn tại trong hệ thống.");
         }
 
-        // 2. Tạo Slug duy nhất (Quyết định D10)
+        // 2. Tạo Slug duy nhất (Quyết định D10: Bắt đầu thêm hậu tố từ -2)
         var baseSlug = GenerateSlug(trimmedName);
         var uniqueSlug = baseSlug;
-        var counter = 1;
+        var counter = 2;
 
         while (await _categoryRepository.ExistsBySlugAsync(uniqueSlug, cancellationToken))
         {
