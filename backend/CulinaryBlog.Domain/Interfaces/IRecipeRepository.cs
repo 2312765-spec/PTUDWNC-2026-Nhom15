@@ -1,14 +1,51 @@
 using CulinaryBlog.Domain.Entities;
+using CulinaryBlog.Domain.Enums;
 
 namespace CulinaryBlog.Domain.Interfaces;
 
 /// <summary>
-/// FR-RCP-008 (D) chỉ cần một method duy nhất để nạp Recipe kèm Images. FR-RCP-001..007 (C, S7)
-/// sẽ bổ sung thêm method (GetBySlugAsync, danh sách có filter...) khi tới lượt — không đổi gì
-/// ở đây, chỉ thêm, để tránh giẫm chân giữa hai nhánh làm song song (xem team-assignment.md mục 5).
+/// Repository interface cho Recipe Aggregate Root.
+/// Thuộc Tầng Domain (Domain Layer).
 /// </summary>
 public interface IRecipeRepository
 {
-    /// <summary>Có tracking (không AsNoTracking) — dùng để mutate rồi SaveChanges.</summary>
-    Task<Recipe?> GetByIdWithImagesAsync(Guid id, CancellationToken ct = default);
+    /// <summary>
+    /// Lấy chi tiết công thức kèm Images, Steps, Ingredients theo ID.
+    /// </summary>
+    Task<Recipe?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<Recipe?> GetByIdWithImagesAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Lấy chi tiết công thức kèm Images, Steps, Ingredients theo Slug.
+    /// </summary>
+    Task<Recipe?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy danh sách công thức thuộc danh mục có lọc theo trạng thái và phân trang.
+    /// </summary>
+    Task<(IReadOnlyList<Recipe> Items, int TotalCount)> GetPagedByCategoryIdAsync(
+        Guid categoryId,
+        RecipeStatus? status,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Kiểm tra tồn tại theo Slug.
+    /// </summary>
+    Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Thêm công thức mới.
+    /// </summary>
+    Task AddAsync(Recipe recipe, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cập nhật thông tin công thức.
+    /// </summary>
+    void Update(Recipe recipe);
+
+    /// <summary>
+    /// Xóa mềm hoặc xóa cứng công thức.
+    /// </summary>
+    void Delete(Recipe recipe);
 }

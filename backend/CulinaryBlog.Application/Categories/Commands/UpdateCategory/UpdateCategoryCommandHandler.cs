@@ -1,13 +1,14 @@
-using System.Threading;
-using System.Threading.Tasks;
 using CulinaryBlog.Application.Categories.DTOs;
 using CulinaryBlog.Application.Common.Exceptions;
-using CulinaryBlog.Domain.Common;
 using CulinaryBlog.Domain.Interfaces;
 using MediatR;
 
 namespace CulinaryBlog.Application.Categories.Commands.UpdateCategory;
 
+/// <summary>
+/// Handler xử lý cập nhật danh mục món ăn (FR-CAT-004).
+/// Tuân thủ Quyết định D10: Giữ nguyên Slug ban đầu, chỉ cập nhật Name và Description.
+/// </summary>
 public sealed class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryCommand, CategoryDto>
 {
     private readonly ICategoryRepository _categoryRepository;
@@ -20,36 +21,40 @@ public sealed class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategor
         _categoryRepository = categoryRepository;
         _unitOfWork = unitOfWork;
     }
-
+    
     public async Task<CategoryDto> Handle(UpdateCategoryCommand request, CancellationToken cancellationToken)
     {
-        // 1. Tìm category theo ID
-        var category = await _categoryRepository.GetByIdAsync(request.Id, cancellationToken);
-        if (category == null || category.IsDeleted)
+        if (string.IsNullOrWhiteSpace(request.Name))
         {
-            throw new NotFoundException(ErrorCodes.CategoryNotFound, $"Không tìm thấy danh mục với ID '{request.Id}'.");
+            throw new ArgumentException("Tên danh mục không được để trống.", nameof(request.Name));
         }
 
-        var nameTrimmed = request.Name.Trim();
+        var trimmedName = request.Name.Trim();
 
-        // 2. Kiểm tra nếu tên thay đổi có bị trùng với danh mục khác không
-        if (!string.Equals(category.Name, nameTrimmed, System.StringComparison.OrdinalIgnoreCase))
+        // 1. Tìm danh mục theo ID
+        var category = await _categoryRepository.GetByIdAsync(request.Id, cancellationToken);
+        if (category == null)
         {
-            var isNameExists = await _categoryRepository.ExistsByNameAsync(nameTrimmed, cancellationToken);
-            if (isNameExists)
+            throw new NotFoundException("CATEGORY_NOT_FOUND", $"Không tìm thấy danh mục với ID: '{request.Id}'.");
+        }
+
+        // 2. Kiểm tra nếu tên thay đổi và trùng với danh mục khác
+        if (!string.Equals(category.Name, trimmedName, StringComparison.OrdinalIgnoreCase))
+        {
+            var exists = await _categoryRepository.ExistsByNameAsync(trimmedName, cancellationToken);
+            if (exists)
             {
-                // D4: Báo lỗi 409 Conflict với ErrorCodes chuẩn
-                throw new ConflictException(ErrorCodes.CategoryNameExists, $"Tên danh mục '{nameTrimmed}' đã tồn tại.");
+                throw new ConflictException("CATEGORY_EXISTS", $"Danh mục với tên '{trimmedName}' đã tồn tại trong hệ thống.");
             }
         }
 
-        // 3. Cập nhật Category (Slug tuyệt đối KHÔNG đổi theo D10)
-        category.Update(nameTrimmed, request.Description?.Trim());
+        // 3. Cập nhật thông tin (Giữ nguyên Slug theo Quyết định D10)
+        category.Update(trimmedName, null, request.Description?.Trim());
 
-        // 4. Lưu vào CSDL
+        _categoryRepository.Update(category);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // 5. Đếm số lượng công thức Published để trả về DTO
+        // 4. Lấy số lượng công thức liên kết
         var recipeCount = await _categoryRepository.GetPublishedRecipeCountAsync(category.Id, cancellationToken);
 
         return new CategoryDto(
@@ -60,4 +65,5 @@ public sealed class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategor
             recipeCount
         );
     }
+    
 }

@@ -28,18 +28,22 @@ public sealed class DeleteRecipeImageCommandHandler(
             throw new ForbiddenException(ErrorCodes.RecipeForbidden, "Bạn không có quyền sửa ảnh của công thức này.");
         }
 
-        if (!recipe.Images.Any(i => i.Id == request.ImageId))
-        {
-            throw new NotFoundException(ErrorCodes.RecipeImageNotFound, "Không tìm thấy ảnh.");
-        }
+        var image = recipe.Images.FirstOrDefault(i => i.Id == request.ImageId)
+            ?? throw new NotFoundException(ErrorCodes.RecipeImageNotFound, "Không tìm thấy ảnh.");
 
-        var image = recipe.RemoveImage(request.ImageId);
-        imageRepository.Remove(image);
+        // Xóa ảnh khỏi Recipe Aggregate
+        recipe.RemoveImage(request.ImageId);
+
+        // Xóa ảnh trực tiếp qua Repository (dùng Delete theo đúng IRepository<T>)
+        imageRepository.Delete(image);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         request.TagsToInvalidate = ["recipes", $"recipe:{recipe.Slug}"];
 
-        backgroundJobService.EnqueueDeleteImageFile(image.OriginalUrl);
+        if (!string.IsNullOrEmpty(image.OriginalUrl))
+        {
+            backgroundJobService.EnqueueDeleteImageFile(image.OriginalUrl);
+        }
     }
 }

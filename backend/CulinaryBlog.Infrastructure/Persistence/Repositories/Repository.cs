@@ -7,6 +7,7 @@ namespace CulinaryBlog.Infrastructure.Persistence.Repositories;
 /// <summary>Hiện thực tối giản của IRepository&lt;T&gt; (Domain) — dùng cho entity chưa cần repository chuyên biệt.</summary>
 public sealed class Repository<T>(CulinaryBlogDbContext context) : IRepository<T> where T : BaseEntity
 {
+    
     public async Task<T?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
         await context.Set<T>().FindAsync([id], ct);
 
@@ -14,4 +15,20 @@ public sealed class Repository<T>(CulinaryBlogDbContext context) : IRepository<T
         await context.Set<T>().AddAsync(entity, ct);
 
     public void Remove(T entity) => context.Set<T>().Remove(entity);
+    
+
+    public async Task<IReadOnlyList<T>> GetAllAsync(CancellationToken cancellationToken = default)
+{
+    return await context.Set<T>().ToListAsync(cancellationToken);
+}
+
+public void Update(T entity)
+{
+    context.Set<T>().Update(entity);
+}
+
+public void Delete(T entity)
+{
+    context.Set<T>().Remove(entity);
+}
 }

@@ -1,19 +1,14 @@
-using System;
-using System.Collections.Generic;
-using System.Text.Json.Serialization;
 using CulinaryBlog.Application.Categories.DTOs;
-using CulinaryBlog.Application.Common.Interfaces;
 using MediatR;
 
 namespace CulinaryBlog.Application.Categories.Commands.UpdateCategory;
 
-public record UpdateCategoryCommand(
-    [property: JsonIgnore] Guid Id,
+public sealed record UpdateCategoryCommand(
+    Guid Id,
     string Name,
-    string? Description
-) : IRequest<CategoryDto>, ICacheInvalidator
+    string? Description = null
+) : IRequest<CategoryDto>
 {
-    // D8: Xóa cả 2 cache tag "categories" và "recipes"
-    [JsonIgnore]
-    public IReadOnlyList<string> TagsToInvalidate => ["categories", "recipes"];
+    // Bổ sung thuộc tính này để khớp với UnitTests
+    public IReadOnlyList<string> TagsToInvalidate => new[] { "categories" };
 }

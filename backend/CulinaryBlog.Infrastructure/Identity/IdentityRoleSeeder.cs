@@ -19,6 +19,12 @@ namespace CulinaryBlog.Infrastructure.Identity;
 /// </summary>
 public static class IdentityRoleSeeder
 {
+   public static class Roles
+{
+    public const string Admin = "Admin";
+    public const string Author = "Author";
+    public const string User = "User";
+}
     public static async Task SeedAsync(RoleManager<IdentityRole> roleManager)
     {
         foreach (var role in new[] { Roles.Author, Roles.Admin })

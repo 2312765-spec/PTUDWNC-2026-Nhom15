@@ -23,7 +23,7 @@ public sealed class RecipeConfiguration : IEntityTypeConfiguration<Recipe>
         builder.Property(r => r.Title).HasMaxLength(200).IsRequired();
         builder.Property(r => r.Slug).HasMaxLength(220).IsRequired();
         builder.Property(r => r.Description).IsRequired();
-        builder.Property(r => r.Instructions); // D18: nullable
+       // builder.Property(r => r.Instructions); // D18: nullable
         builder.Property(r => r.AuthorId).HasMaxLength(450).IsRequired();
 
         builder.Property(r => r.Difficulty).HasConversion<short>();
@@ -34,15 +34,15 @@ public sealed class RecipeConfiguration : IEntityTypeConfiguration<Recipe>
         builder.HasIndex(r => r.AuthorId);
         builder.HasIndex(r => r.Status);
         builder.HasIndex(r => r.Difficulty);
-
+    
         builder.OwnsOne(r => r.Nutrition, nutrition =>
         {
-            nutrition.Property(n => n.Calories).HasColumnName("Nutrition_Calories").HasPrecision(8, 2);
-            nutrition.Property(n => n.Protein).HasColumnName("Nutrition_Protein").HasPrecision(8, 2);
-            nutrition.Property(n => n.Carbohydrates).HasColumnName("Nutrition_Carbohydrates").HasPrecision(8, 2);
-            nutrition.Property(n => n.Fat).HasColumnName("Nutrition_Fat").HasPrecision(8, 2);
-            nutrition.Property(n => n.Fiber).HasColumnName("Nutrition_Fiber").HasPrecision(8, 2);
-            nutrition.Property(n => n.Sodium).HasColumnName("Nutrition_Sodium").HasPrecision(8, 2);
+            // nutrition.Property(n => n.Calories).HasColumnName("Nutrition_Calories").HasPrecision(8, 2);
+            // nutrition.Property(n => n.Protein).HasColumnName("Nutrition_Protein").HasPrecision(8, 2);
+            // nutrition.Property(n => n.Carbohydrates).HasColumnName("Nutrition_Carbohydrates").HasPrecision(8, 2);
+            // nutrition.Property(n => n.Fat).HasColumnName("Nutrition_Fat").HasPrecision(8, 2);
+            // nutrition.Property(n => n.Fiber).HasColumnName("Nutrition_Fiber").HasPrecision(8, 2);
+            // nutrition.Property(n => n.Sodium).HasColumnName("Nutrition_Sodium").HasPrecision(8, 2);
         });
         builder.Navigation(r => r.Nutrition).IsRequired();
 

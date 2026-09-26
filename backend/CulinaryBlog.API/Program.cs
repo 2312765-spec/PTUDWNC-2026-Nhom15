@@ -34,12 +34,12 @@ builder.Host.UseSerilog((context, services, config) => config
 
 // ---- Tầng ứng dụng --------------------------------------------------------
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructureServices(builder.Configuration);
 
 // ---- Hangfire worker (FR-JOB-001) -----------------------------------------
 if (!builder.Environment.IsEnvironment("Testing"))
 {
-    builder.Services.AddHangfireServer();
+    //builder.Services.AddHangfireServer();
 }
 
 // ---- ICurrentUser (hợp đồng chung — chủ sở hữu: A) -----------------------
@@ -82,7 +82,6 @@ builder.Services.AddCors(options => options.AddPolicy(CorsPolicy, policy => poli
     .WithHeaders("Content-Type", "Authorization", "X-Correlation-ID", "If-Match")
     .AllowCredentials()));
 
-// ---- OpenAPI / Scalar (NFR-MAINT-003) ------------------------------------
 // ---- OpenAPI / Scalar (NFR-MAINT-003) ------------------------------------
 // XÓA DÒNG builder.Services.AddOpenApi(); THỪA ĐI! Chỉ giữ lại 1 cấu hình chuẩn này:
 builder.Services.AddOpenApi(options =>
@@ -149,8 +148,19 @@ if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
-    await db.Database.MigrateAsync();
-    await IdentityRoleSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>());
+    
+    // SỬA DÒNG NÀY: Chỉ Migrate nếu là Relational Database (PostgreSQL)
+    if (db.Database.IsRelational())
+    {
+        await db.Database.MigrateAsync();
+    }
+    else
+    {
+        // Nếu dùng InMemory thì tạo Database trong bộ nhớ
+        await db.Database.EnsureCreatedAsync();
+    }
+
+    await IdentityRoleSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>()); // (Giữ nguyên dòng này)
     await DbSeeder.SeedAsync(db);
 }
 
@@ -183,12 +193,15 @@ app.UseAuthorization();
 // ---- Endpoint groups ------------------------------------------------------
 app.MapHealthEndpoints();
 
-var api = app.MapGroup("/api/v1");
-api.MapAuthEndpoints();       // A
-api.MapCategoryEndpoints();   // B
-api.MapRecipeEndpoints();     // B (queries) + C (commands)
-api.MapImageEndpoints();      // D
+app.MapGroup("/api/v1/categories")
+   .WithTags("Categories")
+   .MapCategoryEndpoints();     // D
 
 app.Run();
-
+public static class Roles
+{
+    public const string Admin = "Admin";
+    public const string Author = "Author";
+    public const string User = "User";
+}
 public partial class Program;

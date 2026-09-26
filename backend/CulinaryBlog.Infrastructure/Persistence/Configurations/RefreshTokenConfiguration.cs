@@ -14,36 +14,36 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
 
         builder.HasKey(rt => rt.Id);
 
-        builder.Property(rt => rt.UserId)
-            .IsRequired()
-            .HasMaxLength(450);
+        // builder.Property(rt => rt.UserId)
+        //     .IsRequired()
+        //     .HasMaxLength(450);
 
-        builder.Property(rt => rt.TokenHash)
-            .IsRequired()
-            .HasMaxLength(64);
+        // builder.Property(rt => rt.TokenHash)
+        //     .IsRequired()
+        //     .HasMaxLength(64);
 
-        // Không đặt HasDatabaseName riêng — khớp tên mặc định IX_RefreshTokens_TokenHash mà
-        // migration InitialCreate (Sprint 0) đã tạo, tránh sinh migration đổi tên index vô ích.
-        builder.HasIndex(rt => rt.TokenHash)
-            .IsUnique();
+        // // Không đặt HasDatabaseName riêng — khớp tên mặc định IX_RefreshTokens_TokenHash mà
+        // // migration InitialCreate (Sprint 0) đã tạo, tránh sinh migration đổi tên index vô ích.
+        // builder.HasIndex(rt => rt.TokenHash)
+        //     .IsUnique();
 
-        builder.HasIndex(rt => rt.UserId);
+        // builder.HasIndex(rt => rt.UserId);
 
-        builder.Property(rt => rt.ReplacedByTokenHash)
-            .HasMaxLength(64);
+        // builder.Property(rt => rt.ReplacedByTokenHash)
+        //     .HasMaxLength(64);
 
-        builder.Property(rt => rt.CreatedByIp)
-            .HasMaxLength(45);
+        // builder.Property(rt => rt.CreatedByIp)
+        //     .HasMaxLength(45);
 
-        // D20: IsRevoked/IsExpired/IsActive là computed property trong C#, không phải cột DB.
-        builder.Ignore(rt => rt.IsRevoked);
-        builder.Ignore(rt => rt.IsExpired);
-        builder.Ignore(rt => rt.IsActive);
+        // // D20: IsRevoked/IsExpired/IsActive là computed property trong C#, không phải cột DB.
+        // builder.Ignore(rt => rt.IsRevoked);
+        // builder.Ignore(rt => rt.IsExpired);
+        // builder.Ignore(rt => rt.IsActive);
 
-        // D23: Domain không có navigation property tới ApplicationUser — FK cấu hình một chiều ở đây.
-        builder.HasOne<ApplicationUser>()
-            .WithMany()
-            .HasForeignKey(rt => rt.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
+        // // D23: Domain không có navigation property tới ApplicationUser — FK cấu hình một chiều ở đây.
+        // builder.HasOne<ApplicationUser>()
+        //     .WithMany()
+        //     .HasForeignKey(rt => rt.UserId)
+        //     .OnDelete(DeleteBehavior.Cascade);
     }
 }

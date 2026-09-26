@@ -125,7 +125,7 @@ public sealed class GlobalExceptionMiddleware(
     /// để nhận biết một Application Error Code thật. Chỉ coi là Application Error Code khi khớp
     /// đúng quy ước SCREAMING_SNAKE_CASE (docs/CLAUDE.md mục 6) VÀ tất cả lỗi dùng chung mã đó.
     /// </summary>
-    private static readonly Regex ApplicationErrorCodePattern = new("^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$", RegexOptions.Compiled);
+    private static readonly Regex _applicationErrorCodePattern = new("^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$", RegexOptions.Compiled);
 
     private static string? SingleSharedErrorCode(FluentValidationException ve)
     {
@@ -134,6 +134,15 @@ public sealed class GlobalExceptionMiddleware(
             .Distinct()
             .ToList();
 
-        return codes is [var code] && ApplicationErrorCodePattern.IsMatch(code) ? code : null;
+        return codes is [var code] && _applicationErrorCodePattern.IsMatch(code) ? code : null;
     }
+
+    public class DomainException : Exception
+{
+    public string ErrorCode { get; }
+    public DomainException(string errorCode, string message) : base(message)
+    {
+        ErrorCode = errorCode;
+    }
+}
 }

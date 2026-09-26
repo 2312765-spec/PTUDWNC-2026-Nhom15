@@ -17,6 +17,29 @@ namespace CulinaryBlog.Infrastructure.Persistence;
 public class CulinaryBlogDbContext(DbContextOptions<CulinaryBlogDbContext> options)
     : IdentityDbContext<ApplicationUser, IdentityRole, string>(options), IUnitOfWork
 {
+    public async Task ExecuteInTransactionAsync(Func<Task> action, CancellationToken cancellationToken = default)
+    {
+        using var transaction = await Database.BeginTransactionAsync(cancellationToken);
+        await action();
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    public async Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken = default)
+    {
+        using var transaction = await Database.BeginTransactionAsync(cancellationToken);
+        var result = await action();
+        await transaction.CommitAsync(cancellationToken);
+        return result;
+    }
+
+    public async Task<T> ExecuteInTransactionAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken cancellationToken = default)
+    {
+        using var transaction = await Database.BeginTransactionAsync(cancellationToken);
+        var result = await action(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return result;
+    }
+
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Recipe> Recipes => Set<Recipe>();
     public DbSet<RecipeStep> RecipeSteps => Set<RecipeStep>();
@@ -59,13 +82,19 @@ public class CulinaryBlogDbContext(DbContextOptions<CulinaryBlogDbContext> optio
 
     /// <summary>
     /// D1/D2 — Global Query Filter cho soft delete.
-    /// Áp tự động cho MỌI entity kế thừa BaseEntity, kể cả entity thêm sau này.
+    /// Áp tự động cho MỌI entity kế thừa BaseEntity (trừ Owned Entities), kể cả entity thêm sau này.
     /// Muốn đọc cả bản ghi đã xóa: dùng .IgnoreQueryFilters().
     /// </summary>
     private static void ApplySoftDeleteQueryFilter(ModelBuilder modelBuilder)
     {
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
+            // BỎ QUA Owned Entity Types (như RecipeNutrition) vì EF Core không cho áp Query Filter lên Owned Types
+            if (entityType.IsOwned())
+            {
+                continue;
+            }
+
             if (!typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
             {
                 continue;
@@ -80,29 +109,24 @@ public class CulinaryBlogDbContext(DbContextOptions<CulinaryBlogDbContext> optio
     }
 
     /// <summary>
-    /// SRS 7.1 — RowVersion là concurrency token. Mismatch =&gt; 409 (D4).
-    ///
-    /// LƯU Ý Npgsql: KHÔNG dùng IsRowVersion() ở đây. IsRowVersion() = IsConcurrencyToken()
-    /// + ValueGeneratedOnAddOrUpdate(), mà PostgreSQL không tự sinh giá trị cho cột bytea
-    /// → migration/insert sẽ lỗi. Dùng IsConcurrencyToken() và để Application gán giá trị mới
-    /// mỗi lần update.
-    ///
-    /// Phương án thay thế (nếu muốn PostgreSQL tự lo): bỏ cột RowVersion và dùng
-    /// UseXminAsConcurrencyToken() — nhưng khác với SRS 7.1. Nếu đổi, ghi thành quyết định mới
-    /// (D23 đã dùng cho vị trí ApplicationUser — xem docs/decisions.md).
+    /// SRS 7.1 — RowVersion là concurrency token. Mismatch => 409 (D4).
     /// </summary>
     private static void ApplyRowVersionConcurrencyToken(ModelBuilder modelBuilder)
     {
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
-            if (!typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
+            // BỎ QUA Owned Entity Types để tránh lỗi re-configuring thành non-owned entity
+            if (entityType.IsOwned())
             {
                 continue;
             }
 
-            modelBuilder.Entity(entityType.ClrType)
-                .Property(nameof(BaseEntity.RowVersion))
-                .IsConcurrencyToken();
+            if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
+            {
+                modelBuilder.Entity(entityType.ClrType)
+                    .Property<byte[]>("RowVersion")
+                    .IsConcurrencyToken(); // Dùng IsConcurrencyToken thay vì IsRowVersion cho tương thích PostgreSQL
+            }
         }
     }
 }
