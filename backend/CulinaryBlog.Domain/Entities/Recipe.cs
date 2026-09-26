@@ -52,7 +52,10 @@ public class Recipe : BaseEntity, IAggregateRoot
     /// <summary>
     /// Factory method linh hoạt để thỏa mãn mọi bài test tạo Recipe (hỗ trợ param tùy biến)
     /// </summary>
-   public static Recipe Create(
+/// <summary>
+    /// Factory method chuẩn hỗ trợ cả truyền tham số vị trí lẫn named parameters (title, categoryId, authorId, status, ...)
+    /// </summary>
+    public static Recipe Create(
         string title = "Test Recipe",
         string slug = "test-recipe",
         string description = "Test Description",
@@ -60,8 +63,8 @@ public class Recipe : BaseEntity, IAggregateRoot
         int cookTime = 30,
         int servings = 4,
         RecipeDifficulty difficulty = RecipeDifficulty.Easy,
-        string authorId = "test-author",
         Guid? categoryId = null,
+        string authorId = "test-author",
         RecipeStatus status = RecipeStatus.Draft)
     {
         var recipe = new Recipe(
@@ -83,6 +86,7 @@ public class Recipe : BaseEntity, IAggregateRoot
 
         return recipe;
     }
+    
 
     /// <summary>
     /// Xuất bản công thức công khai (Quyết định D2: chỉ công thức Published mới hiển thị cho Guest).
