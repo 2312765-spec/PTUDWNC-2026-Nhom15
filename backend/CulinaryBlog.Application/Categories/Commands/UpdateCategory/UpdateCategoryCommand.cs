@@ -10,5 +10,7 @@ public sealed record UpdateCategoryCommand(
 ) : IRequest<CategoryDto>
 {
     // Bổ sung thuộc tính này để khớp với UnitTests
-    public IReadOnlyList<string> TagsToInvalidate => new[] { "categories" };
+    public IReadOnlyList<string> TagsToInvalidate => new[] { "categories", "recipes" };
+
+
 }

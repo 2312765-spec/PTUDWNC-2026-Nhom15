@@ -49,11 +49,17 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
     {
         var query = context.Recipes
             .AsNoTracking()
+            .Include(r => r.Images) // Nạp kèm Images để DTO có ảnh thumbnail
             .Where(r => r.CategoryId == categoryId && !r.IsDeleted);
 
+        // Mặc định nếu không truyền status thì lấy Published
         if (status.HasValue)
         {
             query = query.Where(r => r.Status == status.Value);
+        }
+        else
+        {
+            query = query.Where(r => r.Status == RecipeStatus.Published);
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
@@ -74,12 +80,6 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
             .Select(r => r.AuthorId)
             .FirstOrDefaultAsync(ct);
 
-    /// <remarks>
-    /// Hai câu lệnh, KHÔNG gộp: ở READ COMMITTED một câu <c>SELECT … FOR UPDATE</c> có JOIN ảnh dùng
-    /// snapshot lấy TRƯỚC khi chờ khoá, nên request xếp sau vẫn không thấy ảnh mà request trước vừa
-    /// commit. Khoá xong mới nạp bằng câu lệnh mới (snapshot mới) thì thấy đúng.
-    /// CONS-006: raw SQL có tham số hoá (interpolated → DbParameter); EF không có LINQ cho FOR UPDATE.
-    /// </remarks>
     public async Task<Recipe?> GetByIdWithImagesForUpdateAsync(Guid id, CancellationToken ct = default)
     {
         await context.Database.ExecuteSqlInterpolatedAsync(

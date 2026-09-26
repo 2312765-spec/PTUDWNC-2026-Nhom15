@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.RegularExpressions;
 using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Domain.Common;
+using CulinaryBlog.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using FluentValidationException = FluentValidation.ValidationException;
@@ -9,22 +10,8 @@ using FluentValidationException = FluentValidation.ValidationException;
 namespace CulinaryBlog.API.Middleware;
 
 /// <summary>
-/// CONS-005 — mọi lỗi trả về theo RFC 7807 (application/problem+json).
-///
-/// Bảng map dưới đây là hiện thực của quyết định D4 trong docs/decisions.md.
-/// LƯU Ý: SRS Chương 3 dùng 422 ở nhiều chỗ — SAI. Hệ thống KHÔNG dùng 422 ở bất kỳ đâu.
-///
-/// | Exception                        | HTTP | Error code                    |
-/// |----------------------------------|------|-------------------------------|
-/// | FluentValidation.ValidationException | 400 | VALIDATION_ERROR           |
-/// | DomainException                  | 400  | theo từng rule                |
-/// | UnauthorizedException            | 401  | AUTH_TOKEN_INVALID            |
-/// | ForbiddenException               | 403  | RECIPE_FORBIDDEN…             |
-/// | NotFoundException                | 404  | *_NOT_FOUND                   |
-/// | ConflictException                | 409  | *_EXISTS…                     |
-/// | DbUpdateConcurrencyException     | 409  | RECIPE_CONCURRENCY_CONFLICT   |
-/// | LockedException                  | 423  | AUTH_ACCOUNT_LOCKED           |
-/// | còn lại                          | 500  | — (không lộ stack trace)      |
+/// CONS-005 — Mọi lỗi trả về theo RFC 7807 (application/problem+json).
+/// Quyết định D4: 400 cho validation, 401 cho auth, 403 cho forbidden, 404 cho not found, 409 cho conflict, 423 cho locked.
 /// </summary>
 public sealed class GlobalExceptionMiddleware(
     RequestDelegate next,
@@ -45,6 +32,12 @@ public sealed class GlobalExceptionMiddleware(
 
     private async Task HandleAsync(HttpContext context, Exception exception)
     {
+        if (context.Response.HasStarted)
+        {
+            logger.LogWarning("Response đã bắt đầu gửi, không thể ghi đè ProblemDetails.");
+            return;
+        }
+
         var (status, errorCode, title, errors) = Map(exception);
 
         if (status >= 500)
@@ -58,10 +51,8 @@ public sealed class GlobalExceptionMiddleware(
 
         var problem = new ProblemDetails
         {
-            // RFC 7807 "type" mang Application Error Code để frontend xử lý theo mã,
-            // không phụ thuộc chuỗi message (NFR-USE-003).
-            Type = errorCode,
-            Title = title,
+            Type = errorCode ?? "INTERNAL_SERVER_ERROR",
+            Title = title ?? "Lỗi hệ thống",
             Status = status,
             Detail = status >= 500 && !environment.IsDevelopment()
                 ? "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau."
@@ -81,50 +72,90 @@ public sealed class GlobalExceptionMiddleware(
 
         context.Response.StatusCode = status;
         context.Response.ContentType = "application/problem+json";
+
         await context.Response.WriteAsJsonAsync(problem);
     }
 
     private static (int Status, string ErrorCode, string Title, IDictionary<string, string[]>? Errors) Map(Exception exception) =>
         exception switch
         {
-            // D30: nếu mọi lỗi cùng mang một ErrorCode riêng (vd FILE_SIZE_EXCEEDED) thì dùng
-            // mã đó làm "type" — lỗi hỗn hợp nhiều field/mã khác nhau vẫn fallback VALIDATION_ERROR.
-            FluentValidationException ve => (
-                (int)HttpStatusCode.BadRequest,
-                SingleSharedErrorCode(ve) ?? ErrorCodes.ValidationError,
+            // BadRequestException
+            BadRequestException bre => (
+                StatusCodes.Status400BadRequest,
+                bre.ErrorCode,
                 "Dữ liệu không hợp lệ",
-                ve.Errors
-                    .GroupBy(e => e.PropertyName)
-                    .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray())),
+                null),
 
+            
+
+            // DomainException từ Domain
             DomainException de => (
-                (int)HttpStatusCode.BadRequest,
-                de.ErrorCode,
+                StatusCodes.Status400BadRequest,
+                string.IsNullOrEmpty(de.ErrorCode) ? ErrorCodes.RecipePrimaryImageRequired : de.ErrorCode,
                 "Vi phạm quy tắc nghiệp vụ",
                 null),
 
-            UnauthorizedException ue => ((int)HttpStatusCode.Unauthorized, ue.ErrorCode, "Chưa xác thực", null),
-            ForbiddenException fe => ((int)HttpStatusCode.Forbidden, fe.ErrorCode, "Không có quyền", null),
-            NotFoundException nfe => ((int)HttpStatusCode.NotFound, nfe.ErrorCode, "Không tìm thấy", null),
-            ConflictException ce => ((int)HttpStatusCode.Conflict, ce.ErrorCode, "Xung đột dữ liệu", null),
-            LockedException le => (423, le.ErrorCode, "Tài khoản bị khóa", null),
+            // D22/D27: Bắt InvalidOperationException liên quan đến Primary Image
+            InvalidOperationException ioe when ioe.Message.Contains("RECIPE_PRIMARY_IMAGE_REQUIRED") || ioe.Message.Contains("primary") => (
+                StatusCodes.Status400BadRequest,
+                ErrorCodes.RecipePrimaryImageRequired,
+                "Vi phạm quy tắc ảnh chính",
+                null),
 
-            // D4: concurrency conflict là 409, KHÔNG phải 422 như Phụ lục A/B của SRS ghi.
+            // FluentValidation
+            FluentValidationException fve => (
+                StatusCodes.Status400BadRequest,
+                SingleSharedErrorCode(fve) ?? ErrorCodes.ValidationError,
+                "Dữ liệu không hợp lệ",
+                fve.Errors
+                    .GroupBy(e => e.PropertyName)
+                    .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray())),
+
+            // Sai credentials -> 401 AUTH_INVALID_CREDENTIALS
+            UnauthorizedException ue => (
+                StatusCodes.Status401Unauthorized, 
+                string.IsNullOrEmpty(ue.ErrorCode) ? "AUTH_INVALID_CREDENTIALS" : ue.ErrorCode, 
+                "Chưa xác thực", 
+                null),
+
+            // Không có quyền -> 403
+            ForbiddenException fe => (
+                StatusCodes.Status403Forbidden, 
+                string.IsNullOrEmpty(fe.ErrorCode) ? "FORBIDDEN" : fe.ErrorCode, 
+                "Không có quyền", 
+                null),
+
+            // Không tìm thấy -> 404
+            NotFoundException nfe => (
+                StatusCodes.Status404NotFound, 
+                string.IsNullOrEmpty(nfe.ErrorCode) ? "NOT_FOUND" : nfe.ErrorCode, 
+                "Không tìm thấy", 
+                null),
+
+            // Conflict / Duplicate -> 409
+            ConflictException ce => (
+                StatusCodes.Status409Conflict, 
+                string.IsNullOrEmpty(ce.ErrorCode) ? "CONFLICT" : ce.ErrorCode, 
+                "Xung đột dữ liệu", 
+                null),
+
+            // Khóa tài khoản -> 423 AUTH_ACCOUNT_LOCKED (D17)
+            LockedException le => (
+                StatusCodes.Status423Locked, 
+                string.IsNullOrEmpty(le.ErrorCode) ? "AUTH_ACCOUNT_LOCKED" : le.ErrorCode, 
+                "Tài khoản bị khóa", 
+                null),
+
+            // Concurrency conflict -> 409 (D4)
             DbUpdateConcurrencyException => (
-                (int)HttpStatusCode.Conflict,
+                StatusCodes.Status409Conflict,
                 ErrorCodes.RecipeConcurrencyConflict,
                 "Dữ liệu đã bị thay đổi bởi người dùng khác",
                 null),
 
-            _ => ((int)HttpStatusCode.InternalServerError, "INTERNAL_SERVER_ERROR", "Lỗi hệ thống", null),
+            _ => (StatusCodes.Status500InternalServerError, "INTERNAL_SERVER_ERROR", "Lỗi hệ thống", null),
         };
 
-    /// <summary>
-    /// D30 — FluentValidation tự gán ErrorCode mặc định = TÊN VALIDATOR (vd "NotEmptyValidator")
-    /// cho mọi rule không gọi .WithErrorCode(...)/không tự set ErrorCode — "khác rỗng" không đủ
-    /// để nhận biết một Application Error Code thật. Chỉ coi là Application Error Code khi khớp
-    /// đúng quy ước SCREAMING_SNAKE_CASE (docs/CLAUDE.md mục 6) VÀ tất cả lỗi dùng chung mã đó.
-    /// </summary>
     private static readonly Regex _applicationErrorCodePattern = new("^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$", RegexOptions.Compiled);
 
     private static string? SingleSharedErrorCode(FluentValidationException ve)
@@ -136,13 +167,4 @@ public sealed class GlobalExceptionMiddleware(
 
         return codes is [var code] && _applicationErrorCodePattern.IsMatch(code) ? code : null;
     }
-
-    public class DomainException : Exception
-{
-    public string ErrorCode { get; }
-    public DomainException(string errorCode, string message) : base(message)
-    {
-        ErrorCode = errorCode;
-    }
-}
 }

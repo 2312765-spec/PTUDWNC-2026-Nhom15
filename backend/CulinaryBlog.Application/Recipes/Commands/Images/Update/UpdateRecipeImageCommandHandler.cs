@@ -1,5 +1,7 @@
 using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Application.Common.Interfaces;
+using CulinaryBlog.Domain.Common;
+using CulinaryBlog.Domain.Exceptions;
 using CulinaryBlog.Domain.Interfaces;
 using MediatR;
 
@@ -15,10 +17,6 @@ public sealed class UpdateRecipeImageCommandHandler(
     {
         string recipeSlug = string.Empty;
 
-        // D22/D27: đổi primary cần 2 lần SaveChanges (hạ ảnh cũ → nâng ảnh mới) để không vi phạm unique
-        // index; gói cả hai trong 1 transaction để lần lưu thứ hai lỗi thì ảnh cũ không bị mất primary.
-        // Khoá dòng Recipe (như upload): hai PATCH isPrimary=true đồng thời vào hai ảnh khác nhau nếu
-        // không xếp hàng sẽ cùng thấy một ảnh primary cũ và cùng nâng ảnh của mình → 500.
         await unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
             var recipe = await recipeRepository.GetByIdWithImagesForUpdateAsync(request.RecipeId, ct)
@@ -29,9 +27,18 @@ public sealed class UpdateRecipeImageCommandHandler(
                 throw new ForbiddenException(ErrorCodes.RecipeForbidden, "Bạn không có quyền sửa ảnh của công thức này.");
             }
 
-            if (!recipe.Images.Any(i => i.Id == request.ImageId))
+            var targetImage = recipe.Images.FirstOrDefault(i => i.Id == request.ImageId)
+                ?? throw new NotFoundException(ErrorCodes.RecipeImageNotFound, "Không tìm thấy ảnh.");
+
+            // D22/D27: Nếu cố hạ ảnh primary về false nhưng không còn ảnh nào khác làm primary (hoặc là ảnh duy nhất)
+            // thì phải trả về 400 RECIPE_PRIMARY_IMAGE_REQUIRED
+            if (request.IsPrimary == false && targetImage.IsPrimary)
             {
-                throw new NotFoundException(ErrorCodes.RecipeImageNotFound, "Không tìm thấy ảnh.");
+                var otherPrimaryExists = recipe.Images.Any(i => i.Id != request.ImageId && i.IsPrimary);
+                if (!otherPrimaryExists)
+                {
+                    throw new BadRequestException(ErrorCodes.RecipePrimaryImageRequired, "Công thức phải có ít nhất một ảnh chính.");
+                }
             }
 
             if (request.IsPrimary == true)
@@ -40,8 +47,29 @@ public sealed class UpdateRecipeImageCommandHandler(
                 await unitOfWork.SaveChangesAsync(ct);
             }
 
-            // D22/D27: DomainException (vd RECIPE_PRIMARY_IMAGE_REQUIRED) nằm trong Recipe.UpdateImage.
-            recipe.UpdateImage(request.ImageId, request.AltText, request.IsPrimary, request.OrderIndex);
+            try
+            {
+                if (request.IsPrimary.HasValue)
+                {
+                    recipe.UpdateImage(request.ImageId, request.IsPrimary.Value, request.OrderIndex);
+                }
+                
+                if (!string.IsNullOrEmpty(request.AltText))
+                {
+                    recipe.UpdateImage(request.ImageId, request.AltText, request.OrderIndex);
+                }
+            }
+            catch (DomainException ex)
+            {
+                throw new BadRequestException(
+                    string.IsNullOrEmpty(ex.ErrorCode) ? ErrorCodes.RecipePrimaryImageRequired : ex.ErrorCode, 
+                    ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new BadRequestException(ErrorCodes.RecipePrimaryImageRequired, ex.Message);
+            }
+
             await unitOfWork.SaveChangesAsync(ct);
 
             recipeSlug = recipe.Slug;

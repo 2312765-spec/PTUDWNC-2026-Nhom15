@@ -7,15 +7,15 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
-
   <ItemGroup Label="Application">
     <PackageVersion Include="MediatR" Version="12.4.1" />
     <PackageVersion Include="FluentValidation" Version="11.11.0" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+  
   </ItemGroup>
-
   <ItemGroup Label="Persistence">
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0" />
@@ -24,14 +24,12 @@
     <!-- Sprint 0 — B: seed dữ liệu mẫu (50 recipe / 5 author). -->
     <PackageVersion Include="Bogus" Version="35.6.5" />
   </ItemGroup>
-
   <ItemGroup Label="Identity &amp; Auth">
     <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
     <PackageVersion Include="Google.Apis.Auth" Version="1.68.0" />
   </ItemGroup>
-
   <ItemGroup Label="Cache / Storage / Email / Jobs">
     <PackageVersion Include="StackExchange.Redis" Version="2.8.16" />
     <PackageVersion Include="AWSSDK.S3" Version="3.7.416.4" />
@@ -46,7 +44,6 @@
     <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.17" />
     <PackageVersion Include="Hangfire.PostgreSql" Version="1.20.10" />
   </ItemGroup>
-
   <ItemGroup Label="Observability">
     <PackageVersion Include="Serilog.AspNetCore" Version="8.0.3" />
     <PackageVersion Include="Serilog.Sinks.Seq" Version="8.0.0" />
@@ -64,7 +61,6 @@
     <PackageVersion Include="AspNetCore.HealthChecks.Redis" Version="8.0.1" />
     <PackageVersion Include="AspNetCore.HealthChecks.Aws.S3" Version="8.0.1" />
   </ItemGroup>
-
   <ItemGroup Label="API">
     <PackageVersion Include="Scalar.AspNetCore" Version="2.0.4" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
@@ -72,7 +68,6 @@
          (high, vá ở 2.7.5). Giữ nguyên major 2.x để không phá tương thích API với gói trên. -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.12.2" />
   </ItemGroup>
-
   <ItemGroup Label="Testing">
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageVersion Include="xunit" Version="2.9.2" />

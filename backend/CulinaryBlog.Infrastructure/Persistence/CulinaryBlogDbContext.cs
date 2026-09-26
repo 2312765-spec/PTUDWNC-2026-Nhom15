@@ -49,13 +49,39 @@ public class CulinaryBlogDbContext(DbContextOptions<CulinaryBlogDbContext> optio
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // IdentityDbContext.OnModelCreating PHẢI chạy trước — nó khai báo AspNetUsers/AspNetRoles.
         base.OnModelCreating(modelBuilder);
-
+        modelBuilder.Entity<Recipe>(entity =>
+{
+         // Bỏ qua Nutrition để EF Core không tìm kiếm các cột Nutrition_Carbs, Nutrition_Calories... trong database
+         entity.Ignore(r => r.Nutrition);
+        });
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CulinaryBlogDbContext).Assembly);
+        
+        // Đảm bảo quan hệ 1-N giữa Recipe và RecipeImage sử dụng đúng cột
+        modelBuilder.Entity<RecipeImage>(entity =>
+        {
+            entity.ToTable("RecipeImages");
+            entity.HasKey(e => e.Id);
+
+            entity.HasOne(d => d.Recipe)
+                .WithMany(p => p.Images)
+                .HasForeignKey(d => d.RecipeId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Ignore(e => e.DisplayOrder);
+        });
+
+        // THÊM ĐOẠN NÀY VÀO NGAY ĐÂY:
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.ToTable("RefreshTokens");
+            entity.HasKey(e => e.Id);
+            entity.Ignore(e => e.UpdatedAt);
+            entity.Ignore(e => e.Token);
+        });
 
         ApplySoftDeleteQueryFilter(modelBuilder);
-        ApplyRowVersionConcurrencyToken(modelBuilder);
     }
 
     /// <inheritdoc />

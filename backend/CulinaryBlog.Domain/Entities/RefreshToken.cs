@@ -1,35 +1,57 @@
-using CulinaryBlog.Domain.Common;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CulinaryBlog.Domain.Entities;
 
-public class RefreshToken : BaseEntity
+/// <summary>
+/// Thực thể RefreshToken — SRS 7.8, Quyết định D20.
+/// Bảng Database gồm: Id, UserId, TokenHash, ExpiresAt, RevokedAt, ReplacedByTokenHash, CreatedAt, CreatedByIp.
+/// </summary>
+public class RefreshToken 
 {
+    public Guid Id { get; set; } = Guid.NewGuid();
     public string UserId { get; set; } = string.Empty;
-    public string Token { get; set; } = string.Empty;
     public string TokenHash { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
-    public bool IsRevoked { get; set; }
+    public DateTime? RevokedAt { get; set; }
     public string? ReplacedByTokenHash { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? CreatedByIp { get; set; }
 
+    [NotMapped]
+    public DateTime? UpdatedAt { get; set; }
+
+    [NotMapped]
+    public string Token { get; set; } = string.Empty;
+
+    [NotMapped]
+    public bool IsRevoked => RevokedAt.HasValue;
+
+    [NotMapped]
     public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
+
+    [NotMapped]
     public bool IsActive => !IsRevoked && !IsExpired;
 
-    public RefreshToken() { }
+    public RefreshToken() 
+    {
+        TokenHash = Guid.NewGuid().ToString("N");
+    }
 
-    public RefreshToken(string userId, string token, DateTime expiresAt, string? createdByIp = null, string? replacedBy = null)
+    public RefreshToken(string userId, string tokenHash, DateTime expiresAt, string? createdByIp = null, string? replacedBy = null)
     {
         UserId = userId;
-        Token = token;
-        TokenHash = token;
+        Token = tokenHash;
+        // Nếu tokenHash rỗng thì tự sinh GUID ngẫu nhiên để tránh lỗi trùng lặp Unique Index trong DB
+        TokenHash = string.IsNullOrWhiteSpace(tokenHash) ? Guid.NewGuid().ToString("N") : tokenHash;
         ExpiresAt = expiresAt;
         CreatedByIp = createdByIp;
         ReplacedByTokenHash = replacedBy;
+        CreatedAt = DateTime.UtcNow;
     }
-
+   
     public void Revoke(string? replacedByTokenHash = null)
     {
-        IsRevoked = true;
+        RevokedAt = DateTime.UtcNow;
         ReplacedByTokenHash = replacedByTokenHash;
         UpdatedAt = DateTime.UtcNow;
     }

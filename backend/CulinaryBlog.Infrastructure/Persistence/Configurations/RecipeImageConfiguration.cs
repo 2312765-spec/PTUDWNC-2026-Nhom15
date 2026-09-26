@@ -6,13 +6,33 @@ namespace CulinaryBlog.Infrastructure.Persistence.Configurations;
 
 public class RecipeImageConfiguration : IEntityTypeConfiguration<RecipeImage>
 {
-    public void Configure(EntityTypeBuilder<RecipeImage> builder)
+     public void Configure(EntityTypeBuilder<RecipeImage> builder)
     {
+        builder.ToTable("RecipeImages");
+
         builder.HasKey(x => x.Id);
 
-        // Tạm thời comment các trường chưa có trong Domain Entity RecipeImage
-        // builder.Property(x => x.MediumUrl);
-        // builder.Property(x => x.ThumbnailUrl);
-        // builder.Property(x => x.OrderIndex);
+        // ĐẶC BIỆT QUAN TRỌNG: Cấu hình rõ ràng quan hệ với Recipe để triệt tiêu cột "RecipeId1"
+        builder.HasOne(x => x.Recipe)
+               .WithMany(r => r.Images)
+               .HasForeignKey(x => x.RecipeId)
+               .IsRequired()
+               .OnDelete(DeleteBehavior.Cascade);
+
+        // Bỏ qua DisplayOrder vì nó chỉ là alias trong C#
+        builder.Ignore(x => x.DisplayOrder);
+
+        builder.Property(x => x.OrderIndex)
+               .IsRequired();
+
+        builder.Property(x => x.OriginalUrl)
+               .IsRequired()
+               .HasMaxLength(2048);
+
+        builder.Property(x => x.AltText)
+               .HasMaxLength(500);
+
+        builder.Property(x => x.IsPrimary)
+               .IsRequired();
     }
 }

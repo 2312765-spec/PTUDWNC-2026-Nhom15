@@ -14,17 +14,20 @@ public sealed class UpdateCategoryCommandValidator : AbstractValidator<UpdateCat
             .NotEmpty().WithMessage("ID danh mục không được để trống.");
 
         // `?? string.Empty`: body thiếu name thì Name = null, Must vẫn chạy sau NotEmpty (cascade Continue).
-        RuleFor(x => x.Name)
-            .NotEmpty().WithMessage("Tên danh mục không được để trống.")
-            .MinimumLength(2).WithMessage("Tên danh mục phải có ít nhất 2 ký tự.")
-            .MaximumLength(50).WithMessage("Tên danh mục không được vượt quá 50 ký tự.")
-            .Must(name => !_htmlRegex.IsMatch(name ?? string.Empty))
-            .WithMessage("Tên danh mục không được chứa mã HTML.");
+         RuleFor(x => x.Name)
+        .Cascade(CascadeMode.Stop)
+        .NotEmpty().WithMessage("Tên danh mục không được để trống.")
+        .Length(2, 50).WithMessage("Tên danh mục phải từ 2 đến 50 ký tự.")
+        .Must(name => !_htmlRegex.IsMatch(name ?? string.Empty))
+        .WithMessage("Tên danh mục không được chứa mã HTML.");
+
 
         RuleFor(x => x.Description)
-            .MaximumLength(500).WithMessage("Mô tả không được vượt quá 500 ký tự.")
-            .Must(desc => !_htmlRegex.IsMatch(desc ?? string.Empty))
-            .WithMessage("Mô tả không được chứa mã HTML.")
-            .When(x => !string.IsNullOrEmpty(x.Description));
+        .MaximumLength(500).WithMessage("Mô tả không được vượt quá 500 ký tự.")
+        .Must(desc => !_htmlRegex.IsMatch(desc ?? string.Empty))
+        .WithMessage("Mô tả không được chứa mã HTML.")
+        .When(x => !string.IsNullOrEmpty(x.Description));
+   
+    
     }
 }

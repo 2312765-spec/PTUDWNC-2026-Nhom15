@@ -1,7 +1,7 @@
 using CulinaryBlog.Domain.Common;
 using CulinaryBlog.Domain.Enums;
 using CulinaryBlog.Domain.Exceptions;
-
+using System.ComponentModel.DataAnnotations.Schema;
 namespace CulinaryBlog.Domain.Entities;
 
 public class Recipe : BaseEntity, IAggregateRoot
@@ -23,6 +23,7 @@ public class Recipe : BaseEntity, IAggregateRoot
     public ICollection<RecipeImage> Images { get; set; } = new List<RecipeImage>();
     public ICollection<RecipeIngredient> Ingredients { get; set; } = new List<RecipeIngredient>();
     public ICollection<RecipeStep> Steps { get; set; } = new List<RecipeStep>();
+    
     public RecipeNutrition? Nutrition { get; set; }
 
     public Recipe() { }
@@ -50,9 +51,6 @@ public class Recipe : BaseEntity, IAggregateRoot
         Status = RecipeStatus.Draft;
     }
 
-    /// <summary>
-    /// Factory method chuẩn hỗ trợ cả truyền tham số vị trí lẫn named parameters
-    /// </summary>
     public static Recipe Create(
         string title = "Test Recipe",
         string slug = "test-recipe",
@@ -84,7 +82,7 @@ public class Recipe : BaseEntity, IAggregateRoot
 
         return recipe;
     }
-
+    
     public void Publish()
     {
         Status = RecipeStatus.Published;
@@ -123,34 +121,45 @@ public class Recipe : BaseEntity, IAggregateRoot
         UpdatedAt = DateTime.UtcNow;
     }
 
+    public void DemoteOtherPrimaryImages(Guid? currentImageId = null)
+    {
+        foreach (var img in Images)
+        {
+            if (currentImageId == null || img.Id != currentImageId)
+            {
+                img.IsPrimary = false;
+            }
+        }
+    }
+
     /// <summary>
     /// FR-RCP-008 / Quyết định D22, D23:
     /// - Ảnh đầu tiên thêm vào tự động là Primary, OrderIndex = 0.
     /// - Ảnh thứ hai trở đi không Primary, OrderIndex = Max(OrderIndex) + 1.
     /// </summary>
-    public RecipeImage AddImage(string originalUrl, bool? isPrimary = null, int? displayOrder = null)
+    public RecipeImage AddImage(string originalUrl, string? altText = null, bool? isPrimary = null, int? displayOrder = null)
+{
+    bool finalIsPrimary = isPrimary ?? (Images.Count == 0);
+    int finalOrder = displayOrder ?? (Images.Count == 0 ? 0 : (Images.Max(i => i.OrderIndex) + 1));
+
+    if (finalIsPrimary)
     {
-        int nextOrder = Images.Count == 0 ? 0 : (Images.Max(i => i.OrderIndex) + 1);
-        int finalOrder = displayOrder ?? nextOrder;
-        bool finalIsPrimary = isPrimary ?? (Images.Count == 0);
-
-        if (finalIsPrimary)
-        {
-            DemoteOtherPrimaryImages();
-        }
-
-        var image = new RecipeImage
-        {
-            RecipeId = this.Id,
-            OriginalUrl = originalUrl,
-            IsPrimary = finalIsPrimary,
-            DisplayOrder = finalOrder,
-            OrderIndex = finalOrder
-        };
-
-        Images.Add(image);
-        return image;
+        DemoteOtherPrimaryImages();
     }
+
+    var image = new RecipeImage
+    {
+        RecipeId = this.Id,
+        OriginalUrl = originalUrl,
+        AltText = altText ?? string.Empty,
+        IsPrimary = finalIsPrimary,
+        DisplayOrder = finalOrder,
+        OrderIndex = finalOrder
+    };
+
+    Images.Add(image);
+    return image;
+}
 
     public void AddStep(int stepNumber, string title, string description, int? timerMinutes = null, string? imageUrl = null)
     {
@@ -196,7 +205,7 @@ public class Recipe : BaseEntity, IAggregateRoot
     }
 
     /// <summary>
-    /// Quyết định D22: Xóa ảnh. Nếu ảnh bị xóa là Primary, tự động chọn ảnh còn lại có OrderIndex nhỏ nhất làm Primary mới.
+    /// Xóa ảnh (D22). Nếu ảnh bị xóa là Primary, tự động chọn ảnh còn lại có OrderIndex nhỏ nhất làm Primary mới.
     /// </summary>
     public RecipeImage RemoveImage(Guid imageId)
     {
@@ -218,25 +227,34 @@ public class Recipe : BaseEntity, IAggregateRoot
         return img;
     }
 
+    /// <summary>
+    /// Gắn ảnh thực thể vào Recipe (D22, D23).
+    /// </summary>
     public RecipeImage AttachImage(RecipeImage image)
     {
+        image.RecipeId = this.Id;
+
         if (Images.Count == 0)
         {
             image.IsPrimary = true;
-            image.OrderIndex = 0;
-            image.DisplayOrder = 0;
+            if (image.OrderIndex == 0 && image.DisplayOrder == 0)
+            {
+                image.OrderIndex = 0;
+                image.DisplayOrder = 0;
+            }
         }
         else
         {
-            if (image.OrderIndex == 0 && Images.Any(i => i.OrderIndex == 0))
-            {
-                image.OrderIndex = Images.Max(i => i.OrderIndex) + 1;
-                image.DisplayOrder = image.OrderIndex;
-            }
-
             if (image.IsPrimary)
             {
                 DemoteOtherPrimaryImages(image.Id);
+            }
+
+            int maxOrder = Images.Max(i => i.OrderIndex);
+            if (image.OrderIndex == 0 && image.DisplayOrder == 0)
+            {
+                image.OrderIndex = maxOrder + 1;
+                image.DisplayOrder = maxOrder + 1;
             }
         }
 
@@ -244,64 +262,57 @@ public class Recipe : BaseEntity, IAggregateRoot
         return image;
     }
 
-    public RecipeImage AttachImage(string originalUrl, bool isPrimary = false, int displayOrder = 0)
+   public RecipeImage AttachImage(string originalUrl, bool? isPrimary = null, int? displayOrder = null)
+{
+    return AddImage(originalUrl, isPrimary: isPrimary, displayOrder: displayOrder);
+}
+
+public RecipeImage AttachImage(object arg1, object? arg2 = null, object? arg3 = null, object? arg4 = null)
+{
+    if (arg1 is RecipeImage recipeImage)
     {
-        return AddImage(originalUrl, isPrimary, displayOrder);
+        return AttachImage(recipeImage);
     }
 
-    public RecipeImage AttachImage(object arg1, object? arg2 = null, object? arg3 = null, object? arg4 = null)
+    var url = arg1?.ToString() ?? string.Empty;
+    string? altText = null;
+    bool? isPrimary = null;
+    int? order = null;
+
+    object?[] args = new[] { arg2, arg3, arg4 };
+
+    foreach (var arg in args)
     {
-        if (arg1 is RecipeImage recipeImage)
+        if (arg is string s)
         {
-            return AttachImage(recipeImage);
+            altText = s;
         }
-
-        var url = arg1?.ToString() ?? string.Empty;
-        var isPrimary = false;
-        var order = 0;
-
-        if (arg2 is bool b2)
+        else if (arg is bool b)
         {
-            isPrimary = b2;
+            isPrimary = b;
         }
-        else if (arg2 is int i2)
+        else if (arg is int i)
         {
-            order = i2;
-        }
-
-        if (arg3 is int i3)
-        {
-            order = i3;
-        }
-        else if (arg3 is bool b3)
-        {
-            isPrimary = b3;
-        }
-
-        return AddImage(url, isPrimary, order);
-    }
-
-    public void DemoteOtherPrimaryImages(Guid? currentImageId = null)
-    {
-        foreach (var img in Images)
-        {
-            if (currentImageId == null || img.Id != currentImageId)
-            {
-                img.IsPrimary = false;
-            }
+            order = i;
         }
     }
 
-    /// <summary>
-    /// Quyết định D22: Cập nhật Primary. Nếu isPrimary = true, ảnh này thành primary và các ảnh khác về false.
-    /// Nếu isPrimary = false trên ảnh đang không primary thì không đổi gì.
-    /// </summary>
-/// <summary>
-    /// FR-RCP-008 / Quyết định D22:
-    /// - Không cho phép set isPrimary = false trên ảnh đang là Primary -> Ném ngoại lệ RECIPE_PRIMARY_IMAGE_REQUIRED.
-    /// - Nếu set isPrimary = true -> biến ảnh này thành Primary và hạ các ảnh khác về false.
-    /// - Nếu set isPrimary = false trên ảnh đang không phải Primary -> không thay đổi trạng thái primary.
-    /// </summary>
+    return AddImage(url, altText: altText, isPrimary: isPrimary, displayOrder: order);
+}
+
+    public void UpdateImage(Guid imageId, string? altText, int orderIndex)
+    {
+        var img = Images.FirstOrDefault(x => x.Id == imageId);
+        if (img == null)
+        {
+            throw new DomainException("Không tìm thấy ảnh để cập nhật.", "IMAGE_NOT_FOUND");
+        }
+
+        img.AltText = altText;
+        img.OrderIndex = orderIndex;
+        img.DisplayOrder = orderIndex;
+    }
+
     public RecipeImage UpdateImage(Guid imageId, bool isPrimary, int displayOrder)
     {
         var img = Images.FirstOrDefault(x => x.Id == imageId);
@@ -310,7 +321,6 @@ public class Recipe : BaseEntity, IAggregateRoot
             throw new DomainException("Không tìm thấy ảnh để cập nhật.", "IMAGE_NOT_FOUND");
         }
 
-        // Nếu ảnh đang là Primary mà cố tình set về false -> Báo lỗi
         if (img.IsPrimary && !isPrimary)
         {
             throw new DomainException("Công thức luôn yêu cầu phải có một ảnh đại diện chính.", "RECIPE_PRIMARY_IMAGE_REQUIRED");
@@ -336,29 +346,32 @@ public class Recipe : BaseEntity, IAggregateRoot
             throw new DomainException("Không tìm thấy ảnh để cập nhật.", "IMAGE_NOT_FOUND");
         }
 
-        if (arg2 is bool b)
-        {
-            if (img.IsPrimary && !b)
-            {
-                throw new DomainException("Công thức luôn yêu cầu phải có một ảnh đại diện chính.", "RECIPE_PRIMARY_IMAGE_REQUIRED");
-            }
+        object?[] args = new[] { arg2, arg3, arg4 };
 
-            if (b)
+        foreach (var arg in args)
+        {
+            if (arg is string s)
             {
-                img.IsPrimary = true;
-                DemoteOtherPrimaryImages(imageId);
+                img.AltText = s;
             }
-        }
+            else if (arg is bool b)
+            {
+                if (img.IsPrimary && !b)
+                {
+                    throw new DomainException("Công thức luôn yêu cầu phải có một ảnh đại diện chính.", "RECIPE_PRIMARY_IMAGE_REQUIRED");
+                }
 
-        if (arg3 is int i)
-        {
-            img.DisplayOrder = i;
-            img.OrderIndex = i;
-        }
-        else if (arg2 is int i2)
-        {
-            img.DisplayOrder = i2;
-            img.OrderIndex = i2;
+                if (b)
+                {
+                    img.IsPrimary = true;
+                    DemoteOtherPrimaryImages(imageId);
+                }
+            }
+            else if (arg is int i)
+            {
+                img.DisplayOrder = i;
+                img.OrderIndex = i;
+            }
         }
 
         return img;
@@ -366,14 +379,6 @@ public class Recipe : BaseEntity, IAggregateRoot
 
     public void UpdateImageAltTextAndOrderIndex(Guid imageId, string? altText, int orderIndex)
     {
-        var img = Images.FirstOrDefault(x => x.Id == imageId);
-        if (img == null)
-        {
-            throw new DomainException("Không tìm thấy ảnh để cập nhật.", "IMAGE_NOT_FOUND");
-        }
-
-        img.AltText = altText;
-        img.OrderIndex = orderIndex;
-        img.DisplayOrder = orderIndex;
+        UpdateImage(imageId, altText, orderIndex);
     }
 }

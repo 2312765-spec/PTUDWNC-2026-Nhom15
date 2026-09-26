@@ -3,7 +3,6 @@ using CulinaryBlog.Domain.Interfaces;
 using CulinaryBlog.Infrastructure.Identity;
 using CulinaryBlog.Infrastructure.Persistence;
 using CulinaryBlog.Infrastructure.Persistence.Repositories;
-using CulinaryBlog.Infrastructure.Repositories;
 using CulinaryBlog.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -56,7 +55,7 @@ public static class DependencyInjection
         // 5. Đăng ký Identity & Helpers
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<ISlugHelper, SlugHelper>();
-        services.AddScoped<IJwtService, MockJwtService>();
+        services.AddScoped<IJwtService, CulinaryBlog.Infrastructure.Auth.JwtService>();
 
         // 6. Đăng ký Mock Service cho File Storage và Background Job
         services.AddScoped<IFileStorageService, MockFileStorageService>();
