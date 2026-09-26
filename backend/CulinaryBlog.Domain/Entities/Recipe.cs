@@ -296,12 +296,24 @@ public class Recipe : BaseEntity, IAggregateRoot
     /// Quyết định D22: Cập nhật Primary. Nếu isPrimary = true, ảnh này thành primary và các ảnh khác về false.
     /// Nếu isPrimary = false trên ảnh đang không primary thì không đổi gì.
     /// </summary>
+/// <summary>
+    /// FR-RCP-008 / Quyết định D22:
+    /// - Không cho phép set isPrimary = false trên ảnh đang là Primary -> Ném ngoại lệ RECIPE_PRIMARY_IMAGE_REQUIRED.
+    /// - Nếu set isPrimary = true -> biến ảnh này thành Primary và hạ các ảnh khác về false.
+    /// - Nếu set isPrimary = false trên ảnh đang không phải Primary -> không thay đổi trạng thái primary.
+    /// </summary>
     public RecipeImage UpdateImage(Guid imageId, bool isPrimary, int displayOrder)
     {
         var img = Images.FirstOrDefault(x => x.Id == imageId);
         if (img == null)
         {
             throw new DomainException("Không tìm thấy ảnh để cập nhật.", "IMAGE_NOT_FOUND");
+        }
+
+        // Nếu ảnh đang là Primary mà cố tình set về false -> Báo lỗi
+        if (img.IsPrimary && !isPrimary)
+        {
+            throw new DomainException("Công thức luôn yêu cầu phải có một ảnh đại diện chính.", "RECIPE_PRIMARY_IMAGE_REQUIRED");
         }
 
         img.DisplayOrder = displayOrder;
@@ -324,10 +336,18 @@ public class Recipe : BaseEntity, IAggregateRoot
             throw new DomainException("Không tìm thấy ảnh để cập nhật.", "IMAGE_NOT_FOUND");
         }
 
-        if (arg2 is bool b && b)
+        if (arg2 is bool b)
         {
-            img.IsPrimary = true;
-            DemoteOtherPrimaryImages(imageId);
+            if (img.IsPrimary && !b)
+            {
+                throw new DomainException("Công thức luôn yêu cầu phải có một ảnh đại diện chính.", "RECIPE_PRIMARY_IMAGE_REQUIRED");
+            }
+
+            if (b)
+            {
+                img.IsPrimary = true;
+                DemoteOtherPrimaryImages(imageId);
+            }
         }
 
         if (arg3 is int i)

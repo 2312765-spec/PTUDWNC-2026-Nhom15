@@ -1,5 +1,6 @@
 using CulinaryBlog.Application.Categories.DTOs;
 using CulinaryBlog.Application.Common.Exceptions;
+using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Domain.Interfaces;
 using MediatR;
 
@@ -13,13 +14,16 @@ public sealed class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategor
 {
     private readonly ICategoryRepository _categoryRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICacheService? _cacheService;
 
     public UpdateCategoryCommandHandler(
         ICategoryRepository categoryRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ICacheService? cacheService = null)
     {
         _categoryRepository = categoryRepository;
         _unitOfWork = unitOfWork;
+        _cacheService = cacheService;
     }
     
     public async Task<CategoryDto> Handle(UpdateCategoryCommand request, CancellationToken cancellationToken)
@@ -38,13 +42,13 @@ public sealed class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategor
             throw new NotFoundException("CATEGORY_NOT_FOUND", $"Không tìm thấy danh mục với ID: '{request.Id}'.");
         }
 
-        // 2. Kiểm tra nếu tên thay đổi và trùng với danh mục khác
+        // 2. Kiểm tra nếu tên thay đổi và trùng với danh mục khác (Yêu cầu mã: CATEGORY_NAME_EXISTS)
         if (!string.Equals(category.Name, trimmedName, StringComparison.OrdinalIgnoreCase))
         {
             var exists = await _categoryRepository.ExistsByNameAsync(trimmedName, cancellationToken);
             if (exists)
             {
-                throw new ConflictException("CATEGORY_EXISTS", $"Danh mục với tên '{trimmedName}' đã tồn tại trong hệ thống.");
+                throw new ConflictException("CATEGORY_NAME_EXISTS", $"Danh mục với tên '{trimmedName}' đã tồn tại trong hệ thống.");
             }
         }
 
@@ -54,7 +58,13 @@ public sealed class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategor
         _categoryRepository.Update(category);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // 4. Lấy số lượng công thức liên kết
+        // 4. Xóa cache của cả categories và recipes (thỏa mãn Command_InvalidatesCategoriesAndRecipesTags)
+        if (_cacheService != null)
+        {
+            await _cacheService.RemoveByTagsAsync(new[] { "categories", "recipes" }, cancellationToken);
+        }
+
+        // 5. Lấy số lượng công thức liên kết
         var recipeCount = await _categoryRepository.GetPublishedRecipeCountAsync(category.Id, cancellationToken);
 
         return new CategoryDto(
@@ -65,5 +75,4 @@ public sealed class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategor
             recipeCount
         );
     }
-    
 }
