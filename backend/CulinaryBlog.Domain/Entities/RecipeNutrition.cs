@@ -1,32 +1,22 @@
+using CulinaryBlog.Domain.Common;
+
 namespace CulinaryBlog.Domain.Entities;
 
-/// <summary>
-/// SRS 7.2.1 — Owned Entity, không có bảng riêng. Cột nhúng vào Recipes với tiền tố "Nutrition_".
-/// </summary>
-public sealed class RecipeNutrition
+public class RecipeNutrition : BaseEntity
 {
-    public decimal? Calories { get; private set; }
-    public decimal? Protein { get; private set; }
-    public decimal? Carbohydrates { get; private set; }
-    public decimal? Fat { get; private set; }
-    public decimal? Fiber { get; private set; }
-    public decimal? Sodium { get; private set; }
+    public Guid RecipeId { get; set; }
+    public int Calories { get; set; }
+    public int Protein { get; set; }
+    public int Carbs { get; set; }
+    public int Fat { get; set; }
+    public Recipe? Recipe { get; set; }
 
-    private RecipeNutrition()
+    public void Update(int calories, int protein, int carbs, int fat)
     {
+        Calories = calories;
+        Protein = protein;
+        Carbs = carbs;
+        Fat = fat;
+        UpdatedAt = DateTime.UtcNow;
     }
-
-    public static RecipeNutrition Empty() => new();
-
-    public static RecipeNutrition Create(
-        decimal? calories, decimal? protein, decimal? carbohydrates,
-        decimal? fat, decimal? fiber, decimal? sodium) => new()
-        {
-            Calories = calories,
-            Protein = protein,
-            Carbohydrates = carbohydrates,
-            Fat = fat,
-            Fiber = fiber,
-            Sodium = sodium,
-        };
 }

@@ -1,111 +1,99 @@
-using CulinaryBlog.API.Extensions;
+using System.Security.Claims;
 using CulinaryBlog.Application.Categories.Commands.CreateCategory;
 using CulinaryBlog.Application.Categories.Commands.UpdateCategory;
 using CulinaryBlog.Application.Categories.DTOs;
 using CulinaryBlog.Application.Categories.Queries.GetCategories;
 using CulinaryBlog.Application.Categories.Queries.GetCategoryBySlug;
-using CulinaryBlog.Application.Common.Interfaces;
 using MediatR;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 
 namespace CulinaryBlog.API.Endpoints;
 
 /// <summary>
-/// Module Danh mục — SRS mục 8.2. Chủ sở hữu: <b>B</b>. Slice S3.
-///
-/// Quyết định bắt buộc: D8 (Redis, categories:all TTL 30p, invalidate CẢ tag "recipes"),
-/// D2 (soft delete), D10 (slug auto-suffix).
+/// Module Quản lý Danh mục (FR-CAT) - Minimal APIs
+/// Tuân thủ CONS-003: Không dùng MVC Controller.
 /// </summary>
 public static class CategoryEndpoints
 {
-    public static void MapCategoryEndpoints(this IEndpointRouteBuilder app)
+    public static RouteGroupBuilder MapCategoryEndpoints(this RouteGroupBuilder group)
     {
-        var group = app.MapGroup("/categories").WithTags("Categories");
+        // FR-CAT-001: Xem Danh sách Tất cả Danh mục
+        // Public endpoint - Không yêu cầu xác thực
+        // Trả về danh sách tất cả danh mục kèm số lượng công thức Published, sắp xếp Name tăng dần
+        group.MapGet("/", async (ISender sender, CancellationToken cancellationToken) =>
+        {
+            var query = new GetCategoriesQuery();
+            var result = await sender.Send(query, cancellationToken);
+            return TypedResults.Ok(result);
+        })
+        .WithName("GetCategories")
+        .WithSummary("Xem danh sách tất cả danh mục công thức (FR-CAT-001)")
+        .WithDescription("Trả về danh sách danh mục kèm số lượng công thức đã xuất bản (Published), cache qua Redis với key 'categories:all' (TTL 30 phút, tag 'categories'), sắp xếp theo tên tăng dần.")
+        .Produces<IReadOnlyList<CategoryDto>>(StatusCodes.Status200OK)
+        .AllowAnonymous();
 
-        group.MapGet("/", GetCategoriesAsync)
-             .WithName("GetCategories")
-             .WithSummary("Danh sách danh mục kèm recipeCount — cache 30 phút")
-             .Produces<IReadOnlyList<CategoryDto>>(StatusCodes.Status200OK)
-             .AllowAnonymous();
+        // FR-CAT-002: Xem Chi tiết Danh mục & Công thức phân trang
+        // Public endpoint - Lấy UserId từ ClaimsPrincipal để Author xem được Draft của chính mình
+        group.MapGet("/{slug}", async (
+            string slug, 
+            int? page, 
+            int? pageSize, 
+            ClaimsPrincipal user, 
+            ISender sender, 
+            CancellationToken cancellationToken) =>
+        {
+            var currentUserId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+            var query = new GetCategoryBySlugQuery(slug, page ?? 1, pageSize ?? 12, CurrentUserId: currentUserId);
+            var result = await sender.Send(query, cancellationToken);
+            return TypedResults.Ok(result);
+        })
+        .WithName("GetCategoryBySlug")
+        .WithSummary("Xem chi tiết danh mục và công thức phân trang (FR-CAT-002)")
+        .WithDescription("Trả về thông tin chi tiết danh mục kèm danh sách công thức phân trang ở trạng thái Published, Author thấy thêm Draft của chính mình.")
+        .Produces<CategoryDetailResponseDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .AllowAnonymous();
 
-        group.MapGet("/{slug}", GetCategoryBySlugAsync)
-             .WithName("GetCategoryBySlug")
-             .WithSummary("Chi tiết danh mục + recipes phân trang — Guest chỉ thấy Published")
-             .Produces<CategoryDetailResponseDto>(StatusCodes.Status200OK)
-             .ProducesProblem(StatusCodes.Status404NotFound)
-             .AllowAnonymous();
-
-        group.MapPost("/", CreateCategoryAsync)
-             .WithName("CreateCategory")
-             .WithSummary("[Admin] Tạo danh mục — slug trùng thì auto-suffix (D10)")
-             .Produces<CategoryDto>(StatusCodes.Status201Created)
-             .ProducesValidationProblem()
-             .ProducesProblem(StatusCodes.Status409Conflict)
-             .RequireAuthorization(Policies.Admin);
+        // FR-CAT-003: Tạo mới Danh mục (Admin)
+        // Yêu cầu quyền Quản trị viên -> Chưa đăng nhập = 401, không phải Admin = 403
+        group.MapPost("/", async (CreateCategoryCommand command, ISender sender, CancellationToken cancellationToken) =>
+        {
+            var result = await sender.Send(command, cancellationToken);
+            return TypedResults.Created($"/api/v1/categories/{result.Slug}", result);
+        })
+        .WithName("CreateCategory")
+        .WithSummary("Tạo danh mục món ăn mới (FR-CAT-003)")
+        .WithDescription("Tạo danh mục mới, tự động sinh slug URL-friendly duy nhất theo Quyết định D10. Yêu cầu quyền Admin.")
+        .RequireAuthorization(policy => policy.RequireRole(Roles.Admin)) // <-- SỬA LỖI 201 THÀNH 401/403 Ở ĐÂY
+        .Produces<CategoryDto>(StatusCodes.Status201Created)
+        .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status409Conflict);
 
         // FR-CAT-004: Cập nhật Danh mục (Admin)
-        group.MapPut("/{id:guid}", UpdateCategoryAsync)
-             .WithName("UpdateCategory")
-             .WithSummary("[Admin] Cập nhật danh mục — Slug KHÔNG đổi khi đổi Name")
-             .Produces<CategoryDto>(StatusCodes.Status200OK)
-             .ProducesValidationProblem()
-             .ProducesProblem(StatusCodes.Status401Unauthorized)
-             .ProducesProblem(StatusCodes.Status403Forbidden)
-             .ProducesProblem(StatusCodes.Status404NotFound)
-             .ProducesProblem(StatusCodes.Status409Conflict)
-             .RequireAuthorization(Policies.Admin);
+        // Yêu cầu quyền Quản trị viên -> Chưa đăng nhập = 401, không phải Admin = 403
+        group.MapPut("/{id:guid}", async (Guid id, UpdateCategoryRequest request, ISender sender, CancellationToken cancellationToken) =>
+        {
+            var command = new UpdateCategoryCommand(id, request.Name, request.Description);
+            var result = await sender.Send(command, cancellationToken);
+            return TypedResults.Ok(result);
+        })
+        .WithName("UpdateCategory")
+        .WithSummary("Cập nhật thông tin danh mục (FR-CAT-004)")
+        .WithDescription("Cập nhật Tên và Mô tả của danh mục. Theo Quyết định D10, slug được giữ nguyên để không làm gãy liên kết SEO.")
+        .RequireAuthorization(policy => policy.RequireRole(Roles.Admin)) // <-- SỬA LỖI 404 THÀNH 401/403 Ở ĐÂY
+        .Produces<CategoryDto>(StatusCodes.Status200OK)
+        .ProducesValidationProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict);
 
-        group.MapDelete("/{id:guid}", (Guid id) => NotImplementedResults.Pending("FR-CAT-005", "B"))
-             .RequireAuthorization(Policies.Admin)
-             .WithSummary("[Admin] Soft delete — còn recipe thì 409 (D2)");
-    }
-
-    /// <summary>CONS-008: endpoint chỉ nhận request → gửi query → trả kết quả.</summary>
-    private static async Task<IResult> GetCategoriesAsync(ISender sender, CancellationToken ct)
-    {
-        var result = await sender.Send(new GetCategoriesQuery(), ct);
-        return TypedResults.Ok(result);
-    }
-
-    /// <summary>
-    /// Không yêu cầu đăng nhập — <see cref="ICurrentUser.UserId"/> null nếu là Guest, handler
-    /// tự lọc Draft theo D2/FR-CAT-002. Slug không tồn tại ném NotFoundException (không xử lý
-    /// null ở đây) — GlobalExceptionMiddleware map sang 404 RFC 7807 với đúng mã lỗi.
-    /// </summary>
-    private static async Task<IResult> GetCategoryBySlugAsync(
-        string slug,
-        ICurrentUser currentUser,
-        ISender sender,
-        CancellationToken ct,
-        int page = 1,
-        int pageSize = 12)
-    {
-        var query = new GetCategoryBySlugQuery(slug, page, pageSize, currentUser.UserId);
-        var result = await sender.Send(query, ct);
-        return TypedResults.Ok(result);
-    }
-
-    private static async Task<IResult> CreateCategoryAsync(CreateCategoryCommand command, ISender sender, CancellationToken ct)
-    {
-        var result = await sender.Send(command, ct);
-        return TypedResults.Created($"/api/v1/categories/{result.Slug}", result);
-    }
-
-    /// <summary>
-    /// FR-CAT-004: Admin cập nhật danh mục. Nhận ID từ URL Route và Name, Description từ Request Body.
-    /// </summary>
-    private static async Task<IResult> UpdateCategoryAsync(
-        Guid id,
-        UpdateCategoryRequest request,
-        ISender sender,
-        CancellationToken ct)
-    {
-        var command = new UpdateCategoryCommand(id, request.Name, request.Description);
-        var result = await sender.Send(command, ct);
-        return TypedResults.Ok(result);
+        return group;
     }
 }
 
-/// <summary>
-/// DTO nhận dữ liệu body từ Client khi gọi PUT /categories/{id}
-/// </summary>
 public sealed record UpdateCategoryRequest(string Name, string? Description);

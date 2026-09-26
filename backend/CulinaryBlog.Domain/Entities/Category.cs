@@ -2,60 +2,46 @@ using CulinaryBlog.Domain.Common;
 
 namespace CulinaryBlog.Domain.Entities;
 
-/// <summary>SRS 7.6.</summary>
-public sealed class Category : BaseEntity
+/// <summary>
+/// Thực thể Danh mục món ăn (Category Aggregate Root).
+/// </summary>
+public class Category : BaseEntity, IAggregateRoot
 {
-    public string Name { get; private set; } = string.Empty;
-    public string Slug { get; private set; } = string.Empty;
-    public string? Description { get; private set; }
-    public string? ImageUrl { get; private set; }
-    public int OrderIndex { get; private set; }
+    public string Name { get; set; } = string.Empty;
+    public string Slug { get; set; } = string.Empty;
+    public string? Description { get; set; }
 
-    private readonly List<Recipe> _recipes = [];
-    public IReadOnlyCollection<Recipe> Recipes => _recipes.AsReadOnly();
+    public ICollection<Recipe> Recipes { get; set; } = new List<Recipe>();
 
-    private Category()
+    public Category()
     {
     }
 
-    /// <summary>
-    /// FR-CAT-004: Cập nhật tên và mô tả.
-    /// Quyết định bắt buộc: Slug KHÔNG thay đổi khi cập nhật Name. UpdatedAt do AuditInterceptor set.
-    /// </summary>
-    public void Update(string name, string? description)
+    public Category(string name, string slug, string? description = null)
     {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            throw new DomainException("CATEGORY_NAME_REQUIRED", "Tên danh mục không được để trống.");
-        }
-
         Name = name;
+        Slug = slug;
         Description = description;
     }
 
-    /// <summary>
-    /// Dùng cho seeding Sprint 0. Validate + auto-suffix slug (D10) là việc của
-    /// FR-CAT-003 (Sprint 1 — B), chưa hiện thực ở đây.
-    /// </summary>
-    public static Category Create(string name, string slug, string? description, string? imageUrl, int orderIndex)
+    // DUY NHẤT 1 hàm Update hỗ trợ cả slug có hoặc không có giá trị
+    public void Update(string name, string? slug = null, string? description = null)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        Name = name;
+        if (!string.IsNullOrWhiteSpace(slug))
         {
-            throw new DomainException("CATEGORY_NAME_REQUIRED", "Tên danh mục không được để trống.");
+            Slug = slug;
         }
+        Description = description;
+    }
 
-        if (string.IsNullOrWhiteSpace(slug))
-        {
-            throw new DomainException("CATEGORY_SLUG_REQUIRED", "Slug danh mục không được để trống.");
-        }
+    public static Category Create(string name, string slug, string? description = null)
+    {
+        return new Category(name, slug, description);
+    }
 
-        return new Category
-        {
-            Name = name,
-            Slug = slug,
-            Description = description,
-            ImageUrl = imageUrl,
-            OrderIndex = orderIndex,
-        };
+    public static Category Create(string name, string slug, string? description, object? arg4, object? arg5)
+    {
+        return new Category(name, slug, description);
     }
 }

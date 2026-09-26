@@ -12,10 +12,10 @@ public sealed class RecipeIngredientConfiguration : IEntityTypeConfiguration<Rec
         builder.ToTable("RecipeIngredients");
 
         builder.Property(i => i.Name).HasMaxLength(200).IsRequired();
-        builder.Property(i => i.Quantity).HasPrecision(10, 3);
+      //  builder.Property(i => i.Quantity).HasPrecision(10, 3);
         builder.Property(i => i.Unit).HasMaxLength(50);
-        builder.Property(i => i.Notes).HasMaxLength(500);
-        builder.Property(i => i.OrderIndex).HasDefaultValue(0);
+       // builder.Property(i => i.Notes).HasMaxLength(500);
+        //builder.Property(i => i.OrderIndex).HasDefaultValue(0);
 
         builder.HasIndex(i => i.RecipeId);
     }

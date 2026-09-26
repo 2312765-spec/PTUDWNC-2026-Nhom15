@@ -7,7 +7,6 @@ namespace CulinaryBlog.Infrastructure.Persistence.Configurations;
 
 /// <summary>
 /// SRS 7.2 + 7.2.1. D18 (Instructions nullable) · D19 (CookTime >= 0, PrepTime/Servings > 0).
-/// SearchVector (tsvector + GIN + trigger) cố tình CHƯA map — đó là việc S10 (full-text search).
 /// </summary>
 public sealed class RecipeConfiguration : IEntityTypeConfiguration<Recipe>
 {
@@ -20,10 +19,11 @@ public sealed class RecipeConfiguration : IEntityTypeConfiguration<Recipe>
             t.HasCheckConstraint("CK_Recipes_Servings", "\"Servings\" > 0");
         });
 
+        builder.HasKey(r => r.Id);
+
         builder.Property(r => r.Title).HasMaxLength(200).IsRequired();
         builder.Property(r => r.Slug).HasMaxLength(220).IsRequired();
         builder.Property(r => r.Description).IsRequired();
-        builder.Property(r => r.Instructions); // D18: nullable
         builder.Property(r => r.AuthorId).HasMaxLength(450).IsRequired();
 
         builder.Property(r => r.Difficulty).HasConversion<short>();
@@ -35,43 +35,36 @@ public sealed class RecipeConfiguration : IEntityTypeConfiguration<Recipe>
         builder.HasIndex(r => r.Status);
         builder.HasIndex(r => r.Difficulty);
 
-        builder.OwnsOne(r => r.Nutrition, nutrition =>
-        {
-            nutrition.Property(n => n.Calories).HasColumnName("Nutrition_Calories").HasPrecision(8, 2);
-            nutrition.Property(n => n.Protein).HasColumnName("Nutrition_Protein").HasPrecision(8, 2);
-            nutrition.Property(n => n.Carbohydrates).HasColumnName("Nutrition_Carbohydrates").HasPrecision(8, 2);
-            nutrition.Property(n => n.Fat).HasColumnName("Nutrition_Fat").HasPrecision(8, 2);
-            nutrition.Property(n => n.Fiber).HasColumnName("Nutrition_Fiber").HasPrecision(8, 2);
-            nutrition.Property(n => n.Sodium).HasColumnName("Nutrition_Sodium").HasPrecision(8, 2);
-        });
-        builder.Navigation(r => r.Nutrition).IsRequired();
+        // QUAN TRỌNG: Bỏ qua Nutrition để EF Core KHÔNG tìm các cột Nutrition_* trong bảng Recipes
+        builder.Ignore(r => r.Nutrition);
 
-        // D2: FK Category — RESTRICT, không bao giờ thật sự kích hoạt vì Category chỉ soft delete.
-        builder.HasOne<Category>()
+        // FK Category
+        builder.HasOne(r => r.Category)
             .WithMany(c => c.Recipes)
             .HasForeignKey(r => r.CategoryId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Author không bao giờ bị hard delete (D11 — chỉ deactivate qua IsActive).
+        // FK Author
         builder.HasOne<ApplicationUser>()
             .WithMany()
             .HasForeignKey(r => r.AuthorId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // D1: Recipe chỉ soft delete — FK CASCADE dưới đây là ràng buộc schema theo Chương 7,
-        // trong thực tế không bao giờ kích hoạt vì không có hard delete.
+        // FK Steps
         builder.HasMany(r => r.Steps)
             .WithOne()
             .HasForeignKey(s => s.RecipeId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // FK Ingredients
         builder.HasMany(r => r.Ingredients)
             .WithOne()
             .HasForeignKey(i => i.RecipeId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // FK Images
         builder.HasMany(r => r.Images)
-            .WithOne()
+            .WithOne(i => i.Recipe)
             .HasForeignKey(i => i.RecipeId)
             .OnDelete(DeleteBehavior.Cascade);
     }

@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="CulinaryBlog.Application/CulinaryBlog.Application.csproj" />
+  <Project Path="CulinaryBlog.Domain/CulinaryBlog.Domain.csproj" />
+</Solution>

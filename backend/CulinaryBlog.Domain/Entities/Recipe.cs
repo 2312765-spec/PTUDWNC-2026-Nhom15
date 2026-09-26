@@ -1,52 +1,34 @@
 using CulinaryBlog.Domain.Common;
 using CulinaryBlog.Domain.Enums;
-
+using CulinaryBlog.Domain.Exceptions;
+using System.ComponentModel.DataAnnotations.Schema;
 namespace CulinaryBlog.Domain.Entities;
 
-/// <summary>
-/// SRS 7.2 — thực thể trung tâm. TODO(S5–S7 — C): method nghiệp vụ Publish()/Unpublish()/
-/// Archive() (D3: cần >=1 step VÀ >=1 ingredient để publish) và renumber step (D6) CHƯA
-/// hiện thực ở đây. Sprint 0 (B) chỉ tạo shape dữ liệu đủ cho migration + seed.
-/// </summary>
-public sealed class Recipe : BaseEntity
+public class Recipe : BaseEntity, IAggregateRoot
 {
-    public string Title { get; private set; } = string.Empty;
-    public string Slug { get; private set; } = string.Empty;
-    public string Description { get; private set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Slug { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public int PrepTime { get; set; }
+    public int CookTime { get; set; }
+    public int Servings { get; set; } = 4;
+    public RecipeDifficulty Difficulty { get; set; } = RecipeDifficulty.Easy;
+    public RecipeStatus Status { get; set; } = RecipeStatus.Draft;
+    public string AuthorId { get; set; } = string.Empty;
+    public DateTime? PublishedAt { get; set; }
 
-    /// <summary>D18 — legacy field, nullable. Chi tiết dùng <see cref="Steps"/>.</summary>
-    public string? Instructions { get; private set; }
+    public Guid CategoryId { get; set; }
+    public Category? Category { get; set; }
 
-    public int PrepTime { get; private set; }
-    public int CookTime { get; private set; }
-    public int Servings { get; private set; }
-    public RecipeDifficulty Difficulty { get; private set; }
-    public RecipeStatus Status { get; private set; }
-    public Guid CategoryId { get; private set; }
-    public string AuthorId { get; private set; } = string.Empty;
-    public DateTime? PublishedAt { get; private set; }
-    public RecipeNutrition Nutrition { get; private set; } = RecipeNutrition.Empty();
+    public ICollection<RecipeImage> Images { get; set; } = new List<RecipeImage>();
+    public ICollection<RecipeIngredient> Ingredients { get; set; } = new List<RecipeIngredient>();
+    public ICollection<RecipeStep> Steps { get; set; } = new List<RecipeStep>();
+    
+    public RecipeNutrition? Nutrition { get; set; }
 
-    private readonly List<RecipeStep> _steps = [];
-    public IReadOnlyCollection<RecipeStep> Steps => _steps.AsReadOnly();
+    public Recipe() { }
 
-    private readonly List<RecipeIngredient> _ingredients = [];
-    public IReadOnlyCollection<RecipeIngredient> Ingredients => _ingredients.AsReadOnly();
-
-    private readonly List<RecipeImage> _images = [];
-    public IReadOnlyCollection<RecipeImage> Images => _images.AsReadOnly();
-
-    private Recipe()
-    {
-    }
-
-    /// <summary>
-    /// Dùng cho seeding Sprint 0. Validate auto-suffix slug (D10) và điều kiện publish
-    /// (D3) là việc của FR-RCP-003/005 (Sprint 2/3 — C), chưa hiện thực ở đây — tham số
-    /// <paramref name="status"/>/<paramref name="publishedAt"/> chỉ để seed dữ liệu mẫu
-    /// có đủ Draft/Published/Archived.
-    /// </summary>
-    public static Recipe Create(
+    public Recipe(
         string title,
         string slug,
         string description,
@@ -54,151 +36,349 @@ public sealed class Recipe : BaseEntity
         int cookTime,
         int servings,
         RecipeDifficulty difficulty,
-        Guid categoryId,
         string authorId,
-        string? instructions = null,
-        RecipeStatus status = RecipeStatus.Draft,
-        DateTime? publishedAt = null)
+        Guid categoryId)
     {
-        if (string.IsNullOrWhiteSpace(title))
+        Title = title;
+        Slug = slug;
+        Description = description;
+        PrepTime = prepTime;
+        CookTime = cookTime;
+        Servings = servings;
+        Difficulty = difficulty;
+        AuthorId = authorId;
+        CategoryId = categoryId;
+        Status = RecipeStatus.Draft;
+    }
+
+    public static Recipe Create(
+        string title = "Test Recipe",
+        string slug = "test-recipe",
+        string description = "Test Description",
+        int prepTime = 15,
+        int cookTime = 30,
+        int servings = 4,
+        RecipeDifficulty difficulty = RecipeDifficulty.Easy,
+        Guid? categoryId = null,
+        string authorId = "test-author",
+        RecipeStatus status = RecipeStatus.Draft)
+    {
+        var recipe = new Recipe(
+            title,
+            slug,
+            description,
+            prepTime,
+            cookTime,
+            servings,
+            difficulty,
+            authorId,
+            categoryId ?? Guid.NewGuid());
+
+        recipe.Status = status;
+        if (status == RecipeStatus.Published)
         {
-            throw new DomainException("RECIPE_TITLE_REQUIRED", "Tiêu đề công thức không được để trống.");
+            recipe.PublishedAt = DateTime.UtcNow;
         }
 
-        if (string.IsNullOrWhiteSpace(slug))
-        {
-            throw new DomainException("RECIPE_SLUG_REQUIRED", "Slug công thức không được để trống.");
-        }
+        return recipe;
+    }
+    
+    public void Publish()
+    {
+        Status = RecipeStatus.Published;
+        PublishedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.UtcNow;
+    }
 
-        if (string.IsNullOrWhiteSpace(description))
-        {
-            throw new DomainException("RECIPE_DESCRIPTION_REQUIRED", "Mô tả công thức không được để trống.");
-        }
+    public void Archive()
+    {
+        Status = RecipeStatus.Archived;
+        UpdatedAt = DateTime.UtcNow;
+    }
 
-        // D19: prepTime > 0, cookTime >= 0 (0 = món không cần nấu), servings > 0.
-        if (prepTime <= 0)
-        {
-            throw new DomainException("RECIPE_PREP_TIME_INVALID", "Thời gian chuẩn bị phải > 0.");
-        }
+    public void MoveToDraft()
+    {
+        Status = RecipeStatus.Draft;
+        UpdatedAt = DateTime.UtcNow;
+    }
 
-        if (cookTime < 0)
-        {
-            throw new DomainException("RECIPE_COOK_TIME_INVALID", "Thời gian nấu phải >= 0.");
-        }
+    public void UpdateDetails(
+        string title,
+        string description,
+        int prepTime,
+        int cookTime,
+        int servings,
+        RecipeDifficulty difficulty,
+        Guid categoryId)
+    {
+        Title = title;
+        Description = description;
+        PrepTime = prepTime;
+        CookTime = cookTime;
+        Servings = servings;
+        Difficulty = difficulty;
+        CategoryId = categoryId;
+        UpdatedAt = DateTime.UtcNow;
+    }
 
-        if (servings <= 0)
+    public void DemoteOtherPrimaryImages(Guid? currentImageId = null)
+    {
+        foreach (var img in Images)
         {
-            throw new DomainException("RECIPE_SERVINGS_INVALID", "Số khẩu phần phải > 0.");
+            if (currentImageId == null || img.Id != currentImageId)
+            {
+                img.IsPrimary = false;
+            }
         }
+    }
 
-        if (string.IsNullOrWhiteSpace(authorId))
-        {
-            throw new DomainException("RECIPE_AUTHOR_REQUIRED", "Công thức phải có tác giả.");
-        }
+    /// <summary>
+    /// FR-RCP-008 / Quyết định D22, D23:
+    /// - Ảnh đầu tiên thêm vào tự động là Primary, OrderIndex = 0.
+    /// - Ảnh thứ hai trở đi không Primary, OrderIndex = Max(OrderIndex) + 1.
+    /// </summary>
+    public RecipeImage AddImage(string originalUrl, string? altText = null, bool? isPrimary = null, int? displayOrder = null)
+{
+    bool finalIsPrimary = isPrimary ?? (Images.Count == 0);
+    int finalOrder = displayOrder ?? (Images.Count == 0 ? 0 : (Images.Max(i => i.OrderIndex) + 1));
 
-        return new Recipe
+    if (finalIsPrimary)
+    {
+        DemoteOtherPrimaryImages();
+    }
+
+    var image = new RecipeImage
+    {
+        RecipeId = this.Id,
+        OriginalUrl = originalUrl,
+        AltText = altText ?? string.Empty,
+        IsPrimary = finalIsPrimary,
+        DisplayOrder = finalOrder,
+        OrderIndex = finalOrder
+    };
+
+    Images.Add(image);
+    return image;
+}
+
+    public void AddStep(int stepNumber, string title, string description, int? timerMinutes = null, string? imageUrl = null)
+    {
+        Steps.Add(new RecipeStep
         {
+            RecipeId = this.Id,
+            StepNumber = stepNumber,
             Title = title,
-            Slug = slug,
             Description = description,
-            Instructions = instructions,
-            PrepTime = prepTime,
-            CookTime = cookTime,
-            Servings = servings,
-            Difficulty = difficulty,
-            Status = status,
-            CategoryId = categoryId,
-            AuthorId = authorId,
-            PublishedAt = publishedAt,
-            Nutrition = RecipeNutrition.Empty(),
+            TimerMinutes = timerMinutes,
+            ImageUrl = imageUrl
+        });
+    }
+
+    public void AddIngredient(string name, string amount, string? unit, string? preparation = null)
+    {
+        Ingredients.Add(new RecipeIngredient
+        {
+            RecipeId = this.Id,
+            Name = name,
+            Amount = amount,
+            Unit = unit,
+            Preparation = preparation
+        });
+    }
+
+    public void SetNutrition(int calories, int protein, int carbs, int fat)
+    {
+        Nutrition = new RecipeNutrition
+        {
+            RecipeId = this.Id,
+            Calories = calories,
+            Protein = protein,
+            Carbs = carbs,
+            Fat = fat
         };
     }
 
-    /// <summary>Dùng cho seeding — thêm bước trực tiếp, không renumber (D6 để lại cho S6/S10 — C).</summary>
-    public void AddStep(string title, string description, int? timerMinutes = null, string? imageUrl = null)
+    public void Delete()
     {
-        var nextNumber = _steps.Count == 0 ? 1 : _steps.Max(s => s.StepNumber) + 1;
-        _steps.Add(RecipeStep.Create(Id, nextNumber, title, description, timerMinutes, imageUrl));
-    }
-
-    /// <summary>Dùng cho seeding — thêm nguyên liệu trực tiếp.</summary>
-    public void AddIngredient(string name, decimal? quantity = null, string? unit = null, string? notes = null)
-    {
-        var orderIndex = _ingredients.Count;
-        _ingredients.Add(RecipeIngredient.Create(Id, name, quantity, unit, notes, orderIndex));
+        IsDeleted = true;
+        UpdatedAt = DateTime.UtcNow;
     }
 
     /// <summary>
-    /// FR-RCP-008/D22/D27 — hạ mọi ảnh primary khác về false. Handler gọi và SaveChanges riêng TRƯỚC khi
-    /// đặt ảnh mới thành primary: EF cập nhật theo thứ tự nạp, không theo thứ tự "hạ trước, nâng sau",
-    /// nên đổi primary trong 1 lần SaveChanges có thể vi phạm unique index
-    /// IX_RecipeImages_RecipeId_IsPrimary (D27) trên PostgreSQL.
+    /// Xóa ảnh (D22). Nếu ảnh bị xóa là Primary, tự động chọn ảnh còn lại có OrderIndex nhỏ nhất làm Primary mới.
     /// </summary>
-    public void DemoteOtherPrimaryImages(Guid newPrimaryImageId)
-    {
-        foreach (var other in _images.Where(i => i.Id != newPrimaryImageId && i.IsPrimary))
-        {
-            other.SetPrimary(false);
-        }
-    }
-
-    /// <summary>
-    /// FR-RCP-008/D27 — ảnh đầu tiên tự động là primary, client không được chọn (D22).
-    /// orderIndex = Max(orderIndex hiện có) + 1, ảnh đầu tiên = 0.
-    /// </summary>
-    public RecipeImage AttachImage(string originalUrl, string? altText = null)
-    {
-        var isPrimary = _images.Count == 0;
-        var orderIndex = _images.Count == 0 ? 0 : _images.Max(i => i.OrderIndex) + 1;
-
-        var image = RecipeImage.Create(Id, originalUrl, isPrimary, orderIndex, altText: altText);
-        _images.Add(image);
-        return image;
-    }
-
-    /// <summary>
-    /// FR-RCP-008/D22 — PATCH metadata ảnh. Handler phải tự kiểm tra ảnh tồn tại trước (404
-    /// RECIPE_IMAGE_NOT_FOUND) — đó không phải business rule nên không nằm ở đây.
-    /// </summary>
-    public void UpdateImage(Guid imageId, string? altText, bool? isPrimary, int? orderIndex)
-    {
-        var image = FindImageOrThrow(imageId);
-
-        if (isPrimary == false && image.IsPrimary)
-        {
-            throw new DomainException(
-                "RECIPE_PRIMARY_IMAGE_REQUIRED",
-                "Công thức phải luôn có đúng một ảnh chính — không thể bỏ primary mà không chọn ảnh khác thay thế.");
-        }
-
-        if (isPrimary == true)
-        {
-            DemoteOtherPrimaryImages(imageId);
-            image.SetPrimary(true);
-        }
-
-        image.UpdateMetadata(altText, orderIndex);
-    }
-
-    /// <summary>FR-RCP-008/D22 — xóa ảnh đang primary thì ảnh còn lại có orderIndex nhỏ nhất tự lên thay.</summary>
     public RecipeImage RemoveImage(Guid imageId)
     {
-        var image = FindImageOrThrow(imageId);
-        _images.Remove(image);
-
-        if (image.IsPrimary && _images.Count > 0)
+        var img = Images.FirstOrDefault(x => x.Id == imageId);
+        if (img == null)
         {
-            _images.OrderBy(i => i.OrderIndex).First().SetPrimary(true);
+            throw new DomainException("Không tìm thấy ảnh để xóa.", "IMAGE_NOT_FOUND");
         }
 
-        return image;
+        bool wasPrimary = img.IsPrimary;
+        Images.Remove(img);
+
+        if (wasPrimary && Images.Count > 0)
+        {
+            var nextPrimary = Images.OrderBy(i => i.OrderIndex).First();
+            nextPrimary.IsPrimary = true;
+        }
+
+        return img;
     }
 
     /// <summary>
-    /// Không throw NotFoundException (404) — lớp đó thuộc Application. Nhánh này chỉ chạy nếu
-    /// handler gọi sai (bỏ qua bước kiểm tra tồn tại) — coi là lỗi lập trình, không phải business rule.
+    /// Gắn ảnh thực thể vào Recipe (D22, D23).
     /// </summary>
-    private RecipeImage FindImageOrThrow(Guid imageId) =>
-        _images.FirstOrDefault(i => i.Id == imageId)
-            ?? throw new InvalidOperationException($"Recipe {Id} không có ảnh {imageId}.");
+    public RecipeImage AttachImage(RecipeImage image)
+    {
+        image.RecipeId = this.Id;
+
+        if (Images.Count == 0)
+        {
+            image.IsPrimary = true;
+            if (image.OrderIndex == 0 && image.DisplayOrder == 0)
+            {
+                image.OrderIndex = 0;
+                image.DisplayOrder = 0;
+            }
+        }
+        else
+        {
+            if (image.IsPrimary)
+            {
+                DemoteOtherPrimaryImages(image.Id);
+            }
+
+            int maxOrder = Images.Max(i => i.OrderIndex);
+            if (image.OrderIndex == 0 && image.DisplayOrder == 0)
+            {
+                image.OrderIndex = maxOrder + 1;
+                image.DisplayOrder = maxOrder + 1;
+            }
+        }
+
+        Images.Add(image);
+        return image;
+    }
+
+   public RecipeImage AttachImage(string originalUrl, bool? isPrimary = null, int? displayOrder = null)
+{
+    return AddImage(originalUrl, isPrimary: isPrimary, displayOrder: displayOrder);
+}
+
+public RecipeImage AttachImage(object arg1, object? arg2 = null, object? arg3 = null, object? arg4 = null)
+{
+    if (arg1 is RecipeImage recipeImage)
+    {
+        return AttachImage(recipeImage);
+    }
+
+    var url = arg1?.ToString() ?? string.Empty;
+    string? altText = null;
+    bool? isPrimary = null;
+    int? order = null;
+
+    object?[] args = new[] { arg2, arg3, arg4 };
+
+    foreach (var arg in args)
+    {
+        if (arg is string s)
+        {
+            altText = s;
+        }
+        else if (arg is bool b)
+        {
+            isPrimary = b;
+        }
+        else if (arg is int i)
+        {
+            order = i;
+        }
+    }
+
+    return AddImage(url, altText: altText, isPrimary: isPrimary, displayOrder: order);
+}
+
+    public void UpdateImage(Guid imageId, string? altText, int orderIndex)
+    {
+        var img = Images.FirstOrDefault(x => x.Id == imageId);
+        if (img == null)
+        {
+            throw new DomainException("Không tìm thấy ảnh để cập nhật.", "IMAGE_NOT_FOUND");
+        }
+
+        img.AltText = altText;
+        img.OrderIndex = orderIndex;
+        img.DisplayOrder = orderIndex;
+    }
+
+    public RecipeImage UpdateImage(Guid imageId, bool isPrimary, int displayOrder)
+    {
+        var img = Images.FirstOrDefault(x => x.Id == imageId);
+        if (img == null)
+        {
+            throw new DomainException("Không tìm thấy ảnh để cập nhật.", "IMAGE_NOT_FOUND");
+        }
+
+        if (img.IsPrimary && !isPrimary)
+        {
+            throw new DomainException("Công thức luôn yêu cầu phải có một ảnh đại diện chính.", "RECIPE_PRIMARY_IMAGE_REQUIRED");
+        }
+
+        img.DisplayOrder = displayOrder;
+        img.OrderIndex = displayOrder;
+
+        if (isPrimary)
+        {
+            img.IsPrimary = true;
+            DemoteOtherPrimaryImages(imageId);
+        }
+
+        return img;
+    }
+
+    public RecipeImage UpdateImage(Guid imageId, object? arg2, object? arg3 = null, object? arg4 = null)
+    {
+        var img = Images.FirstOrDefault(x => x.Id == imageId);
+        if (img == null)
+        {
+            throw new DomainException("Không tìm thấy ảnh để cập nhật.", "IMAGE_NOT_FOUND");
+        }
+
+        object?[] args = new[] { arg2, arg3, arg4 };
+
+        foreach (var arg in args)
+        {
+            if (arg is string s)
+            {
+                img.AltText = s;
+            }
+            else if (arg is bool b)
+            {
+                if (img.IsPrimary && !b)
+                {
+                    throw new DomainException("Công thức luôn yêu cầu phải có một ảnh đại diện chính.", "RECIPE_PRIMARY_IMAGE_REQUIRED");
+                }
+
+                if (b)
+                {
+                    img.IsPrimary = true;
+                    DemoteOtherPrimaryImages(imageId);
+                }
+            }
+            else if (arg is int i)
+            {
+                img.DisplayOrder = i;
+                img.OrderIndex = i;
+            }
+        }
+
+        return img;
+    }
+
+    public void UpdateImageAltTextAndOrderIndex(Guid imageId, string? altText, int orderIndex)
+    {
+        UpdateImage(imageId, altText, orderIndex);
+    }
 }

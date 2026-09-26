@@ -9,6 +9,7 @@ namespace CulinaryBlog.Application.Common.Interfaces;
 public interface ISlugHelper
 {
     string Generate(string text);
+    string GenerateSlug(string trimmedName);
 
     /// <summary>Thêm hậu tố cho tới khi <paramref name="isUnique"/> trả true.</summary>
     Task<string> GenerateUniqueAsync(string text, Func<string, CancellationToken, Task<bool>> isUnique, CancellationToken ct = default);
