@@ -1,3 +1,4 @@
+global using CulinaryBlog.Domain.Exceptions;
 namespace CulinaryBlog.Domain.Common;
 
 public abstract class BaseEntity
