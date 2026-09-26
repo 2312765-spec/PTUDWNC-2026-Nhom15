@@ -10,26 +10,35 @@ namespace CulinaryBlog.Infrastructure.Persistence.Repositories;
 /// </summary>
 public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRepository
 {
-    public Task<Recipe?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => 
-        Task.FromResult<Recipe?>(null);
+    public async Task<Recipe?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        await context.Recipes
+            .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted, cancellationToken);
 
-    public Task<Recipe?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default) => 
-        Task.FromResult<Recipe?>(null);
+    public async Task<Recipe?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default) =>
+        await context.Recipes
+            .FirstOrDefaultAsync(r => r.Slug == slug && !r.IsDeleted, cancellationToken);
 
-    public Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken = default) => 
-        Task.FromResult(false);
+    public async Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken = default) =>
+        await context.Recipes
+            .AnyAsync(r => r.Slug == slug && !r.IsDeleted, cancellationToken);
 
-    public Task AddAsync(Recipe recipe, CancellationToken cancellationToken = default) => 
-        Task.CompletedTask;
+    public async Task AddAsync(Recipe recipe, CancellationToken cancellationToken = default) =>
+        await context.Recipes.AddAsync(recipe, cancellationToken);
 
-    public void Update(Recipe recipe) { }
+    public void Update(Recipe recipe) =>
+        context.Recipes.Update(recipe);
 
-    public void Delete(Recipe recipe) { }
+    public void Delete(Recipe recipe)
+    {
+        recipe.IsDeleted = true;
+        recipe.UpdatedAt = DateTime.UtcNow;
+        context.Recipes.Update(recipe);
+    }
 
     public async Task<Recipe?> GetByIdWithImagesAsync(Guid id, CancellationToken ct = default) =>
         await context.Recipes
             .Include(r => r.Images)
-            .FirstOrDefaultAsync(r => r.Id == id, ct);
+            .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted, ct);
 
     public async Task<(IReadOnlyList<Recipe> Items, int TotalCount)> GetPagedByCategoryIdAsync(
         Guid categoryId, 
@@ -38,7 +47,24 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
         int pageSize, 
         CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        var query = context.Recipes
+            .AsNoTracking()
+            .Where(r => r.CategoryId == categoryId && !r.IsDeleted);
+
+        if (status.HasValue)
+        {
+            query = query.Where(r => r.Status == status.Value);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(r => r.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
     }
 
     public async Task<string?> GetAuthorIdAsync(Guid id, CancellationToken ct = default) =>

@@ -1,4 +1,4 @@
-using CulinaryBlog.Domain.Entities;
+﻿using CulinaryBlog.Domain.Entities;
 
 namespace CulinaryBlog.Domain.Interfaces;
 
@@ -28,10 +28,6 @@ public interface ICategoryRepository
     /// </summary>
     Task<bool> ExistsByNameAsync(string name, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Lấy chi tiết công thức kèm danh sách hình ảnh theo ID.
-    /// </summary>
-    Task<Recipe?> GetByIdWithImagesAsync(Guid id, CancellationToken cancellationToken = default);
     /// <summary>
     /// Kiểm tra tồn tại theo Slug.
     /// </summary>

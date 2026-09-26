@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-
+using Microsoft.EntityFrameworkCore.Diagnostics;
 namespace CulinaryBlog.Infrastructure;
 
 public static class DependencyInjection
@@ -18,15 +18,18 @@ public static class DependencyInjection
         this IServiceCollection services, 
         IConfiguration configuration)
     {
-       var connectionString = configuration.GetConnectionString("DefaultConnection");
+        // Đọc chuỗi kết nối từ DefaultConnection hoặc Postgres, có fallback mặc định
+        var connectionString = configuration.GetConnectionString("DefaultConnection") 
+                            ?? configuration.GetConnectionString("Postgres")
+                            ?? "Host=localhost;Port=5432;Database=culinaryblog;Username=postgres;Password=postgres";
 
         services.AddDbContext<CulinaryBlogDbContext>(options =>
-        {
-            if (!string.IsNullOrEmpty(connectionString))
-            {
-                options.UseNpgsql(connectionString);
-            }
-        });
+{
+    options.UseNpgsql(connectionString);
+    options.ConfigureWarnings(w => 
+        w.Ignore(RelationalEventId.PendingModelChangesWarning));
+});
+
         // 1. Cấu hình ASP.NET Core Identity
         services.AddIdentityCore<ApplicationUser>(options =>
         {
@@ -102,7 +105,6 @@ public class MockCacheService : ICacheService
     }
 }
 
-// Giả lập Mock JWT Service
 // Giả lập Mock JWT Service khớp 100% tất cả các phương thức của IJwtService
 public class MockJwtService : IJwtService
 {

@@ -47,10 +47,11 @@ public sealed class RecipeConfiguration : IEntityTypeConfiguration<Recipe>
         builder.Navigation(r => r.Nutrition).IsRequired();
 
         // D2: FK Category — RESTRICT, không bao giờ thật sự kích hoạt vì Category chỉ soft delete.
-        builder.HasOne<Category>()
-            .WithMany(c => c.Recipes)
-            .HasForeignKey(r => r.CategoryId)
-            .OnDelete(DeleteBehavior.Restrict);
+       builder.HasOne(r => r.Category)
+       .WithMany(c => c.Recipes)
+       .HasForeignKey(r => r.CategoryId)
+       .OnDelete(DeleteBehavior.Restrict); // hoặc DeleteBehavior.Cascade tùy thiết kế
+        
 
         // Author không bao giờ bị hard delete (D11 — chỉ deactivate qua IsActive).
         builder.HasOne<ApplicationUser>()
