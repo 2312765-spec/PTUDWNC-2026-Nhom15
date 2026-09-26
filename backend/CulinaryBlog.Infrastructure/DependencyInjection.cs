@@ -18,19 +18,15 @@ public static class DependencyInjection
         this IServiceCollection services, 
         IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
+       var connectionString = configuration.GetConnectionString("DefaultConnection");
 
-        if (string.IsNullOrEmpty(connectionString))
+        services.AddDbContext<CulinaryBlogDbContext>(options =>
         {
-            services.AddDbContext<CulinaryBlogDbContext>(options =>
-                options.UseInMemoryDatabase("CulinaryBlogDb"));
-        }
-        else
-        {
-            services.AddDbContext<CulinaryBlogDbContext>(options =>
-                options.UseNpgsql(connectionString));
-        }
-
+            if (!string.IsNullOrEmpty(connectionString))
+            {
+                options.UseNpgsql(connectionString);
+            }
+        });
         // 1. Cấu hình ASP.NET Core Identity
         services.AddIdentityCore<ApplicationUser>(options =>
         {
