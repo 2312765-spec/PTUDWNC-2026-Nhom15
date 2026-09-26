@@ -52,27 +52,33 @@ public class Recipe : BaseEntity, IAggregateRoot
     /// <summary>
     /// Factory method linh hoạt để thỏa mãn mọi bài test tạo Recipe (hỗ trợ param tùy biến)
     /// </summary>
-    public static Recipe Create(params object[] args)
+   public static Recipe Create(
+        string title = "Test Recipe",
+        string slug = "test-recipe",
+        string description = "Test Description",
+        int prepTime = 15,
+        int cookTime = 30,
+        int servings = 4,
+        RecipeDifficulty difficulty = RecipeDifficulty.Easy,
+        string authorId = "test-author",
+        Guid? categoryId = null,
+        RecipeStatus status = RecipeStatus.Draft)
     {
-        var title = args.Length > 0 ? args[0]?.ToString() ?? "Test Recipe" : "Test Recipe";
-        var slug = args.Length > 1 ? args[1]?.ToString() ?? "test-recipe" : "test-recipe";
-        var desc = args.Length > 2 ? args[2]?.ToString() ?? "Test Description" : "Test Description";
-        var prepTime = args.Length > 3 && args[3] is int pt ? pt : 15;
-        var cookTime = args.Length > 4 && args[4] is int ct ? ct : 30;
-        var servings = args.Length > 5 && args[5] is int sv ? sv : 4;
-        var diff = args.Length > 6 && args[6] is RecipeDifficulty d ? d : RecipeDifficulty.Easy;
-        var authorId = args.Length > 7 ? args[7]?.ToString() ?? "test-author" : "test-author";
-        var categoryId = args.Length > 8 && args[8] is Guid cid ? cid : Guid.NewGuid();
+        var recipe = new Recipe(
+            title,
+            slug,
+            description,
+            prepTime,
+            cookTime,
+            servings,
+            difficulty,
+            authorId,
+            categoryId ?? Guid.NewGuid());
 
-        var recipe = new Recipe(title, slug, desc, prepTime, cookTime, servings, diff, authorId, categoryId);
-
-        if (args.Length > 9 && args[9] is RecipeStatus status)
+        recipe.Status = status;
+        if (status == RecipeStatus.Published)
         {
-            recipe.Status = status;
-            if (status == RecipeStatus.Published)
-            {
-                recipe.PublishedAt = DateTime.UtcNow;
-            }
+            recipe.PublishedAt = DateTime.UtcNow;
         }
 
         return recipe;

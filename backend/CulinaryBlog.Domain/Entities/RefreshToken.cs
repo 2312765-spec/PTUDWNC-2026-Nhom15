@@ -10,15 +10,20 @@ public class RefreshToken : BaseEntity
     public DateTime ExpiresAt { get; set; }
     public bool IsRevoked { get; set; }
     public string? ReplacedByTokenHash { get; set; }
+    public string? CreatedByIp { get; set; }
+
+    public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
+    public bool IsActive => !IsRevoked && !IsExpired;
 
     public RefreshToken() { }
 
-    public RefreshToken(string userId, string token, DateTime expiresAt, string? replacedBy = null)
+    public RefreshToken(string userId, string token, DateTime expiresAt, string? createdByIp = null, string? replacedBy = null)
     {
         UserId = userId;
         Token = token;
         TokenHash = token;
         ExpiresAt = expiresAt;
+        CreatedByIp = createdByIp;
         ReplacedByTokenHash = replacedBy;
     }
 
@@ -29,7 +34,7 @@ public class RefreshToken : BaseEntity
         UpdatedAt = DateTime.UtcNow;
     }
 
-   public static RefreshToken Create(params object?[]? args)
+    public static RefreshToken Create(params object?[]? args)
     {
         if (args == null || args.Length == 0)
         {
@@ -43,8 +48,10 @@ public class RefreshToken : BaseEntity
         {
             expiresAt = dt;
         }
-        var extra = args.Length > 3 ? args[3]?.ToString() : null;
 
-        return new RefreshToken(userId, token, expiresAt, extra);
+        var ipOrExtra = args.Length > 3 ? args[3]?.ToString() : null;
+        var replaced = args.Length > 4 ? args[4]?.ToString() : null;
+
+        return new RefreshToken(userId, token, expiresAt, ipOrExtra, replaced);
     }
 }
