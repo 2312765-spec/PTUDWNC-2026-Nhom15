@@ -29,8 +29,13 @@ public class RefreshToken : BaseEntity
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public static RefreshToken Create(params object[] args)
+   public static RefreshToken Create(params object?[]? args)
     {
+        if (args == null || args.Length == 0)
+        {
+            return new RefreshToken();
+        }
+
         var userId = args.Length > 0 ? args[0]?.ToString() ?? string.Empty : string.Empty;
         var token = args.Length > 1 ? args[1]?.ToString() ?? string.Empty : string.Empty;
         var expiresAt = DateTime.UtcNow.AddDays(7);
