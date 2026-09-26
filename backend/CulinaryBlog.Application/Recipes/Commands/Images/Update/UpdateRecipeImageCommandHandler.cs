@@ -17,9 +17,11 @@ public sealed class UpdateRecipeImageCommandHandler(
 
         // D22/D27: đổi primary cần 2 lần SaveChanges (hạ ảnh cũ → nâng ảnh mới) để không vi phạm unique
         // index; gói cả hai trong 1 transaction để lần lưu thứ hai lỗi thì ảnh cũ không bị mất primary.
+        // Khoá dòng Recipe (như upload): hai PATCH isPrimary=true đồng thời vào hai ảnh khác nhau nếu
+        // không xếp hàng sẽ cùng thấy một ảnh primary cũ và cùng nâng ảnh của mình → 500.
         await unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
-            var recipe = await recipeRepository.GetByIdWithImagesAsync(request.RecipeId, ct)
+            var recipe = await recipeRepository.GetByIdWithImagesForUpdateAsync(request.RecipeId, ct)
                 ?? throw new NotFoundException(ErrorCodes.RecipeNotFound, "Không tìm thấy công thức.");
 
             if (recipe.AuthorId != currentUser.UserId && !currentUser.IsAdmin)
