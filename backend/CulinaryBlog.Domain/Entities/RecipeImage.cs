@@ -12,7 +12,7 @@ public class RecipeImage : BaseEntity
 
     public bool IsPrimary { get; set; }
     public int DisplayOrder { get; set; }
-
+    public int OrderIndex { get; set; }
     public void UnsetPrimary()
     {
         IsPrimary = false;

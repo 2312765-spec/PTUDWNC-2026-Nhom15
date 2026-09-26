@@ -6,36 +6,40 @@ public class RefreshToken : BaseEntity
 {
     public string UserId { get; set; } = string.Empty;
     public string Token { get; set; } = string.Empty;
-    public string? CreatedByIp { get; set; }
-    public string? JwtId { get; set; }
+    public string TokenHash { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
-    public DateTime? RevokedAt { get; set; }
-    public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
-    public bool IsActive => RevokedAt == null && !IsExpired;
+    public bool IsRevoked { get; set; }
+    public string? ReplacedByTokenHash { get; set; }
 
     public RefreshToken() { }
 
-    public RefreshToken(string userId, string token, DateTime expiresAt, string? createdByIp = null)
+    public RefreshToken(string userId, string token, DateTime expiresAt, string? replacedBy = null)
     {
         UserId = userId;
         Token = token;
+        TokenHash = token;
         ExpiresAt = expiresAt;
-        CreatedByIp = createdByIp;
+        ReplacedByTokenHash = replacedBy;
     }
 
-    // Hỗ trợ 3 tham số hoặc 4 tham số
-    public static RefreshToken Create(string userId, string token, DateTime expiresAt, object? arg4 = null)
+    public void Revoke(string? replacedByTokenHash = null)
     {
-        return new RefreshToken(userId, token, expiresAt, arg4?.ToString());
+        IsRevoked = true;
+        ReplacedByTokenHash = replacedByTokenHash;
+        UpdatedAt = DateTime.UtcNow;
     }
 
-    public static RefreshToken Create(params object?[] args)
+    public static RefreshToken Create(params object[] args)
     {
         var userId = args.Length > 0 ? args[0]?.ToString() ?? string.Empty : string.Empty;
         var token = args.Length > 1 ? args[1]?.ToString() ?? string.Empty : string.Empty;
-        DateTime expiresAt = DateTime.UtcNow.AddDays(7);
-        if (args.Length > 2 && args[2] is DateTime dt) expiresAt = dt;
+        var expiresAt = DateTime.UtcNow.AddDays(7);
+        if (args.Length > 2 && args[2] is DateTime dt)
+        {
+            expiresAt = dt;
+        }
         var extra = args.Length > 3 ? args[3]?.ToString() : null;
+
         return new RefreshToken(userId, token, expiresAt, extra);
     }
 }

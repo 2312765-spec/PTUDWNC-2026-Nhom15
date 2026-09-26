@@ -50,6 +50,35 @@ public class Recipe : BaseEntity, IAggregateRoot
     }
 
     /// <summary>
+    /// Factory method linh hoạt để thỏa mãn mọi bài test tạo Recipe (hỗ trợ param tùy biến)
+    /// </summary>
+    public static Recipe Create(params object[] args)
+    {
+        var title = args.Length > 0 ? args[0]?.ToString() ?? "Test Recipe" : "Test Recipe";
+        var slug = args.Length > 1 ? args[1]?.ToString() ?? "test-recipe" : "test-recipe";
+        var desc = args.Length > 2 ? args[2]?.ToString() ?? "Test Description" : "Test Description";
+        var prepTime = args.Length > 3 && args[3] is int pt ? pt : 15;
+        var cookTime = args.Length > 4 && args[4] is int ct ? ct : 30;
+        var servings = args.Length > 5 && args[5] is int sv ? sv : 4;
+        var diff = args.Length > 6 && args[6] is RecipeDifficulty d ? d : RecipeDifficulty.Easy;
+        var authorId = args.Length > 7 ? args[7]?.ToString() ?? "test-author" : "test-author";
+        var categoryId = args.Length > 8 && args[8] is Guid cid ? cid : Guid.NewGuid();
+
+        var recipe = new Recipe(title, slug, desc, prepTime, cookTime, servings, diff, authorId, categoryId);
+
+        if (args.Length > 9 && args[9] is RecipeStatus status)
+        {
+            recipe.Status = status;
+            if (status == RecipeStatus.Published)
+            {
+                recipe.PublishedAt = DateTime.UtcNow;
+            }
+        }
+
+        return recipe;
+    }
+
+    /// <summary>
     /// Xuất bản công thức công khai (Quyết định D2: chỉ công thức Published mới hiển thị cho Guest).
     /// </summary>
     public void Publish()
@@ -114,7 +143,8 @@ public class Recipe : BaseEntity, IAggregateRoot
             RecipeId = this.Id,
             OriginalUrl = originalUrl,
             IsPrimary = isPrimary,
-            DisplayOrder = displayOrder
+            DisplayOrder = displayOrder,
+            OrderIndex = displayOrder
         });
     }
 
@@ -200,7 +230,8 @@ public class Recipe : BaseEntity, IAggregateRoot
             RecipeId = Id,
             OriginalUrl = originalUrl,
             IsPrimary = isPrimary,
-            DisplayOrder = displayOrder
+            DisplayOrder = displayOrder,
+            OrderIndex = displayOrder
         };
         return AttachImage(image);
     }
@@ -216,18 +247,31 @@ public class Recipe : BaseEntity, IAggregateRoot
         var isPrimary = false;
         var order = 0;
 
-        if (arg2 is bool b2) isPrimary = b2;
-        else if (arg2 is int i2) order = i2;
+        if (arg2 is bool b2)
+        {
+            isPrimary = b2;
+        }
+        else if (arg2 is int i2)
+        {
+            order = i2;
+        }
 
-        if (arg3 is int i3) order = i3;
-        else if (arg3 is bool b3) isPrimary = b3;
+        if (arg3 is int i3)
+        {
+            order = i3;
+        }
+        else if (arg3 is bool b3)
+        {
+            isPrimary = b3;
+        }
 
         var img = new RecipeImage
         {
             RecipeId = Id,
             OriginalUrl = url,
             IsPrimary = isPrimary,
-            DisplayOrder = order
+            DisplayOrder = order,
+            OrderIndex = order
         };
         return AttachImage(img);
     }
@@ -250,6 +294,7 @@ public class Recipe : BaseEntity, IAggregateRoot
         {
             img.IsPrimary = isPrimary;
             img.DisplayOrder = displayOrder;
+            img.OrderIndex = displayOrder;
             if (isPrimary)
             {
                 DemoteOtherPrimaryImages(imageId);
@@ -258,20 +303,33 @@ public class Recipe : BaseEntity, IAggregateRoot
         return img;
     }
 
-    public RecipeImage? UpdateImage(Guid imageId, object? arg2, object? arg3 = null, object? arg4 = null)
+   public RecipeImage? UpdateImage(Guid imageId, object? arg2, object? arg3 = null, object? arg4 = null)
     {
         var img = Images.FirstOrDefault(x => x.Id == imageId);
         if (img != null)
         {
-            if (arg2 is bool b) img.IsPrimary = b;
-            if (arg3 is int i) img.DisplayOrder = i;
-            else if (arg2 is int i2) img.DisplayOrder = i2;
+            if (arg2 is bool b)
+            {
+                img.IsPrimary = b;
+            }
+
+            if (arg3 is int i)
+            {
+                img.DisplayOrder = i;
+                img.OrderIndex = i;
+            }
+            else if (arg2 is int i2)
+            {
+                img.DisplayOrder = i2;
+                img.OrderIndex = i2;
+            }
 
             if (img.IsPrimary)
             {
                 DemoteOtherPrimaryImages(imageId);
             }
         }
+
         return img;
     }
 }
