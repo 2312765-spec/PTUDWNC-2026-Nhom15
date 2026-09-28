@@ -94,7 +94,7 @@ export function DeleteCategoryButton({
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900">Xác nhận xóa danh mục</h3>
             <p className="mt-2 text-sm text-gray-600">
-              Bạn có chắc chắn muốn xóa danh mục <strong>"{categoryName}"</strong> không? Thao tác này sẽ xóa mềm danh mục khỏi hệ thống.
+              Bạn có chắc chắn muốn xóa danh mục <strong>&quot;{categoryName}&quot;</strong> không? Thao tác này sẽ xóa mềm danh mục khỏi hệ thống.
             </p>
 
             <div className="mt-6 flex justify-end gap-3">
