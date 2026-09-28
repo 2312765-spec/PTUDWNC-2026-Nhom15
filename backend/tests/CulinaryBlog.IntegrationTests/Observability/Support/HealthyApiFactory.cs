@@ -1,21 +1,23 @@
-using Amazon.S3;
+using CulinaryBlog.IntegrationTests.Common;
 using CulinaryBlog.Infrastructure.Identity;
 using CulinaryBlog.Infrastructure.Persistence;
+using DotNet.Testcontainers.Containers;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.Minio;
 using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace CulinaryBlog.IntegrationTests.Observability.Support;
 
 /// <summary>
-/// FR-OBS-001 — dựng API với Postgres + MinIO thật (Testcontainers) để "/health" tổng hợp cả
-/// 3 component đều khỏe. Redis dùng instance thật ở localhost:6379 (docker-compose dev), giống
-/// quy ước đã có ở <c>PostgresApiFactory</c> — không dựng riêng Testcontainers.Redis cho việc này.
+/// FR-OBS-001 — dựng API với Postgres + một S3 server thật (Testcontainers) để "/health" tổng
+/// hợp cả 3 component đều khỏe. Dùng <c>adobe/s3mock</c> thay MinIO — xem
+/// <see cref="S3MockContainer"/> (MinIO đã khóa pull ẩn danh trên cả Docker Hub lẫn quay.io,
+/// phát hiện qua CI đỏ của FR-FILE-001/002 cùng ngày). Redis dùng instance thật ở
+/// localhost:6379 (docker-compose dev), giống quy ước đã có ở <c>PostgresApiFactory</c>.
 /// </summary>
 public sealed class HealthyApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
@@ -28,21 +30,11 @@ public sealed class HealthyApiFactory : WebApplicationFactory<Program>, IAsyncLi
         .WithPassword("postgres")
         .Build();
 
-    private readonly MinioContainer _minio = new MinioBuilder()
-        .WithImage("quay.io/minio/minio:latest")
-        .Build();
+    private readonly IContainer _s3Server = S3MockContainer.Build(BucketName);
 
     public async Task InitializeAsync()
     {
-        await Task.WhenAll(_postgres.StartAsync(), _minio.StartAsync());
-
-        using var s3 = new AmazonS3Client(_minio.GetAccessKey(), _minio.GetSecretKey(), new AmazonS3Config
-        {
-            ServiceURL = _minio.GetConnectionString(),
-            ForcePathStyle = true,
-            UseHttp = true,
-        });
-        await s3.PutBucketAsync(BucketName);
+        await Task.WhenAll(_postgres.StartAsync(), _s3Server.StartAsync());
 
         // Truy cập Services buộc host build ngay bây giờ — containers phải start TRƯỚC dòng này
         // (xem lý do chi tiết ở PostgresApiFactory).
@@ -55,7 +47,7 @@ public sealed class HealthyApiFactory : WebApplicationFactory<Program>, IAsyncLi
     async Task IAsyncLifetime.DisposeAsync()
     {
         await _postgres.DisposeAsync().AsTask();
-        await _minio.DisposeAsync().AsTask();
+        await _s3Server.DisposeAsync().AsTask();
         await base.DisposeAsync().AsTask();
     }
 
@@ -72,9 +64,9 @@ public sealed class HealthyApiFactory : WebApplicationFactory<Program>, IAsyncLi
         builder.UseSetting("Cors:AllowedOrigins:0", "http://localhost:3000");
         builder.UseSetting("Smtp:Host", "localhost");
         builder.UseSetting("Smtp:Port", "1");
-        builder.UseSetting("Minio:Endpoint", _minio.GetConnectionString());
-        builder.UseSetting("Minio:AccessKey", _minio.GetAccessKey());
-        builder.UseSetting("Minio:SecretKey", _minio.GetSecretKey());
+        builder.UseSetting("Minio:Endpoint", _s3Server.GetConnectionString());
+        builder.UseSetting("Minio:AccessKey", S3MockContainer.AccessKey);
+        builder.UseSetting("Minio:SecretKey", S3MockContainer.SecretKey);
         builder.UseSetting("Minio:BucketName", BucketName);
     }
 }
