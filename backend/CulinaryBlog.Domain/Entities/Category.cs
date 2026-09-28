@@ -44,4 +44,12 @@ public class Category : BaseEntity, IAggregateRoot
     {
         return new Category(name, slug, description);
     }
+    /// <summary>
+    /// Thực hiện xóa mềm danh mục theo Quyết định D2.
+    /// </summary>
+    public void Delete()
+    {
+        IsDeleted = true;
+        UpdatedAt = DateTime.UtcNow;
+    }
 }

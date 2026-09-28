@@ -57,4 +57,5 @@ public interface ICategoryRepository
     /// FR-CAT-005: Xóa mềm danh mục (Soft Delete).
     /// </summary>
     void Delete(Category category);
+    Task<int> GetTotalRecipeCountAsync(Guid categoryId, CancellationToken cancellationToken = default);
 }

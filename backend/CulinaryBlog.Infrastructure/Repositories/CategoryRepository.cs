@@ -114,4 +114,11 @@ public sealed class CategoryRepository : ICategoryRepository
         category.UpdatedAt = DateTime.UtcNow;
         _dbContext.Categories.Update(category);
     }
+    public async Task<int> GetTotalRecipeCountAsync(Guid categoryId, CancellationToken cancellationToken = default)
+{
+    // Đếm tất cả recipe thuộc category chưa bị xóa
+    return await _dbContext.Recipes
+        .Where(r => r.CategoryId == categoryId && !r.IsDeleted)
+        .CountAsync(cancellationToken);
+}
 }

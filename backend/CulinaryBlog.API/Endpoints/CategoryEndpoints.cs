@@ -8,7 +8,8 @@ using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-
+using CulinaryBlog.Application.Categories.Commands.DeleteCategory;
+using CulinaryBlog.Domain.Common;
 namespace CulinaryBlog.API.Endpoints;
 
 /// <summary>
@@ -92,8 +93,29 @@ public static class CategoryEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict);
 
+    
+    // FR-CAT-005: Xóa danh mục (Chỉ Admin)
+        group.MapDelete("/{id:guid}", async (
+            Guid id,
+            ISender mediator,
+            CancellationToken ct) =>
+        {
+            await mediator.Send(new DeleteCategoryCommand(id), ct);
+            return TypedResults.NoContent();
+        })
+        .RequireAuthorization("AdminPolicy") // Hoặc dùng tên Policy của dự án
+        .WithName("DeleteCategory")
+        .WithSummary("Xóa danh mục (FR-CAT-005)")
+        .WithDescription("Admin xóa danh mục")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict);
         return group;
+        
     }
+    
 }
 
 public sealed record UpdateCategoryRequest(string Name, string? Description);
