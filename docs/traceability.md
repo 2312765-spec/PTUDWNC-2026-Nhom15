@@ -14,8 +14,8 @@
 > Tóm tắt: **A** = FR-AUTH + FR-JOB-001 · **B** = FR-CAT + FR-RCP-001/002 + FR-SRCH ·
 > **C** = FR-RCP-003/004/005/006/007/009/010 · **D** = FR-RCP-008 + FR-FILE + FR-JOB-002/003 + FR-OBS.
 
-**Tiến độ:** 9 / 34 FR (26%) — A 2/8 · B 4/11 (CAT-001→004) · C 0/7 ·
-D 3/8 (FR-RCP-008, FR-FILE-001/002 — FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
+**Tiến độ:** 11 / 34 FR (32%) — A 2/8 · B 4/11 (CAT-001→004) · C 0/7 ·
+D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
 
 ---
 
@@ -189,8 +189,8 @@ D 3/8 (FR-RCP-008, FR-FILE-001/002 — FR-JOB-002 cố ý để lại, xem ghi c
 
 | FR | Tên | Endpoint / Cơ chế | Slice | Hiện thực | Test | TT |
 |---|---|---|---|---|---|---|
-| FR-OBS-001 | Health Check | `GET /health` · `/health/live` · `/health/ready` | S1 | `AspNetCore.HealthChecks.NpgSql` + `.Redis` + `.Minio`. Live = process; Ready = DB + Redis | `Observability/HealthTests.cs` | ⬜ |
-| FR-OBS-002 | Structured Logging | Serilog + `CorrelationIdMiddleware` | S1 | Mọi request log `CorrelationId` (X-Correlation-ID), method/path/status/elapsed/UserId. `LoggingBehavior` log mọi Command/Query. Cảnh báo > 500ms | `Observability/LoggingTests.cs` | ⬜ |
+| FR-OBS-001 | Health Check | `GET /health` · `/health/live` · `/health/ready` | S1 | `AspNetCore.HealthChecks.NpgSql` + `.Redis` + `.Aws.S3` (MinIO qua S3 API, không có gói `.Minio` riêng). `/health` tổng hợp cả 3; Live = process; Ready = chỉ DB + Redis (MinIO không gắn tag `ready`, đúng SRS) | `Observability/HealthTests.cs` (3 test: tất cả khỏe qua Testcontainers Postgres+MinIO) + `HealthReadyDegradedTests` trong cùng file (1 test lỗi: DB chết → 503) | ✅ |
+| FR-OBS-002 | Structured Logging | Serilog + `CorrelationIdMiddleware` | S1 | Mọi request log `CorrelationId` (X-Correlation-ID), method/path/status/elapsed/UserId. `LoggingBehavior` log mọi Command/Query. Cảnh báo > 500ms | `Observability/LoggingTests.cs` (CorrelationId: tự sinh, giữ nguyên khi client gửi, có cả trên 404) + `UnitTests/Observability/LoggingBehaviorTests.cs` (Information/Warning >500ms/Error+rethrow) | ✅ |
 | FR-OBS-003 | Tracing & Metrics | OpenTelemetry → OTLP | S11 | HTTP traces, EF Core traces, custom metrics (recipe created/published). `Activity.TraceId` gắn vào structured log | `Observability/TracingTests.cs` | ⬜ |
 
 ---
@@ -242,8 +242,8 @@ D 3/8 (FR-RCP-008, FR-FILE-001/002 — FR-JOB-002 cố ý để lại, xem ghi c
 | FR-SRCH | 4 | 0 | 0 | 4 |
 | FR-FILE | 2 | 2 | 0 | 0 |
 | FR-JOB | 3 | 0 | 0 | 3 |
-| FR-OBS | 3 | 0 | 0 | 3 |
-| **Tổng** | **34** | **9** | **0** | **25** |
+| FR-OBS | 3 | 2 | 0 | 1 |
+| **Tổng** | **34** | **11** | **0** | **23** |
 
 > Không còn FR nào bị chặn — cả 22 mâu thuẫn trong SRS đã chốt tại `decisions.md`.
 > Cột **Quyết định** ở mỗi bảng cho biết FR đó phải đọc mục D nào trước khi code.

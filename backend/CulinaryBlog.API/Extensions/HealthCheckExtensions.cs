@@ -1,3 +1,7 @@
+using Amazon.Runtime;
+using Amazon.S3;
+using HealthChecks.Aws.S3;
+
 namespace CulinaryBlog.API.Extensions;
 
 /// <summary>FR-OBS-001 — 3 endpoint health check với mục đích khác nhau.</summary>
@@ -22,7 +26,25 @@ public static class HealthCheckExtensions
             builder.AddRedis(redis, name: "redis", tags: [ReadyTag]);
         }
 
-        // TODO(S8 — D): thêm AddS3(...) health check cho MinIO.
+        // MinIO chỉ nằm trong /health (tổng hợp) — KHÔNG gắn tag "ready", vì SRS chỉ yêu cầu
+        // readiness kiểm tra database và Redis.
+        var minioEndpoint = configuration["Minio:Endpoint"];
+        var minioBucket = configuration["Minio:BucketName"];
+
+        if (!string.IsNullOrWhiteSpace(minioEndpoint) && !string.IsNullOrWhiteSpace(minioBucket))
+        {
+            builder.AddS3(options =>
+            {
+                options.BucketName = minioBucket;
+                options.Credentials = new BasicAWSCredentials(configuration["Minio:AccessKey"], configuration["Minio:SecretKey"]);
+                options.S3Config = new AmazonS3Config
+                {
+                    ServiceURL = minioEndpoint,
+                    ForcePathStyle = true, // MinIO dùng path-style, giống MinioFileStorageService.
+                    UseHttp = minioEndpoint.StartsWith("http://", StringComparison.OrdinalIgnoreCase),
+                };
+            }, name: "minio");
+        }
 
         return services;
     }

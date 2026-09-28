@@ -21,6 +21,7 @@
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
     <PackageReference Include="AspNetCore.HealthChecks.Redis" />
+    <PackageReference Include="AspNetCore.HealthChecks.Aws.S3" />
     <!--
       dotnet-ef cần Microsoft.EntityFrameworkCore.Design load được từ startup project (API).
       Infrastructure có gói này với PrivateAssets="all" nên không lan truyền sang API — thiếu
