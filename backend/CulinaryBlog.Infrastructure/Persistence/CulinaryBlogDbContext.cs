@@ -78,7 +78,6 @@ public class CulinaryBlogDbContext(DbContextOptions<CulinaryBlogDbContext> optio
             entity.ToTable("RefreshTokens");
             entity.HasKey(e => e.Id);
             entity.Ignore(e => e.UpdatedAt);
-            entity.Ignore(e => e.Token);
         });
 
         ApplySoftDeleteQueryFilter(modelBuilder);

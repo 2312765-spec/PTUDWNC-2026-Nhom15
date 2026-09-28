@@ -3,20 +3,12 @@ using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Domain.Common;
 using Microsoft.AspNetCore.Identity;
 namespace CulinaryBlog.Infrastructure.Identity;
-using CulinaryBlog.Infrastructure.Identity;
 /// <summary>
 /// Hiện thực IIdentityService bằng ASP.NET Core Identity (D23/ADR-0003).
 /// Đây là ranh giới DUY NHẤT giữa tầng trên và <see cref="ApplicationUser"/>/<see cref="UserManager{TUser}"/>.
 /// </summary>
 public sealed class IdentityService(UserManager<ApplicationUser> userManager) : IIdentityService
 {
-    
-        internal static class Roles
-{
-    public const string Admin = "Admin";
-    public const string Author = "Author";
-    public const string User = "User";
-}
         public async Task<AuthenticatedUser> CreateUserAsync(
         string email,
         string password,
@@ -40,9 +32,11 @@ public sealed class IdentityService(UserManager<ApplicationUser> userManager) : 
             }
 
             // RegisterCommandValidator (FluentValidation) đã chặn password yếu từ trước —
-            // nhánh này chỉ còn là phòng thủ chiều sâu (SRS FR-AUTH-001 A2, D4: 400).
+            // nhánh này chỉ còn là phòng thủ chiều sâu (SRS FR-AUTH-001 A2, D4: 400 chứ không
+            // phải 500 — BadRequestException, không phải Exception trơn).
             var detail = string.Join(" ", createResult.Errors.Select(e => e.Description));
-           throw new Exception("Lỗi đăng ký tài khoản");        }
+            throw new BadRequestException(ErrorCodes.ValidationError, detail);
+        }
 
         await userManager.AddToRoleAsync(user, Roles.Author);
 

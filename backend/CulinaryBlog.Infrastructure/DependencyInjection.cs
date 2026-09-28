@@ -1,31 +1,39 @@
+using Amazon.S3;
 using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Domain.Interfaces;
+using CulinaryBlog.Infrastructure.Caching;
+using CulinaryBlog.Infrastructure.Email;
+using CulinaryBlog.Infrastructure.Files;
 using CulinaryBlog.Infrastructure.Identity;
+using CulinaryBlog.Infrastructure.Jobs;
 using CulinaryBlog.Infrastructure.Persistence;
 using CulinaryBlog.Infrastructure.Persistence.Repositories;
 using CulinaryBlog.Infrastructure.Services;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.EntityFrameworkCore.Diagnostics;
+using StackExchange.Redis;
 namespace CulinaryBlog.Infrastructure;
 
 public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructureServices(
-        this IServiceCollection services, 
+        this IServiceCollection services,
         IConfiguration configuration)
     {
         // Đọc chuỗi kết nối từ DefaultConnection hoặc Postgres, có fallback mặc định
-        var connectionString = configuration.GetConnectionString("DefaultConnection") 
+        var connectionString = configuration.GetConnectionString("DefaultConnection")
                             ?? configuration.GetConnectionString("Postgres")
                             ?? "Host=localhost;Port=5432;Database=culinaryblog;Username=postgres;Password=postgres";
 
         services.AddDbContext<CulinaryBlogDbContext>(options =>
 {
     options.UseNpgsql(connectionString);
-    options.ConfigureWarnings(w => 
+    options.ConfigureWarnings(w =>
         w.Ignore(RelationalEventId.PendingModelChangesWarning));
 });
 
@@ -57,82 +65,54 @@ public static class DependencyInjection
         services.AddScoped<ISlugHelper, SlugHelper>();
         services.AddScoped<IJwtService, CulinaryBlog.Infrastructure.Auth.JwtService>();
 
-        // 6. Đăng ký Mock Service cho File Storage và Background Job
-        services.AddScoped<IFileStorageService, MockFileStorageService>();
-        services.AddScoped<IBackgroundJobService, MockBackgroundJobService>();
+        // 6. File Storage thật (MinIO qua S3 API) — CONS-007/D16. Không dùng Mock ở bất kỳ
+        // environment nào; integration test tự override bằng FakeFileStorageService riêng.
+        services.AddSingleton<IAmazonS3>(sp =>
+        {
+            var config = sp.GetRequiredService<IConfiguration>();
+            var endpoint = config["Minio:Endpoint"] ?? throw new InvalidOperationException("Thiếu Minio:Endpoint.");
+            var accessKey = config["Minio:AccessKey"] ?? throw new InvalidOperationException("Thiếu Minio:AccessKey.");
+            var secretKey = config["Minio:SecretKey"] ?? throw new InvalidOperationException("Thiếu Minio:SecretKey.");
 
-        // 7. Đăng ký CacheService (giải quyết triệt để lỗi MediatR CacheInvalidationBehavior)
-        services.AddScoped<ICacheService, MockCacheService>();
+            return new AmazonS3Client(accessKey, secretKey, new AmazonS3Config
+            {
+                ServiceURL = endpoint,
+                ForcePathStyle = true, // MinIO dùng path-style (bucket trong path, không phải subdomain).
+                UseHttp = endpoint.StartsWith("http://", StringComparison.OrdinalIgnoreCase),
+            });
+        });
+        services.AddScoped<IFileStorageService, MinioFileStorageService>();
+
+        // 7. Cache thật (Redis, D8 — cache DUY NHẤT, cấm IMemoryCache/Output Cache).
+        var redisConnection = configuration.GetConnectionString("Redis")
+            ?? throw new InvalidOperationException("Thiếu ConnectionStrings:Redis trong cấu hình.");
+
+        services.AddSingleton<IConnectionMultiplexer>(_ =>
+        {
+            var options = ConfigurationOptions.Parse(redisConnection);
+            options.AbortOnConnectFail = false; // NFR-REL-002: Redis down vẫn phải khởi động được
+            return ConnectionMultiplexer.Connect(options);
+        });
+        services.AddScoped<ICacheService, RedisCacheService>();
+
+        // 8. Email + Background Job thật (Hangfire enqueue — không AddHangfireServer() ở đây:
+        // nó resolve JobStorage ngay lúc start, sẽ làm host không lên được nếu Postgres chưa sẵn
+        // sàng, vi phạm NFR-REL-002. AddHangfire() một mình chỉ đăng ký IBackgroundJobClient,
+        // JobStorage được resolve lazy khi thật sự Enqueue.
+        services.AddScoped<IEmailService, MailKitEmailService>();
+        services.AddHangfire(config => config
+            .UseSimpleAssemblyNameTypeSerializer()
+            .UseRecommendedSerializerSettings()
+            .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(connectionString)));
+        services.AddScoped<IBackgroundJobService, HangfireBackgroundJobService>();
 
         return services;
     }
 
     public static IServiceCollection AddInfrastructure(
-        this IServiceCollection services, 
+        this IServiceCollection services,
         IConfiguration configuration)
     {
         return services.AddInfrastructureServices(configuration);
     }
-}
-
-// Mock ICacheService chuẩn xác 100% theo hợp đồng giao diện Quyết định D8
-public class MockCacheService : ICacheService
-{
-    public Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
-    {
-        return Task.FromResult<T?>(default);
-    }
-
-    public Task SetAsync<T>(
-        string key, 
-        T value, 
-        TimeSpan expiration, 
-        IEnumerable<string> tags, 
-        CancellationToken cancellationToken = default)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task RemoveAsync(string key, CancellationToken cancellationToken = default)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task RemoveByTagsAsync(IEnumerable<string> tags, CancellationToken cancellationToken = default)
-    {
-        return Task.CompletedTask;
-    }
-}
-
-// Giả lập Mock JWT Service khớp 100% tất cả các phương thức của IJwtService
-public class MockJwtService : IJwtService
-{
-    public (string Token, DateTime ExpiresAt) GenerateAccessToken(string userId, string email, IEnumerable<string> roles)
-        => ("mock-jwt-access-token", DateTime.UtcNow.AddHours(2));
-
-    public (string RawToken, string TokenHash, DateTime ExpiresAt) GenerateRefreshToken()
-        => ("mock-raw-token", "mock-token-hash", DateTime.UtcNow.AddDays(7));
-
-    public string HashToken(string token)
-        => "mock-hashed-" + token;
-
-    public System.Security.Claims.ClaimsPrincipal? GetPrincipalFromExpiredToken(string token)
-        => new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity());
-}
-
-// Giả lập Mock File Storage Service
-public class MockFileStorageService : IFileStorageService
-{
-    public Task<string> UploadAsync(Stream stream, string fileName, string contentType, string folder, CancellationToken cancellationToken = default)
-        => Task.FromResult($"https://localhost:7001/uploads/{folder}/{fileName}");
-
-    public Task DeleteAsync(string fileUrl, CancellationToken cancellationToken = default)
-        => Task.CompletedTask;
-}
-
-// Giả lập Mock Background Job Service
-public class MockBackgroundJobService : IBackgroundJobService
-{
-    public void EnqueueWelcomeEmail(string email, string displayName) { }
-    public void EnqueueDeleteImageFile(string fileUrl) { }
 }

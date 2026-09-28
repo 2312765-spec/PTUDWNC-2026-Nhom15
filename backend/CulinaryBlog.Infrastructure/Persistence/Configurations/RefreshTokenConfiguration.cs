@@ -15,7 +15,6 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
 
         // Bỏ qua các thuộc tính không có trong bảng Database
         builder.Ignore(x => x.UpdatedAt);
-        builder.Ignore(x => x.Token);
         builder.Ignore(x => x.IsActive);
         builder.Ignore(x => x.IsExpired);
         builder.Ignore(x => x.IsRevoked);

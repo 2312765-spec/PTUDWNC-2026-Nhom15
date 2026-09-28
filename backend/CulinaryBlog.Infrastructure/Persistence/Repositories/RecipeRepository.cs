@@ -30,8 +30,7 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
 
     public void Delete(Recipe recipe)
     {
-        recipe.IsDeleted = true;
-        recipe.UpdatedAt = DateTime.UtcNow;
+        recipe.SoftDelete();
         context.Recipes.Update(recipe);
     }
 
