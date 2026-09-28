@@ -144,17 +144,22 @@ D 3/8 (FR-RCP-008, FR-FILE-001/002 — FR-JOB-002 cố ý để lại, xem ghi c
 
 | FR | Tên | Gọi từ đâu | Slice | Hiện thực | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|
-| FR-FILE-001 | Upload file lên MinIO | FR-RCP-008 | S8 | `IFileStorageService.UploadAsync()` → `MinioFileStorageService` (AWSSDK.S3). Bucket `culinary-blog` (public-read), key `recipes/{recipeId}/{Guid}{ext}` (`ObjectKey`), max 5MB, magic bytes (`ImageSignature`) | `UnitTests/Images/{ImageSignatureTests,ObjectKeyTests}.cs` + `IntegrationTests/Files/MinioFileStorageServiceTests.cs` (MinIO thật qua Testcontainers, xác nhận `PutObjectAsync` lưu đúng bytes/content-type). `ImagesTests.cs` (dùng `FakeFileStorageService`) xác nhận Command/Handler/Domain/endpoint | D16 | ✅ |
+| FR-FILE-001 | Upload file lên MinIO | FR-RCP-008 | S8 | `IFileStorageService.UploadAsync()` → `MinioFileStorageService` (AWSSDK.S3). Bucket `culinary-blog` (public-read), key `recipes/{recipeId}/{Guid}{ext}` (`ObjectKey`), max 5MB, magic bytes (`ImageSignature`) | `UnitTests/Images/{ImageSignatureTests,ObjectKeyTests}.cs` + `IntegrationTests/Files/MinioFileStorageServiceTests.cs` (S3 server thật qua Testcontainers — `adobe/s3mock`, xem ghi chú dưới bảng — xác nhận `PutObjectAsync` lưu đúng bytes/content-type). `ImagesTests.cs` (dùng `FakeFileStorageService`) xác nhận Command/Handler/Domain/endpoint | D16 | ✅ |
 | FR-FILE-002 | Xóa file khỏi MinIO | **Chỉ** từ `DELETE /recipes/{id}/images/{imageId}` | S8 | `IFileStorageService.DeleteAsync()`. Idempotent (bắt `AmazonS3Exception` 404). Enqueue qua `IBackgroundJobService.EnqueueDeleteImageFile()` — Hangfire retry 3× mặc định | `IntegrationTests/Files/MinioFileStorageServiceTests.cs` xác nhận `DeleteObjectAsync` thật (xóa object tồn tại + idempotent khi object không tồn tại). `ImagesTests.cs` xác nhận enqueue qua Fake — **job Hangfire chạy thật (worker thực thi `EnqueueDeleteImageFile`) chưa có test riêng**, thuộc phạm vi FR-JOB | **D1** | ✅ |
 
 > **D1 thu hẹp phạm vi FR-FILE-002:** vì Recipe là soft delete, không có job xóa hàng loạt
 > file khi xóa recipe. FR-FILE-002 chỉ chạy khi Author xóa **một ảnh cụ thể**.
 >
-> **Test MinIO thật** (`MinioFileStorageServiceTests.cs`, 2026-09-28): dùng `Testcontainers.Minio`
-> với image `quay.io/minio/minio:latest` (khớp `docker-compose.yml`, không dùng `minio/minio` trên
-> Docker Hub — bị chặn pull ẩn danh). Gọi thẳng `MinioFileStorageService` vào MinIO thật trong
-> container, xác nhận `PutObjectAsync`/`DeleteObjectAsync` — đóng khoảng trống trước đây (chỉ có
-> review bằng mắt, chưa có test tự động cho tầng Infrastructure thật).
+> **Test S3 thật** (`MinioFileStorageServiceTests.cs`, cập nhật 2026-09-28): PR #17 CI đỏ vì
+> `quay.io/minio/minio` (và `minio/minio` trên Docker Hub, kể cả tag cũ) trả 401 khi pull ẩn danh
+> — MinIO Inc. đã khóa phân phối image công khai trên **cả hai** registry (không phải lỗi CI, xác
+> nhận lại bằng `docker pull` trực tiếp). Đổi sang `adobe/s3mock` (mã nguồn mở, Adobe, vẫn pull tự
+> do, chỉ hỗ trợ path-style — khớp `ForcePathStyle=true` sẵn có) làm S3 server thật thay thế, qua
+> helper dùng chung `IntegrationTests/Common/S3MockContainer.cs`. Gọi thẳng `MinioFileStorageService`
+> vào server thật, xác nhận `PutObjectAsync`/`DeleteObjectAsync` — đóng khoảng trống trước đây (chỉ
+> có review bằng mắt, chưa có test tự động cho tầng Infrastructure thật). **Lưu ý cho D:**
+> `docker-compose.yml` (dev/prod thật) vẫn dùng `quay.io/minio/minio:latest` — nếu registry đó
+> cũng chặn máy dev/CI của nhóm, cần xử lý riêng ở đó (ngoài phạm vi test này).
 
 ---
 

@@ -2,50 +2,48 @@ using System.Net;
 using Amazon.S3;
 using Amazon.S3.Model;
 using CulinaryBlog.Infrastructure.Files;
+using CulinaryBlog.IntegrationTests.Common;
+using DotNet.Testcontainers.Containers;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
-using Testcontainers.Minio;
 using Xunit;
 
 namespace CulinaryBlog.IntegrationTests.Files;
 
 /// <summary>
-/// FR-FILE-001/002 — gọi thẳng <see cref="MinioFileStorageService"/> vào một MinIO thật
-/// (Testcontainers), khác với <c>ImagesTests</c> (dùng <c>FakeFileStorageService</c>, chỉ nhắm
-/// Command/Handler/Domain/endpoint). Đóng khoảng trống mà traceability.md từng ghi: PutObjectAsync/
-/// DeleteObjectAsync thật chưa được test tự động xác nhận.
+/// FR-FILE-001/002 — gọi thẳng <see cref="MinioFileStorageService"/> vào một S3 server thật
+/// (Testcontainers, xem <see cref="S3MockContainer"/> — MinIO đã khóa pull ẩn danh), khác với
+/// <c>ImagesTests</c> (dùng <c>FakeFileStorageService</c>, chỉ nhắm Command/Handler/Domain/
+/// endpoint). Đóng khoảng trống mà traceability.md từng ghi: PutObjectAsync/DeleteObjectAsync
+/// thật chưa được test tự động xác nhận.
 /// </summary>
 public sealed class MinioFileStorageServiceTests : IAsyncLifetime
 {
     private const string BucketName = "culinary-blog-test";
 
-    // Cùng image với docker-compose.yml (quay.io, không dùng Docker Hub "minio/minio" — bị
-    // chặn pull ẩn danh, xem ghi chú ở docker-compose.yml).
-    private readonly MinioContainer _minio = new MinioBuilder()
-        .WithImage("quay.io/minio/minio:latest")
-        .Build();
+    private readonly IContainer _s3Server = S3MockContainer.Build(BucketName);
 
     private IAmazonS3 _s3 = null!;
     private MinioFileStorageService _sut = null!;
 
     public async Task InitializeAsync()
     {
-        await _minio.StartAsync();
+        await _s3Server.StartAsync();
 
-        _s3 = new AmazonS3Client(_minio.GetAccessKey(), _minio.GetSecretKey(), new AmazonS3Config
+        var endpoint = _s3Server.GetConnectionString();
+
+        _s3 = new AmazonS3Client(S3MockContainer.AccessKey, S3MockContainer.SecretKey, new AmazonS3Config
         {
-            ServiceURL = _minio.GetConnectionString(),
+            ServiceURL = endpoint,
             ForcePathStyle = true,
             UseHttp = true,
         });
-
-        await _s3.PutBucketAsync(BucketName);
 
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Minio:BucketName"] = BucketName,
-                ["Minio:Endpoint"] = _minio.GetConnectionString(),
+                ["Minio:Endpoint"] = endpoint,
             })
             .Build();
 
@@ -55,7 +53,7 @@ public sealed class MinioFileStorageServiceTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         _s3.Dispose();
-        await _minio.DisposeAsync().AsTask();
+        await _s3Server.DisposeAsync().AsTask();
     }
 
     [Fact(DisplayName = "FR-FILE-001/D16: upload ảnh JPEG thật lên MinIO qua S3 API")]
@@ -96,7 +94,7 @@ public sealed class MinioFileStorageServiceTests : IAsyncLifetime
     [Fact(DisplayName = "FR-FILE-002/D1: xóa object không tồn tại trên MinIO thật vẫn idempotent, không throw")]
     public async Task DeleteAsync_NonExistentObject_DoesNotThrow()
     {
-        var fakeUrl = $"{_minio.GetConnectionString()}/{BucketName}/recipes/khong-ton-tai/{Guid.NewGuid()}.jpg";
+        var fakeUrl = $"{_s3Server.GetConnectionString()}/{BucketName}/recipes/khong-ton-tai/{Guid.NewGuid()}.jpg";
 
         var act = () => _sut.DeleteAsync(fakeUrl, CancellationToken.None);
 
