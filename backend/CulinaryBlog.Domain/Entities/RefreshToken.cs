@@ -1,54 +1,46 @@
-using System.ComponentModel.DataAnnotations.Schema;
-
 namespace CulinaryBlog.Domain.Entities;
 
 /// <summary>
 /// Thực thể RefreshToken — SRS 7.8, Quyết định D20.
 /// Bảng Database gồm: Id, UserId, TokenHash, ExpiresAt, RevokedAt, ReplacedByTokenHash, CreatedAt, CreatedByIp.
+/// Chỉ lưu HASH của token (D25) — raw token không bao giờ chạm DB.
 /// </summary>
-public class RefreshToken 
+public class RefreshToken
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public string UserId { get; set; } = string.Empty;
-    public string TokenHash { get; set; } = string.Empty;
-    public DateTime ExpiresAt { get; set; }
-    public DateTime? RevokedAt { get; set; }
-    public string? ReplacedByTokenHash { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public string? CreatedByIp { get; set; }
+    public Guid Id { get; private set; } = Guid.NewGuid();
+    public string UserId { get; private set; } = string.Empty;
+    public string TokenHash { get; private set; } = string.Empty;
+    public DateTime ExpiresAt { get; private set; }
+    public DateTime? RevokedAt { get; private set; }
+    public string? ReplacedByTokenHash { get; private set; }
+    public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
+    public string? CreatedByIp { get; private set; }
 
-    [NotMapped]
-    public DateTime? UpdatedAt { get; set; }
+    public DateTime? UpdatedAt { get; private set; }
 
-    [NotMapped]
-    public string Token { get; set; } = string.Empty;
-
-    [NotMapped]
     public bool IsRevoked => RevokedAt.HasValue;
 
-    [NotMapped]
     public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
 
-    [NotMapped]
     public bool IsActive => !IsRevoked && !IsExpired;
 
-    public RefreshToken() 
+    private RefreshToken()
     {
-        TokenHash = Guid.NewGuid().ToString("N");
     }
 
-    public RefreshToken(string userId, string tokenHash, DateTime expiresAt, string? createdByIp = null, string? replacedBy = null)
+    private RefreshToken(string userId, string tokenHash, DateTime expiresAt, string? createdByIp)
     {
         UserId = userId;
-        Token = tokenHash;
-        // Nếu tokenHash rỗng thì tự sinh GUID ngẫu nhiên để tránh lỗi trùng lặp Unique Index trong DB
-        TokenHash = string.IsNullOrWhiteSpace(tokenHash) ? Guid.NewGuid().ToString("N") : tokenHash;
+        TokenHash = tokenHash;
         ExpiresAt = expiresAt;
         CreatedByIp = createdByIp;
-        ReplacedByTokenHash = replacedBy;
         CreatedAt = DateTime.UtcNow;
     }
-   
+
+    /// <summary>D20/D25 — tạo refresh token mới. tokenHash PHẢI là hash (SHA-256) của raw token, không phải raw token.</summary>
+    public static RefreshToken Create(string userId, string tokenHash, DateTime expiresAt, string? createdByIp = null)
+        => new(userId, tokenHash, expiresAt, createdByIp);
+
     public void Revoke(string? replacedByTokenHash = null)
     {
         RevokedAt = DateTime.UtcNow;
@@ -56,24 +48,6 @@ public class RefreshToken
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public static RefreshToken Create(params object?[]? args)
-    {
-        if (args == null || args.Length == 0)
-        {
-            return new RefreshToken();
-        }
-
-        var userId = args.Length > 0 ? args[0]?.ToString() ?? string.Empty : string.Empty;
-        var token = args.Length > 1 ? args[1]?.ToString() ?? string.Empty : string.Empty;
-        var expiresAt = DateTime.UtcNow.AddDays(7);
-        if (args.Length > 2 && args[2] is DateTime dt)
-        {
-            expiresAt = dt;
-        }
-
-        var ipOrExtra = args.Length > 3 ? args[3]?.ToString() : null;
-        var replaced = args.Length > 4 ? args[4]?.ToString() : null;
-
-        return new RefreshToken(userId, token, expiresAt, ipOrExtra, replaced);
-    }
+    /// <summary>Chỉ dùng khi Infrastructure phát hiện trùng TokenHash (xác suất cực thấp) — sinh lại hash mới.</summary>
+    public void ReassignTokenHash(string tokenHash) => TokenHash = tokenHash;
 }
