@@ -27,47 +27,28 @@ public sealed class UpdateRecipeImageCommandHandler(
                 throw new ForbiddenException(ErrorCodes.RecipeForbidden, "Bạn không có quyền sửa ảnh của công thức này.");
             }
 
-            var targetImage = recipe.Images.FirstOrDefault(i => i.Id == request.ImageId)
+            _ = recipe.Images.FirstOrDefault(i => i.Id == request.ImageId)
                 ?? throw new NotFoundException(ErrorCodes.RecipeImageNotFound, "Không tìm thấy ảnh.");
 
-            // D22/D27: Nếu cố hạ ảnh primary về false nhưng không còn ảnh nào khác làm primary (hoặc là ảnh duy nhất)
-            // thì phải trả về 400 RECIPE_PRIMARY_IMAGE_REQUIRED
-            if (request.IsPrimary == false && targetImage.IsPrimary)
-            {
-                var otherPrimaryExists = recipe.Images.Any(i => i.Id != request.ImageId && i.IsPrimary);
-                if (!otherPrimaryExists)
-                {
-                    throw new BadRequestException(ErrorCodes.RecipePrimaryImageRequired, "Công thức phải có ít nhất một ảnh chính.");
-                }
-            }
-
+            // D31: demote sớm + save riêng trước khi set ảnh mới thành primary, tránh vi phạm unique
+            // index "1 primary/recipe" khi 2 dòng cùng IsPrimary=true tồn tại giữa transaction.
             if (request.IsPrimary == true)
             {
                 recipe.DemoteOtherPrimaryImages(request.ImageId);
                 await unitOfWork.SaveChangesAsync(ct);
             }
 
+            // D22/D23: cả AltText/IsPrimary/OrderIndex được áp dụng trong CÙNG một lần gọi domain —
+            // PATCH chỉ gửi orderIndex (kéo-thả sắp xếp) vẫn phải lưu được, không rơi vào nhánh nào bị bỏ sót.
             try
             {
-                if (request.IsPrimary.HasValue)
-                {
-                    recipe.UpdateImage(request.ImageId, request.IsPrimary.Value, request.OrderIndex);
-                }
-                
-                if (!string.IsNullOrEmpty(request.AltText))
-                {
-                    recipe.UpdateImage(request.ImageId, request.AltText, request.OrderIndex);
-                }
+                recipe.UpdateImage(request.ImageId, request.AltText, request.IsPrimary, request.OrderIndex);
             }
             catch (DomainException ex)
             {
                 throw new BadRequestException(
-                    string.IsNullOrEmpty(ex.ErrorCode) ? ErrorCodes.RecipePrimaryImageRequired : ex.ErrorCode, 
+                    string.IsNullOrEmpty(ex.ErrorCode) ? ErrorCodes.RecipePrimaryImageRequired : ex.ErrorCode,
                     ex.Message);
-            }
-            catch (InvalidOperationException ex)
-            {
-                throw new BadRequestException(ErrorCodes.RecipePrimaryImageRequired, ex.Message);
             }
 
             await unitOfWork.SaveChangesAsync(ct);
