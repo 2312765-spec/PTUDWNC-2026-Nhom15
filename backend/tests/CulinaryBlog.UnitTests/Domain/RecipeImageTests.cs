@@ -1,6 +1,7 @@
 using CulinaryBlog.Domain.Common;
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Enums;
+using CulinaryBlog.Domain.Exceptions;
 using FluentAssertions;
 using Xunit;
 

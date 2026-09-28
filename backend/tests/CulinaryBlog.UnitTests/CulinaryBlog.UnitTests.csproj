@@ -4,7 +4,6 @@
     <CollectCoverage>true</CollectCoverage>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\CulinaryBlog.Domain\CulinaryBlog.Domain.csproj" />
     <ProjectReference Include="..\..\CulinaryBlog.Application\CulinaryBlog.Application.csproj" />
   </ItemGroup>
   <ItemGroup>

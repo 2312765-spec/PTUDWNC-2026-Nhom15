@@ -2,11 +2,11 @@ using CulinaryBlog.Domain.Entities;
 
 namespace CulinaryBlog.Domain.Interfaces;
 
-/// <summary>
-/// Riêng cho <see cref="RefreshToken"/> vì entity này không kế thừa BaseEntity
-/// (D20 — schema 7.8 không có IsDeleted/RowVersion) nên không khớp <see cref="IRepository{T}"/>.
-/// </summary>
 public interface IRefreshTokenRepository
 {
-    Task AddAsync(RefreshToken token, CancellationToken ct = default);
+    Task<RefreshToken?> GetByTokenAsync(string token, CancellationToken cancellationToken = default);
+    Task AddAsync(RefreshToken refreshToken, CancellationToken cancellationToken = default);
+    Task AddAsync(string userId, string token, DateTime expiresAt = default, CancellationToken cancellationToken = default);
+    Task RevokeAsync(string token, CancellationToken cancellationToken = default);
+    Task<bool> IsValidAsync(string token, CancellationToken cancellationToken = default);
 }

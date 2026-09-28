@@ -47,7 +47,9 @@ public sealed class JwtService(IConfiguration configuration) : IJwtService
     public (string RawToken, string TokenHash, DateTime ExpiresAt) GenerateRefreshToken()
     {
         var days = configuration.GetValue("Jwt:RefreshTokenDays", 7);
-        var rawToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16)); // 128-bit (D25)
+        // Đảm bảo rawToken đủ 128-bit nhưng luôn độc nhất bằng Guid để không bao giờ bị trùng hash trong DB
+        var uniqueBytes = RandomNumberGenerator.GetBytes(16);
+        var rawToken = Convert.ToBase64String(uniqueBytes) + "_" + Guid.NewGuid().ToString("N");
 
         return (rawToken, HashToken(rawToken), DateTime.UtcNow.AddDays(days));
     }

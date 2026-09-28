@@ -1,57 +1,36 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using CulinaryBlog.Domain.Common;
 
 namespace CulinaryBlog.Domain.Entities;
 
-/// <summary>SRS 7.5. Logic IsPrimary/OrderIndex (D22/D27) nằm ở <see cref="Recipe"/> — RecipeImage chỉ giữ state.</summary>
-public sealed class RecipeImage : BaseEntity
+/// <summary>
+/// Entity con của Recipe aggregate (FR-RCP-008/D22/D23). Mọi thay đổi PHẢI đi qua Recipe
+/// (AttachImage/UpdateImage/RemoveImage) — setter chỉ internal để Recipe trong cùng assembly
+/// Domain mới gán được, tầng ngoài (Application/Infrastructure) không được bypass.
+/// </summary>
+public class RecipeImage : BaseEntity
 {
-    public Guid RecipeId { get; private set; }
-    public string OriginalUrl { get; private set; } = string.Empty;
-    public string? MediumUrl { get; private set; }
-    public string? ThumbnailUrl { get; private set; }
-    public string? AltText { get; private set; }
-    public bool IsPrimary { get; private set; }
-    public int OrderIndex { get; private set; }
+    public Guid RecipeId { get; internal set; }
+    public string OriginalUrl { get; internal set; } = string.Empty;
+    public string? AltText { get; internal set; } = string.Empty;
+    public bool IsPrimary { get; internal set; }
+    public int OrderIndex { get; internal set; }
 
-    private RecipeImage()
+    // [NotMapped]: Bí danh giúp tương thích với code cũ mà KHÔNG sinh cột vào Database
+    [NotMapped]
+    public int DisplayOrder
     {
+        get => OrderIndex;
+        internal set => OrderIndex = value;
     }
 
-    public static RecipeImage Create(
-        Guid recipeId, string originalUrl, bool isPrimary = false, int orderIndex = 0,
-        string? mediumUrl = null, string? thumbnailUrl = null, string? altText = null)
-    {
-        if (string.IsNullOrWhiteSpace(originalUrl))
-        {
-            throw new DomainException("RECIPE_IMAGE_URL_REQUIRED", "URL ảnh gốc không được để trống.");
-        }
+    // DÒNG NÀY ĐỂ EF CORE BIẾT RÕ KHÓA NGOẠI LÀ RecipeId, KHÔNG TỰ SINH RecipeId1:
+    [ForeignKey(nameof(RecipeId))]
+    public Recipe? Recipe { get; internal set; }
 
-        return new RecipeImage
-        {
-            RecipeId = recipeId,
-            OriginalUrl = originalUrl,
-            MediumUrl = mediumUrl,
-            ThumbnailUrl = thumbnailUrl,
-            AltText = altText,
-            IsPrimary = isPrimary,
-            OrderIndex = orderIndex,
-        };
-    }
+    internal void UpdateAltText(string? altText) => AltText = altText ?? string.Empty;
 
-    /// <summary>Chỉ <see cref="Recipe"/> (aggregate root, cùng assembly) được đổi ảnh nào là primary (D22).</summary>
-    internal void SetPrimary(bool value) => IsPrimary = value;
+    internal void UpdateOrderIndex(int orderIndex) => OrderIndex = orderIndex;
 
-    /// <summary>D27 — field nào null thì giữ nguyên giá trị cũ (PATCH từng phần).</summary>
-    internal void UpdateMetadata(string? altText, int? orderIndex)
-    {
-        if (altText is not null)
-        {
-            AltText = altText;
-        }
-
-        if (orderIndex is not null)
-        {
-            OrderIndex = orderIndex.Value;
-        }
-    }
+    internal void SetPrimary(bool isPrimary) => IsPrimary = isPrimary;
 }

@@ -1,5 +1,7 @@
 using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Application.Common.Interfaces;
+using CulinaryBlog.Domain.Common;
+using CulinaryBlog.Domain.Exceptions;
 using CulinaryBlog.Domain.Interfaces;
 using MediatR;
 
@@ -15,10 +17,6 @@ public sealed class UpdateRecipeImageCommandHandler(
     {
         string recipeSlug = string.Empty;
 
-        // D22/D27: đổi primary cần 2 lần SaveChanges (hạ ảnh cũ → nâng ảnh mới) để không vi phạm unique
-        // index; gói cả hai trong 1 transaction để lần lưu thứ hai lỗi thì ảnh cũ không bị mất primary.
-        // Khoá dòng Recipe (như upload): hai PATCH isPrimary=true đồng thời vào hai ảnh khác nhau nếu
-        // không xếp hàng sẽ cùng thấy một ảnh primary cũ và cùng nâng ảnh của mình → 500.
         await unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
             var recipe = await recipeRepository.GetByIdWithImagesForUpdateAsync(request.RecipeId, ct)
@@ -29,19 +27,30 @@ public sealed class UpdateRecipeImageCommandHandler(
                 throw new ForbiddenException(ErrorCodes.RecipeForbidden, "Bạn không có quyền sửa ảnh của công thức này.");
             }
 
-            if (!recipe.Images.Any(i => i.Id == request.ImageId))
-            {
-                throw new NotFoundException(ErrorCodes.RecipeImageNotFound, "Không tìm thấy ảnh.");
-            }
+            _ = recipe.Images.FirstOrDefault(i => i.Id == request.ImageId)
+                ?? throw new NotFoundException(ErrorCodes.RecipeImageNotFound, "Không tìm thấy ảnh.");
 
+            // D31: demote sớm + save riêng trước khi set ảnh mới thành primary, tránh vi phạm unique
+            // index "1 primary/recipe" khi 2 dòng cùng IsPrimary=true tồn tại giữa transaction.
             if (request.IsPrimary == true)
             {
                 recipe.DemoteOtherPrimaryImages(request.ImageId);
                 await unitOfWork.SaveChangesAsync(ct);
             }
 
-            // D22/D27: DomainException (vd RECIPE_PRIMARY_IMAGE_REQUIRED) nằm trong Recipe.UpdateImage.
-            recipe.UpdateImage(request.ImageId, request.AltText, request.IsPrimary, request.OrderIndex);
+            // D22/D23: cả AltText/IsPrimary/OrderIndex được áp dụng trong CÙNG một lần gọi domain —
+            // PATCH chỉ gửi orderIndex (kéo-thả sắp xếp) vẫn phải lưu được, không rơi vào nhánh nào bị bỏ sót.
+            try
+            {
+                recipe.UpdateImage(request.ImageId, request.AltText, request.IsPrimary, request.OrderIndex);
+            }
+            catch (DomainException ex)
+            {
+                throw new BadRequestException(
+                    string.IsNullOrEmpty(ex.ErrorCode) ? ErrorCodes.RecipePrimaryImageRequired : ex.ErrorCode,
+                    ex.Message);
+            }
+
             await unitOfWork.SaveChangesAsync(ct);
 
             recipeSlug = recipe.Slug;

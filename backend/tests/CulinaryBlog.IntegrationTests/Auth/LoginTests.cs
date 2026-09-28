@@ -20,19 +20,37 @@ namespace CulinaryBlog.IntegrationTests.Auth;
 /// </summary>
 public sealed class LoginTests(PostgresApiFactory factory) : IClassFixture<PostgresApiFactory>
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly HttpClient _client = factory.CreateClient();
 
     private async Task<string> RegisterUserAsync(string password = "Str0ng!Pass1")
+{
+    var email = $"login-{Guid.NewGuid():N}@example.com";
+
+    using var scope = factory.Services.CreateScope();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+    var user = new ApplicationUser
     {
-        var email = $"login-{Guid.NewGuid():N}@example.com";
-        var response = await _client.PostAsJsonAsync(
-            "/api/v1/auth/register",
-            new { email, password, displayName = "Người dùng test" });
-        response.EnsureSuccessStatusCode();
-        return email;
+        UserName = email,
+        Email = email,
+        DisplayName = "Người dùng test",
+        EmailConfirmed = true,
+        IsActive = true
+    };
+
+    var result = await userManager.CreateAsync(user, password);
+    if (!result.Succeeded)
+    {
+        throw new InvalidOperationException($"Tạo user test thất bại: {string.Join(", ", result.Errors.Select(e => e.Description))}");
     }
+
+    // Gán role Author cho user (nếu logic yêu cầu role)
+    await userManager.AddToRoleAsync(user, "Author");
+
+    return email;
+}
 
     [Fact(DisplayName = "FR-AUTH-002/D24: đăng nhập đúng email/password → 200 kèm AuthResponseDto đầy đủ token")]
     public async Task Login_ValidCredentials_Returns200WithTokens()
@@ -43,7 +61,7 @@ public sealed class LoginTests(PostgresApiFactory factory) : IClassFixture<Postg
         var response = await _client.PostAsJsonAsync("/api/v1/auth/login", new { email, password });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(_jsonOptions);
         body.Should().NotBeNull();
         body!.AccessToken.Should().NotBeNullOrWhiteSpace();
         body.RefreshToken.Should().NotBeNullOrWhiteSpace();
@@ -59,7 +77,7 @@ public sealed class LoginTests(PostgresApiFactory factory) : IClassFixture<Postg
         var response = await _client.PostAsJsonAsync("/api/v1/auth/login", new { email, password = "Wrong!Pass1" });
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
         problem!.Type.Should().Be(ErrorCodes.AuthInvalidCredentials);
     }
 
@@ -71,7 +89,7 @@ public sealed class LoginTests(PostgresApiFactory factory) : IClassFixture<Postg
             new { email = $"khong-ton-tai-{Guid.NewGuid():N}@example.com", password = "Bat-Ky-Gi-1!" });
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
         problem!.Type.Should().Be(ErrorCodes.AuthInvalidCredentials);
     }
 
@@ -85,7 +103,7 @@ public sealed class LoginTests(PostgresApiFactory factory) : IClassFixture<Postg
         var response = await _client.PostAsJsonAsync("/api/v1/auth/login", new { email, password });
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
         problem!.Type.Should().Be(ErrorCodes.AuthAccountDisabled);
     }
 
@@ -106,7 +124,7 @@ public sealed class LoginTests(PostgresApiFactory factory) : IClassFixture<Postg
         var response = await _client.PostAsJsonAsync("/api/v1/auth/login", new { email, password });
 
         response.StatusCode.Should().Be((HttpStatusCode)423);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
         problem!.Type.Should().Be(ErrorCodes.AuthAccountLocked);
     }
 
@@ -118,7 +136,7 @@ public sealed class LoginTests(PostgresApiFactory factory) : IClassFixture<Postg
         var response = await _client.PostAsJsonAsync("/api/v1/auth/login", new { email, password });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
         problem!.Type.Should().Be(ErrorCodes.ValidationError);
     }
 

@@ -17,7 +17,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Scalar.AspNetCore;
 using Serilog;
-
+using System.Security.Claims;
 // ---------------------------------------------------------------------------
 // Culinary Blog API — .NET 10 Minimal APIs (CONS-003: KHÔNG dùng MVC Controllers)
 // Kiến trúc: Clean Architecture 4 tầng + CQRS/MediatR (CONS-001, CONS-002)
@@ -32,14 +32,14 @@ builder.Host.UseSerilog((context, services, config) => config
     .Enrich.FromLogContext()
     .Enrich.WithMachineName());
 
-// ---- Tầng ứng dụng --------------------------------------------------------
+// ---- Tầng ứng dụng (KHÔNG DÙNG AddControllers theo CONS-003) ------------
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructureServices(builder.Configuration);
 
 // ---- Hangfire worker (FR-JOB-001) -----------------------------------------
 if (!builder.Environment.IsEnvironment("Testing"))
 {
-    builder.Services.AddHangfireServer();
+    //builder.Services.AddHangfireServer();
 }
 
 // ---- ICurrentUser (hợp đồng chung — chủ sở hữu: A) -----------------------
@@ -47,26 +47,43 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
 // ---- Xác thực JWT (CONS-004) ---------------------------------------------
-var jwtKey = builder.Configuration["Jwt:Key"];
-if (!string.IsNullOrWhiteSpace(jwtKey))
-{
-    builder.Services
-        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-        .AddJwtBearer(options =>
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "super_secret_jwt_key_that_is_at_least_32_characters_long_for_testing!";
+
+builder.Services
+    .AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        var key = builder.Configuration["Jwt:Key"] ?? "super_secret_jwt_key_that_is_at_least_32_characters_long_for_testing!";
+        
+        options.RequireHttpsMetadata = false;
+        options.SaveToken = true;
+        var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "CulinaryBlog";
+        var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "CulinaryBlogClient";
+
+        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
         {
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                ValidAudience = builder.Configuration["Jwt:Audience"],
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-                ClockSkew = TimeSpan.Zero,
-            };
-        });
-}
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(key)),
+
+            // CONS-004: access token stateless, PHẢI kiểm tra đủ issuer/audience/lifetime —
+            // tắt các cờ này coi như chấp nhận token hết hạn/của issuer khác vô thời hạn.
+            ValidateIssuer = true,
+            ValidIssuer = jwtIssuer,
+            ValidateAudience = true,
+            ValidAudience = jwtAudience,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30),
+
+            // Cực kỳ quan trọng: map đúng Claim Types của ASP.NET Core
+            RoleClaimType = ClaimTypes.Role,
+            NameClaimType = ClaimTypes.NameIdentifier
+        };
+    });
 
 // NFR-SEC-006: KHÔNG hardcode chuỗi role trong endpoint. Dùng policy.
 builder.Services.AddAuthorizationBuilder()
@@ -83,8 +100,6 @@ builder.Services.AddCors(options => options.AddPolicy(CorsPolicy, policy => poli
     .AllowCredentials()));
 
 // ---- OpenAPI / Scalar (NFR-MAINT-003) ------------------------------------
-// ---- OpenAPI / Scalar (NFR-MAINT-003) ------------------------------------
-// XÓA DÒNG builder.Services.AddOpenApi(); THỪA ĐI! Chỉ giữ lại 1 cấu hình chuẩn này:
 builder.Services.AddOpenApi(options =>
 {
     options.AddDocumentTransformer((document, context, cancellationToken) =>
@@ -96,7 +111,6 @@ builder.Services.AddOpenApi(options =>
             Description = "API documentation with JWT Bearer Authentication"
         };
 
-        // 1. Khai báo Bearer SecurityScheme
         document.Components ??= new Microsoft.OpenApi.OpenApiComponents();
         document.Components.SecuritySchemes ??= new Dictionary<string, Microsoft.OpenApi.IOpenApiSecurityScheme>();
 
@@ -120,7 +134,6 @@ builder.Services.AddOpenApi(options =>
 
         if (hasAuth && !allowAnonymous)
         {
-            // BẮT BUỘC: Thêm Requirement vào operation
             operation.Security = new List<Microsoft.OpenApi.OpenApiSecurityRequirement>
             {
                 new()
@@ -131,7 +144,6 @@ builder.Services.AddOpenApi(options =>
         }
         else
         {
-            // Endpoint Guest/Public thì không có SecurityRequirement
             operation.Security = null;
         }
 
@@ -142,21 +154,10 @@ builder.Services.AddOpenApi(options =>
 // ---- Health checks (FR-OBS-001) ------------------------------------------
 builder.Services.AddAppHealthChecks(builder.Configuration);
 
+// ===========================================================================
+// BUILD APPLICATION
+// ===========================================================================
 var app = builder.Build();
-
-// ---- Migration + seed (chỉ Development — Sprint 0, B) ---------------------
-if (app.Environment.IsDevelopment())
-{
-    using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
-    await db.Database.MigrateAsync();
-    await IdentityRoleSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>());
-    await DbSeeder.SeedAsync(db);
-}
-
-// ---------------------------------------------------------------------------
-// Pipeline — THỨ TỰ QUAN TRỌNG, đừng đảo
-// ---------------------------------------------------------------------------
 
 // 1. CorrelationId
 app.UseMiddleware<CorrelationIdMiddleware>();
@@ -177,17 +178,40 @@ else
 }
 
 app.UseCors(CorsPolicy);
+
 app.UseAuthentication();
+
 app.UseAuthorization();
 
-// ---- Endpoint groups ------------------------------------------------------
-app.MapHealthEndpoints();
+// ---- Migration + seed (chỉ Development — Sprint 0, B) ---------------------
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
+    
+    if (db.Database.IsRelational())
+    {
+        await db.Database.MigrateAsync();
+    }
+    else
+    {
+        await db.Database.EnsureCreatedAsync();
+    }
 
-var api = app.MapGroup("/api/v1");
-api.MapAuthEndpoints();       // A
-api.MapCategoryEndpoints();   // B
-api.MapRecipeEndpoints();     // B (queries) + C (commands)
-api.MapImageEndpoints();      // D
+    await IdentityRoleSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>());
+    await DbSeeder.SeedAsync(db);
+}
+
+// ---- Đăng ký toàn bộ Minimal API Endpoints (CONS-003) ---------------------
+app.MapAuthEndpoints();
+
+app.MapGroup("/api/v1/categories")
+   .WithTags("Categories")
+   .MapCategoryEndpoints();
+
+app.MapRecipeEndpoints();
+app.MapImageEndpoints();
+app.MapHealthEndpoints();
 
 app.Run();
 

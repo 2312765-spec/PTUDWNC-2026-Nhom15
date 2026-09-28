@@ -13,8 +13,7 @@ public static class RecipeEndpoints
 {
     public static void MapRecipeEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/recipes").WithTags("Recipes");
-
+          var group = app.MapGroup("/api/v1/recipes").WithTags("Recipes");
         // ---- B: queries ----
         group.MapGet("/", () => NotImplementedResults.Pending("FR-RCP-001", "B"))
              .WithSummary("Danh sách — authorization filter + filter/sort/paging (FR-SRCH-002/003/004)");

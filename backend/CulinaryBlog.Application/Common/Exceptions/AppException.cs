@@ -28,3 +28,8 @@ public sealed class UnauthorizedException(string errorCode, string message)
 /// <summary>423 — tài khoản bị khóa tạm thời (D17).</summary>
 public sealed class LockedException(string errorCode, string message)
     : AppException(errorCode, message);
+
+/// <summary>400 — dữ liệu không hợp lệ hoặc vi phạm nghiệp vụ (D4).</summary>
+public sealed class BadRequestException(string errorCode, string message)
+    : AppException(errorCode, message);
+    

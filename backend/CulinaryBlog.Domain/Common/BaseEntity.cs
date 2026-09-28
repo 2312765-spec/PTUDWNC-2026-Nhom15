@@ -1,3 +1,4 @@
+global using CulinaryBlog.Domain.Exceptions;
 namespace CulinaryBlog.Domain.Common;
 
 /// <summary>
@@ -8,19 +9,25 @@ public abstract class BaseEntity
 {
     public Guid Id { get; protected set; } = Guid.CreateVersion7();
 
-    /// <summary>Set bởi AuditInterceptor khi SaveChanges.</summary>
-    public DateTime CreatedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    /// <summary>Set bởi AuditInterceptor khi cập nhật.</summary>
     public DateTime? UpdatedAt { get; set; }
 
-    /// <summary>D1/D2 — soft delete. Không bao giờ xóa vật lý.</summary>
+    /// <summary>D1/D2 — soft delete. Không bao giờ xóa vật lý. Chỉ đổi qua SoftDelete()/Restore().</summary>
     public bool IsDeleted { get; private set; }
 
-    /// <summary>Optimistic concurrency token. Mismatch =&gt; 409 (D4).</summary>
+    /// <summary>Optimistic concurrency token. Mismatch => 409 (D4).</summary>
     public byte[] RowVersion { get; set; } = [];
 
-    public void SoftDelete() => IsDeleted = true;
+    public void SoftDelete()
+    {
+        IsDeleted = true;
+        UpdatedAt = DateTime.UtcNow;
+    }
 
-    public void Restore() => IsDeleted = false;
+    public void Restore()
+    {
+        IsDeleted = false;
+        UpdatedAt = DateTime.UtcNow;
+    }
 }
