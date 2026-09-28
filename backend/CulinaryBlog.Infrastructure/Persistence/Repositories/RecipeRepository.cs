@@ -93,26 +93,42 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
         int pageSize, 
         CancellationToken cancellationToken = default)
     {
-        var query = context.Recipes
+        // 1. Chỉ lấy Recipe đã Published và chưa bị xóa mềm
+        var baseQuery = context.Recipes
             .AsNoTracking()
             .Include(r => r.Images)
             .Where(r => !r.IsDeleted && r.Status == RecipeStatus.Published);
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
-            var terms = searchTerm.Trim().ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            foreach (var term in terms)
+            var raw = searchTerm.Trim();
+
+            // Làm sạch từ khóa để tránh lỗi cú pháp tsquery
+            var cleanTerms = System.Text.RegularExpressions.Regex.Replace(raw, @"['""&!|:()\\*]", " ")
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            if (cleanTerms.Length > 0)
             {
-                query = query.Where(r => 
-                    r.Title.ToLower().Contains(term) || 
-                    (r.Description != null && r.Description.ToLower().Contains(term)));
+                // Xây dựng tsquery dạng prefix matching theo SRS: "pho:* & bo:*"
+                var tsQueryString = string.Join(" & ", cleanTerms.Select(t => $"{t}:*"));
+
+                // Dùng EF.Functions của PostgreSQL với unaccent để tìm kiếm không dấu ("pho" ra "Phở")
+                // Kết hợp cả Full-Text Search và ILike unaccent để đạt độ chính xác 100%
+                baseQuery = baseQuery.Where(r =>
+                    EF.Functions.ToTsVector("simple", EF.Functions.Unaccent(r.Title + " " + (r.Description ?? "")))
+                        .Matches(EF.Functions.ToTsQuery("simple", EF.Functions.Unaccent(tsQueryString)))
+                    || cleanTerms.All(t => 
+                        EF.Functions.ILike(EF.Functions.Unaccent(r.Title), $"%{t}%") ||
+                        (r.Description != null && EF.Functions.ILike(EF.Functions.Unaccent(r.Description), $"%{t}%"))));
             }
         }
 
-        var totalCount = await query.CountAsync(cancellationToken);
+        var totalCount = await baseQuery.CountAsync(cancellationToken);
 
-        var items = await query
-            .OrderByDescending(r => r.CreatedAt)
+        // 2. Sắp xếp theo mức độ liên quan (Title khớp chính xác sẽ lên đầu) rồi đến ngày tạo
+        var items = await baseQuery
+            .OrderByDescending(r => r.Title.ToLower() == (searchTerm ?? "").Trim().ToLower())
+            .ThenByDescending(r => r.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
