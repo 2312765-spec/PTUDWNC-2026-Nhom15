@@ -110,8 +110,7 @@ public sealed class CategoryRepository : ICategoryRepository
 
     public void Delete(Category category)
     {
-        category.IsDeleted = true;
-        category.UpdatedAt = DateTime.UtcNow;
+        category.SoftDelete();
         _dbContext.Categories.Update(category);
     }
     public async Task<int> GetTotalRecipeCountAsync(Guid categoryId, CancellationToken cancellationToken = default)

@@ -15,7 +15,7 @@ public sealed class RefreshTokenRepository(CulinaryBlogDbContext dbContext) : IR
         if (exists)
         {
             // Nếu đã tồn tại thì sinh một hash mới duy nhất trước khi chèn vào
-            token.TokenHash = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+            token.ReassignTokenHash(Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N"));
         }
 
         await dbContext.RefreshTokens.AddAsync(token, ct);
@@ -27,9 +27,9 @@ public sealed class RefreshTokenRepository(CulinaryBlogDbContext dbContext) : IR
             .FirstOrDefaultAsync(r => r.TokenHash == token, cancellationToken);
     }
 
-    public async Task AddAsync(string token, string userId, DateTime expiresAt, CancellationToken cancellationToken = default)
+    public async Task AddAsync(string userId, string token, DateTime expiresAt = default, CancellationToken cancellationToken = default)
     {
-        var refreshToken = new RefreshToken(userId, token, expiresAt);
+        var refreshToken = RefreshToken.Create(userId, token, expiresAt);
         await AddAsync(refreshToken, cancellationToken);
     }
 

@@ -62,16 +62,22 @@ builder.Services
         
         options.RequireHttpsMetadata = false;
         options.SaveToken = true;
+        var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "CulinaryBlog";
+        var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "CulinaryBlogClient";
+
         options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(key)),
-            
-            // TẮT BỎ KIỂM TRA ISSUER VÀ AUDIENCE ĐỂ KHÔNG BỊ INVALID_TOKEN TRONG TEST:
-            ValidateIssuer = false,
-            ValidateAudience = false,
-            ValidateLifetime = false,
-            ClockSkew = TimeSpan.Zero,
+
+            // CONS-004: access token stateless, PHẢI kiểm tra đủ issuer/audience/lifetime —
+            // tắt các cờ này coi như chấp nhận token hết hạn/của issuer khác vô thời hạn.
+            ValidateIssuer = true,
+            ValidIssuer = jwtIssuer,
+            ValidateAudience = true,
+            ValidAudience = jwtAudience,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30),
 
             // Cực kỳ quan trọng: map đúng Claim Types của ASP.NET Core
             RoleClaimType = ClaimTypes.Role,
@@ -208,12 +214,5 @@ app.MapImageEndpoints();
 app.MapHealthEndpoints();
 
 app.Run();
-
-public static class Roles
-{
-    public const string Admin = "Admin";
-    public const string Author = "Author";
-    public const string User = "User";
-}
 
 public partial class Program;

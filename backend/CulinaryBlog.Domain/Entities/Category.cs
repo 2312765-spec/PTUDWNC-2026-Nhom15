@@ -3,53 +3,71 @@ using CulinaryBlog.Domain.Common;
 namespace CulinaryBlog.Domain.Entities;
 
 /// <summary>
-/// Thực thể Danh mục món ăn (Category Aggregate Root).
+/// Thực thể Danh mục món ăn (Category Aggregate Root). SRS 7.6.
 /// </summary>
 public class Category : BaseEntity, IAggregateRoot
 {
-    public string Name { get; set; } = string.Empty;
-    public string Slug { get; set; } = string.Empty;
-    public string? Description { get; set; }
+    public string Name { get; private set; } = string.Empty;
+    public string Slug { get; private set; } = string.Empty;
+    public string? Description { get; private set; }
+    public string? ImageUrl { get; private set; }
+    public int OrderIndex { get; private set; }
 
-    public ICollection<Recipe> Recipes { get; set; } = new List<Recipe>();
+    private readonly List<Recipe> _recipes = [];
+    public IReadOnlyCollection<Recipe> Recipes => _recipes.AsReadOnly();
 
-    public Category()
+    private Category()
     {
     }
 
-    public Category(string name, string slug, string? description = null)
+    private Category(string name, string slug, string? description, string? imageUrl, int orderIndex)
     {
         Name = name;
         Slug = slug;
         Description = description;
+        ImageUrl = imageUrl;
+        OrderIndex = orderIndex;
     }
 
-    // DUY NHẤT 1 hàm Update hỗ trợ cả slug có hoặc không có giá trị
+    /// <summary>
+    /// FR-CAT-003/FR-CAT-004: Tạo danh mục mới. Tự sinh slug duy nhất (D10) là việc của
+    /// handler (ISlugHelper) — hàm này chỉ validate Name/Slug đã có sẵn.
+    /// </summary>
+    public static Category Create(string name, string slug, string? description = null, string? imageUrl = null, int orderIndex = 0)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new DomainException("Tên danh mục không được để trống.", "CATEGORY_NAME_REQUIRED");
+        }
+
+        if (string.IsNullOrWhiteSpace(slug))
+        {
+            throw new DomainException("Slug danh mục không được để trống.", "CATEGORY_SLUG_REQUIRED");
+        }
+
+        return new Category(name, slug, description, imageUrl, orderIndex);
+    }
+
+    /// <summary>
+    /// FR-CAT-004: Cập nhật tên và mô tả.
+    /// Quyết định D10: Slug KHÔNG thay đổi khi cập nhật Name, trừ khi truyền tường minh.
+    /// </summary>
     public void Update(string name, string? slug = null, string? description = null)
     {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new DomainException("Tên danh mục không được để trống.", "CATEGORY_NAME_REQUIRED");
+        }
+
         Name = name;
         if (!string.IsNullOrWhiteSpace(slug))
         {
             Slug = slug;
         }
         Description = description;
-    }
-
-    public static Category Create(string name, string slug, string? description = null)
-    {
-        return new Category(name, slug, description);
-    }
-
-    public static Category Create(string name, string slug, string? description, object? arg4, object? arg5)
-    {
-        return new Category(name, slug, description);
-    }
-    /// <summary>
-    /// Thực hiện xóa mềm danh mục theo Quyết định D2.
-    /// </summary>
-    public void Delete()
-    {
-        IsDeleted = true;
         UpdatedAt = DateTime.UtcNow;
     }
+
+    /// <summary>FR-CAT-005/D2 — soft delete, không bao giờ xóa cứng.</summary>
+    public void Delete() => SoftDelete();
 }
