@@ -87,4 +87,37 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
 
         return await GetByIdWithImagesAsync(id, ct);
     }
+
+    public async Task<(IReadOnlyList<Recipe> Items, int TotalCount)> SearchPublishedRecipesAsync(
+        string? searchTerm, 
+        int page, 
+        int pageSize, 
+        CancellationToken cancellationToken = default)
+    {
+        var query = context.Recipes
+            .AsNoTracking()
+            .Include(r => r.Images)
+            .Where(r => !r.IsDeleted && r.Status == RecipeStatus.Published);
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var terms = searchTerm.Trim().ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var term in terms)
+            {
+                query = query.Where(r => 
+                    r.Title.ToLower().Contains(term) || 
+                    (r.Description != null && r.Description.ToLower().Contains(term)));
+            }
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(r => r.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
 }
