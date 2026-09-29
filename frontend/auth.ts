@@ -1,7 +1,7 @@
-import NextAuth from 'next-auth';
+import NextAuth, { CredentialsSignin } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
-import { authorizeGoogle, authorizeRegister } from '@/lib/auth/credentials';
+import { authorizeGoogle, authorizeLogin, authorizeRegister } from '@/lib/auth/credentials';
 
 /**
  * Auth.js v5 — chủ sở hữu: A. Slice S2.
@@ -10,7 +10,7 @@ import { authorizeGoogle, authorizeRegister } from '@/lib/auth/credentials';
  * session httpOnly đã mã hóa bằng AUTH_SECRET, không bao giờ vào JS trình duyệt.
  * Session gửi xuống client chỉ có hồ sơ (D5) + accessToken.
  *
- * TODO(S2 — A): provider "login" (FR-AUTH-002), tự refresh khi accessToken hết hạn
+ * TODO(S2 — A): tự refresh khi accessToken hết hạn
  * (FR-AUTH-004), signOut gọi /auth/logout (FR-AUTH-005).
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -20,7 +20,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     maxAge: 7 * 24 * 60 * 60,
   },
   pages: { signIn: '/auth/login', newUser: '/dashboard' },
+  logger: {
+    // Sai mật khẩu / email trùng là luồng bình thường (form tự hiển thị), không phải lỗi hệ thống.
+    error(error) {
+      if (error instanceof CredentialsSignin) return;
+      console.error(error);
+    },
+  },
   providers: [
+    // FR-AUTH-002
+    Credentials({
+      id: 'login',
+      name: 'Đăng nhập',
+      credentials: { email: {}, password: {} },
+      authorize: authorizeLogin,
+    }),
     // FR-AUTH-001
     Credentials({
       id: 'register',

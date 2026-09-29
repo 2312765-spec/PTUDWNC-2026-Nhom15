@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { apiClient } from '@/lib/api-client';
-import { register } from '@/lib/auth/api';
+import { login, register } from '@/lib/auth/api';
 
 describe('lib/auth/api (server) — FR-AUTH-001', () => {
   const original = process.env.API_INTERNAL_URL;
@@ -18,5 +18,14 @@ describe('lib/auth/api (server) — FR-AUTH-001', () => {
 
     await register(body);
     expect(post).toHaveBeenCalledWith('/auth/register', body, { baseURL: 'http://api:8080/api/v1' });
+  });
+
+  it('FR-AUTH-002: login() ở server cũng dùng API_INTERNAL_URL', async () => {
+    process.env.API_INTERNAL_URL = 'http://api:8080/api/v1';
+    const post = jest.spyOn(apiClient, 'post').mockResolvedValue({ data: {} });
+    const body = { email: 'lan@example.com', password: 'Lan@2026x' };
+
+    await login(body);
+    expect(post).toHaveBeenCalledWith('/auth/login', body, { baseURL: 'http://api:8080/api/v1' });
   });
 });

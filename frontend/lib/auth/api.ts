@@ -27,6 +27,23 @@ export async function register(body: RegisterRequest): Promise<AuthResponse> {
   return data;
 }
 
+/** FR-AUTH-002 — wire contract của POST /auth/login. */
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+/** FR-AUTH-002 — 200 trả AuthResponseDto, cùng shape với register (D24). */
+export async function login(body: LoginRequest): Promise<AuthResponse> {
+  const baseURL = serverBaseUrl();
+  const { data } = await apiClient.post<AuthResponse>(
+    '/auth/login',
+    body,
+    baseURL ? { baseURL } : undefined,
+  );
+  return data;
+}
+
 /** FR-AUTH-003, D9 — wire contract của POST /auth/google: chỉ { idToken }. */
 export interface GoogleLoginRequest {
   idToken: string;

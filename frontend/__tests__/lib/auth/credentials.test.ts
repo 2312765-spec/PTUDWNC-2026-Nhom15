@@ -2,16 +2,23 @@
  * @jest-environment node
  */
 import { CredentialsSignin } from 'next-auth';
-import { googleLogin, register } from '@/lib/auth/api';
-import { authorizeGoogle, authorizeRegister, BackendAuthError } from '@/lib/auth/credentials';
+import { googleLogin, login, register } from '@/lib/auth/api';
+import {
+  authorizeGoogle,
+  authorizeLogin,
+  authorizeRegister,
+  BackendAuthError,
+} from '@/lib/auth/credentials';
 import type { AuthResponse } from '@/lib/types';
 import { networkError, problemError } from '../../utils/problem';
 
 jest.mock('@/lib/auth/api', () => ({
   register: jest.fn(),
+  login: jest.fn(),
   googleLogin: jest.fn(),
 }));
 const mockRegister = register as jest.MockedFunction<typeof register>;
+const mockLogin = login as jest.MockedFunction<typeof login>;
 const mockGoogleLogin = googleLogin as jest.MockedFunction<typeof googleLogin>;
 
 const authResponse: AuthResponse = {
@@ -32,6 +39,7 @@ const credentials = { email: 'lan@example.com', password: 'Lan@2026x', displayNa
 
 beforeEach(() => {
   mockRegister.mockReset();
+  mockLogin.mockReset();
   mockGoogleLogin.mockReset();
 });
 
@@ -89,6 +97,45 @@ describe('authorizeRegister — FR-AUTH-001', () => {
     )) as BackendAuthError;
     expect(error.code).toBe('NETWORK_ERROR');
   });
+});
+
+describe('authorizeLogin — FR-AUTH-002', () => {
+  const loginCredentials = { email: 'lan@example.com', password: 'Lan@2026x' };
+
+  it('FR-AUTH-002: chỉ gửi { email, password }, bỏ qua field thừa', async () => {
+    mockLogin.mockResolvedValue(authResponse);
+    await authorizeLogin({ ...loginCredentials, callbackUrl: '/', displayName: 'x' });
+    expect(mockLogin).toHaveBeenCalledWith(loginCredentials);
+  });
+
+  it('FR-AUTH-002/D24: thành công → user Auth.js mang hồ sơ + token của backend', async () => {
+    mockLogin.mockResolvedValue(authResponse);
+    const user = await authorizeLogin(loginCredentials);
+    expect(user).toMatchObject({
+      id: 'u1',
+      profile: authResponse.user,
+      refreshToken: 'raw-refresh',
+    });
+  });
+
+  it.each([
+    ['AUTH_INVALID_CREDENTIALS', 401],
+    ['AUTH_ACCOUNT_LOCKED', 423],
+    ['AUTH_ACCOUNT_DISABLED', 403],
+  ])(
+    'FR-AUTH-002/D17: %s (%i) → BackendAuthError giữ nguyên ProblemDetails',
+    async (type, status) => {
+      const problem = { type, title: 'Lỗi', status, detail: 'chi tiết' };
+      mockLogin.mockRejectedValue(problemError(problem));
+
+      const error = (await authorizeLogin(loginCredentials).catch(
+        (e: unknown) => e,
+      )) as BackendAuthError;
+      expect(error).toBeInstanceOf(CredentialsSignin);
+      expect(error.code).toBe(type);
+      expect(error.problem).toEqual(problem);
+    },
+  );
 });
 
 describe('authorizeGoogle — FR-AUTH-003', () => {

@@ -1,4 +1,4 @@
-import { passwordRules, registerSchema } from '@/lib/auth/schemas';
+import { loginSchema, passwordRules, registerSchema } from '@/lib/auth/schemas';
 
 const valid = {
   displayName: 'Bếp của Lan',
@@ -62,5 +62,26 @@ describe('registerSchema — FR-AUTH-001', () => {
     expect(Object.keys(registerSchema.innerType().shape).sort()).toEqual(
       ['confirmPassword', 'displayName', 'email', 'password'],
     );
+  });
+});
+
+describe('loginSchema — FR-AUTH-002', () => {
+  function loginErrors(input: Record<string, unknown>) {
+    const result = loginSchema.safeParse(input);
+    return result.success ? {} : result.error.flatten().fieldErrors;
+  }
+
+  it('FR-AUTH-002: email + mật khẩu bất kỳ không rỗng thì pass (không áp rule độ mạnh)', () => {
+    expect(loginSchema.safeParse({ email: ' lan@example.com ', password: 'abc' }).success).toBe(true);
+  });
+
+  it('FR-AUTH-002: thiếu email / mật khẩu → báo lỗi từng ô', () => {
+    const errors = loginErrors({ email: '', password: '' });
+    expect(errors.email?.[0]).toBe('Vui lòng nhập email.');
+    expect(errors.password).toEqual(['Vui lòng nhập mật khẩu.']);
+  });
+
+  it('FR-AUTH-002: email sai định dạng → báo lỗi', () => {
+    expect(loginErrors({ email: 'lan@', password: 'x' }).email).toEqual(['Email không đúng định dạng.']);
   });
 });

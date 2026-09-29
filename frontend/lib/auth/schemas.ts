@@ -33,3 +33,14 @@ export const registerSchema = z
   });
 
 export type RegisterFormValues = z.infer<typeof registerSchema>;
+
+/**
+ * FR-AUTH-002 — khớp LoginCommandValidator: email đúng định dạng, password không rỗng.
+ * KHÔNG áp rule độ mạnh mật khẩu ở đây (tài khoản cũ có thể đặt trước khi rule đổi).
+ */
+export const loginSchema = z.object({
+  email: z.string().trim().min(1, 'Vui lòng nhập email.').email('Email không đúng định dạng.'),
+  password: z.string().min(1, 'Vui lòng nhập mật khẩu.'),
+});
+
+export type LoginFormValues = z.infer<typeof loginSchema>;

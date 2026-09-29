@@ -1,6 +1,6 @@
 import { CredentialsSignin, type User } from 'next-auth';
 import { toProblemDetails, type ProblemDetails } from '@/lib/api-client';
-import { googleLogin, register } from '@/lib/auth/api';
+import { googleLogin, login, register } from '@/lib/auth/api';
 import type { AuthResponse } from '@/lib/types';
 
 /**
@@ -49,6 +49,22 @@ export async function authorizeRegister(
       email: field(credentials, 'email'),
       password: field(credentials, 'password'),
       displayName: field(credentials, 'displayName'),
+    });
+    return toSessionUser(auth);
+  } catch (error) {
+    throw new BackendAuthError(toProblemDetails(error));
+  }
+}
+
+/**
+ * FR-AUTH-002 — authorize() của provider "login". Lỗi 401/423/403 trả nguyên về form;
+ * message 401 là generic từ backend (chống User Enumeration).
+ */
+export async function authorizeLogin(credentials: Partial<Record<string, unknown>>): Promise<User> {
+  try {
+    const auth = await login({
+      email: field(credentials, 'email'),
+      password: field(credentials, 'password'),
     });
     return toSessionUser(auth);
   } catch (error) {
