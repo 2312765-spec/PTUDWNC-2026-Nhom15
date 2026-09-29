@@ -1,6 +1,6 @@
 import { CredentialsSignin, type User } from 'next-auth';
 import { toProblemDetails, type ProblemDetails } from '@/lib/api-client';
-import { register } from '@/lib/auth/api';
+import { googleLogin, register } from '@/lib/auth/api';
 import type { AuthResponse } from '@/lib/types';
 
 /**
@@ -54,4 +54,18 @@ export async function authorizeRegister(
   } catch (error) {
     throw new BackendAuthError(toProblemDetails(error));
   }
+}
+
+/**
+ * FR-AUTH-003, D9 — profile() của provider Google. Nhận ID Token OIDC mà Auth.js vừa lấy
+ * được từ Google (KHÔNG phải access token), gửi cho backend verify + liên kết/tự tạo tài
+ * khoản (Author). Backend trả cùng AuthResponseDto với register/login (D24).
+ *
+ * Khác với authorizeLogin/authorizeRegister: lỗi ném ở đây KHÔNG có kênh trả nguyên
+ * ProblemDetails về client — Auth.js bọc thành OAuthCallbackError và chỉ redirect kèm
+ * `?error=` chung (luồng OAuth không có chỗ cho response tuỳ biến như authorize()).
+ */
+export async function authorizeGoogle(idToken: string): Promise<User> {
+  const auth = await googleLogin({ idToken });
+  return toSessionUser(auth);
 }

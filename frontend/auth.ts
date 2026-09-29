@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import { authorizeRegister } from '@/lib/auth/credentials';
+import Google from 'next-auth/providers/google';
+import { authorizeGoogle, authorizeRegister } from '@/lib/auth/credentials';
 
 /**
  * Auth.js v5 — chủ sở hữu: A. Slice S2.
@@ -10,7 +11,7 @@ import { authorizeRegister } from '@/lib/auth/credentials';
  * Session gửi xuống client chỉ có hồ sơ (D5) + accessToken.
  *
  * TODO(S2 — A): provider "login" (FR-AUTH-002), tự refresh khi accessToken hết hạn
- * (FR-AUTH-004), signOut gọi /auth/logout (FR-AUTH-005). TODO(S9 — A): Google (FR-AUTH-003).
+ * (FR-AUTH-004), signOut gọi /auth/logout (FR-AUTH-005).
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {
@@ -20,11 +21,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   pages: { signIn: '/auth/login', newUser: '/dashboard' },
   providers: [
+    // FR-AUTH-001
     Credentials({
       id: 'register',
       name: 'Đăng ký',
       credentials: { email: {}, password: {}, displayName: {} },
       authorize: authorizeRegister,
+    }),
+    // FR-AUTH-003, D9 — profile() nhận (profile Google, tokens) và lấy tokens.id_token,
+    // KHÔNG dùng OAuth profile mặc định của Auth.js (không tạo tài khoản qua Adapter).
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET,
+      async profile(_profile, tokens) {
+        if (!tokens.id_token) {
+          throw new Error('Google không trả về ID Token.');
+        }
+        return authorizeGoogle(tokens.id_token);
+      },
     }),
   ],
   callbacks: {

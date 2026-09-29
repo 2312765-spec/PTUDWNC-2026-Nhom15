@@ -10,8 +10,10 @@ jest.mock('@/app/auth/register/actions', () => ({ registerAction: jest.fn() }));
 const mockRegister = registerAction as jest.MockedFunction<typeof registerAction>;
 
 const mockUpdateSession = jest.fn();
+const mockSignIn = jest.fn();
 jest.mock('next-auth/react', () => ({
   useSession: () => ({ data: null, status: 'unauthenticated', update: mockUpdateSession }),
+  signIn: (...args: unknown[]) => mockSignIn(...args),
 }));
 
 const success: RegisterResult = { ok: true };
@@ -49,6 +51,7 @@ function setup() {
 beforeEach(() => {
   mockRegister.mockReset();
   mockUpdateSession.mockReset();
+  mockSignIn.mockReset();
 });
 
 describe('RegisterForm — hiển thị & truy cập (NFR-USE-002)', () => {
@@ -265,5 +268,18 @@ describe('RegisterForm — lỗi từ server (NFR-USE-003, D4)', () => {
     await user.click(screen.getByRole('button', { name: 'Đăng ký' }));
     await waitFor(() => expect(screen.queryByText(message)).not.toBeInTheDocument());
     expect(mockPush).toHaveBeenCalledWith('/dashboard');
+  });
+});
+
+describe('RegisterForm — Google (FR-AUTH-003, D9)', () => {
+  it('có nút "Tiếp tục với Google" bên cạnh form đăng ký', () => {
+    setup();
+    expect(screen.getByRole('button', { name: /Tiếp tục với Google/ })).toBeInTheDocument();
+  });
+
+  it('nhấn nút → gọi signIn("google", { callbackUrl: "/dashboard" }) — tự tạo tài khoản nếu email chưa tồn tại', async () => {
+    const { user } = setup();
+    await user.click(screen.getByRole('button', { name: /Tiếp tục với Google/ }));
+    expect(mockSignIn).toHaveBeenCalledWith('google', { callbackUrl: '/dashboard' });
   });
 });

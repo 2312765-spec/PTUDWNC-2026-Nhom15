@@ -2,13 +2,17 @@
  * @jest-environment node
  */
 import { CredentialsSignin } from 'next-auth';
-import { register } from '@/lib/auth/api';
-import { authorizeRegister, BackendAuthError } from '@/lib/auth/credentials';
+import { googleLogin, register } from '@/lib/auth/api';
+import { authorizeGoogle, authorizeRegister, BackendAuthError } from '@/lib/auth/credentials';
 import type { AuthResponse } from '@/lib/types';
 import { networkError, problemError } from '../../utils/problem';
 
-jest.mock('@/lib/auth/api', () => ({ register: jest.fn() }));
+jest.mock('@/lib/auth/api', () => ({
+  register: jest.fn(),
+  googleLogin: jest.fn(),
+}));
 const mockRegister = register as jest.MockedFunction<typeof register>;
+const mockGoogleLogin = googleLogin as jest.MockedFunction<typeof googleLogin>;
 
 const authResponse: AuthResponse = {
   accessToken: 'access-jwt',
@@ -26,7 +30,10 @@ const authResponse: AuthResponse = {
 
 const credentials = { email: 'lan@example.com', password: 'Lan@2026x', displayName: 'Bếp của Lan' };
 
-beforeEach(() => mockRegister.mockReset());
+beforeEach(() => {
+  mockRegister.mockReset();
+  mockGoogleLogin.mockReset();
+});
 
 describe('authorizeRegister — FR-AUTH-001', () => {
   it('FR-AUTH-001/D5: gửi đúng { email, password, displayName }, bỏ qua field thừa', async () => {
@@ -81,5 +88,38 @@ describe('authorizeRegister — FR-AUTH-001', () => {
       (e: unknown) => e,
     )) as BackendAuthError;
     expect(error.code).toBe('NETWORK_ERROR');
+  });
+});
+
+describe('authorizeGoogle — FR-AUTH-003', () => {
+  it('FR-AUTH-003/D9: gửi đúng { idToken }', async () => {
+    mockGoogleLogin.mockResolvedValue(authResponse);
+    await authorizeGoogle('google-id-token');
+    expect(mockGoogleLogin).toHaveBeenCalledWith({ idToken: 'google-id-token' });
+  });
+
+  it('FR-AUTH-003/D24: thành công → user Auth.js mang hồ sơ + token của backend, giống hệt authorizeLogin', async () => {
+    mockGoogleLogin.mockResolvedValue(authResponse);
+    await expect(authorizeGoogle('google-id-token')).resolves.toEqual({
+      id: 'u1',
+      email: 'lan@example.com',
+      name: 'Bếp của Lan',
+      image: null,
+      profile: authResponse.user,
+      accessToken: 'access-jwt',
+      refreshToken: 'raw-refresh',
+      expiresAt: '2026-09-23T10:15:00Z',
+    });
+  });
+
+  it('FR-AUTH-003/D33: lỗi từ backend (token invalid/Google unavailable) truyền nguyên ra ngoài — Auth.js OAuth không có kênh ProblemDetails như authorize()', async () => {
+    const backendError = problemError({
+      type: 'AUTH_GOOGLE_TOKEN_INVALID',
+      title: 'Bad Request',
+      status: 400,
+    });
+    mockGoogleLogin.mockRejectedValue(backendError);
+
+    await expect(authorizeGoogle('bad-token')).rejects.toBe(backendError);
   });
 });

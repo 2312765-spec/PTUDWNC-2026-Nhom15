@@ -12,6 +12,7 @@ import { toProblemDetails, type ProblemDetails } from '@/lib/api-client';
 import type { RegisterRequest } from '@/lib/auth/api';
 import { passwordRules, registerSchema, type RegisterFormValues } from '@/lib/auth/schemas';
 import { cn } from '@/lib/utils';
+import { GoogleSignInButton } from '../GoogleSignInButton';
 import { registerAction } from './actions';
 
 /** Lỗi backend trả về qua server action — mang nguyên ProblemDetails. */
@@ -196,7 +197,13 @@ export function RegisterForm() {
         {mutation.isPending ? 'Đang tạo tài khoản…' : 'Đăng ký'}
       </Button>
 
-      {/* FR-AUTH-003 — nút Google do slice S2 (A) gắn khi tích hợp Auth.js. */}
+      <div className="relative flex items-center py-1 text-xs text-ink-muted" role="separator">
+        <div className="flex-1 border-t border-border" />
+        <span className="px-3">hoặc</span>
+        <div className="flex-1 border-t border-border" />
+      </div>
+
+      <GoogleSignInButton />
     </form>
   );
 }
