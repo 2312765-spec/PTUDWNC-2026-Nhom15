@@ -105,7 +105,10 @@ export function RegisterForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
       {formError && (
-        <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+        <div
+          role="alert"
+          className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+        >
           {formError}
         </div>
       )}
@@ -154,12 +157,22 @@ export function RegisterForm() {
           </button>
         </div>
 
-        <ul id="password-rules" className="grid grid-cols-1 gap-1 text-xs sm:grid-cols-2" aria-label="Yêu cầu mật khẩu">
+        <ul
+          id="password-rules"
+          className="grid grid-cols-1 gap-1 text-xs sm:grid-cols-2"
+          aria-label="Yêu cầu mật khẩu"
+        >
           {passwordRules.map((rule) => {
             const ok = rule.test(password);
             const Icon = ok ? Check : X;
             return (
-              <li key={rule.id} className={cn('flex items-center gap-1.5', ok ? 'text-green-700' : 'text-ink-muted')}>
+              <li
+                key={rule.id}
+                className={cn(
+                  'flex items-center gap-1.5',
+                  ok ? 'text-green-700' : 'text-ink-muted',
+                )}
+              >
                 <Icon className="size-3.5 shrink-0" aria-hidden="true" />
                 <span>
                   {rule.label}

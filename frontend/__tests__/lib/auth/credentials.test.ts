@@ -69,13 +69,17 @@ describe('authorizeRegister — FR-AUTH-001', () => {
     };
     mockRegister.mockRejectedValue(problemError(problem));
 
-    const error = (await authorizeRegister(credentials).catch((e: unknown) => e)) as BackendAuthError;
+    const error = (await authorizeRegister(credentials).catch(
+      (e: unknown) => e,
+    )) as BackendAuthError;
     expect(error.problem.errors).toEqual(problem.errors);
   });
 
   it('FR-AUTH-001: API không phản hồi → NETWORK_ERROR', async () => {
     mockRegister.mockRejectedValue(networkError());
-    const error = (await authorizeRegister(credentials).catch((e: unknown) => e)) as BackendAuthError;
+    const error = (await authorizeRegister(credentials).catch(
+      (e: unknown) => e,
+    )) as BackendAuthError;
     expect(error.code).toBe('NETWORK_ERROR');
   });
 });

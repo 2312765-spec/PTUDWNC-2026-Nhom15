@@ -41,7 +41,9 @@ function field(credentials: Partial<Record<string, unknown>>, key: string): stri
  * FR-AUTH-001 — authorize() của provider "register". Không validate ở đây: backend
  * (RegisterCommandValidator, CONS-008) là nơi quyết định, lỗi trả nguyên về form.
  */
-export async function authorizeRegister(credentials: Partial<Record<string, unknown>>): Promise<User> {
+export async function authorizeRegister(
+  credentials: Partial<Record<string, unknown>>,
+): Promise<User> {
   try {
     const auth = await register({
       email: field(credentials, 'email'),

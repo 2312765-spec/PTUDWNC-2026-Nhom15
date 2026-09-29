@@ -76,13 +76,23 @@ describe('RegisterForm — hiển thị & truy cập (NFR-USE-002)', () => {
     await user.click(toggle);
     expect(fields.password).toHaveAttribute('type', 'text');
     expect(fields.confirmPassword).toHaveAttribute('type', 'text');
-    expect(screen.getByRole('button', { name: 'Ẩn mật khẩu' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Ẩn mật khẩu' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('FR-AUTH-001/NFR-USE-002: Tab đi qua form theo đúng thứ tự', async () => {
     const { user, fields, submit } = setup();
     const toggle = screen.getByRole('button', { name: 'Hiện mật khẩu' });
-    const order = [fields.displayName, fields.email, fields.password, toggle, fields.confirmPassword, submit];
+    const order = [
+      fields.displayName,
+      fields.email,
+      fields.password,
+      toggle,
+      fields.confirmPassword,
+      submit,
+    ];
     for (const el of order) {
       await user.tab();
       expect(el).toHaveFocus();
