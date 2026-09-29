@@ -7,7 +7,7 @@ Auth/
 ├── Commands/
 │   ├── Register/          ✅ RegisterCommand + Handler + Validator   FR-AUTH-001 (done)
 │   ├── Login/              ✅ LoginCommand + Handler + Validator      FR-AUTH-002 (done)
-│   ├── GoogleLogin/                                                  FR-AUTH-003  (D9: body { idToken })
+│   ├── GoogleLogin/        ✅ GoogleLoginCommand + Handler + Validator FR-AUTH-003 (done, D9/D33)
 │   ├── RefreshToken/                                                 FR-AUTH-004  (D20: rotation + reuse detection)
 │   ├── Logout/                                                       FR-AUTH-005
 │   └── UpdateProfile/                                                FR-AUTH-007

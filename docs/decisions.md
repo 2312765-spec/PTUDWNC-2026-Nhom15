@@ -542,6 +542,7 @@ nếu không request `/recipes/search` sẽ khớp vào route slug. Kèm theo D1
 | `AUTH_REFRESH_TOKEN_EXPIRED` | 401 | Auth | — |
 | `AUTH_REFRESH_TOKEN_REVOKED` | 401 | Auth | — |
 | `AUTH_GOOGLE_TOKEN_INVALID` | 400 | Auth | — |
+| `AUTH_GOOGLE_UNAVAILABLE` | **502** | Auth | 🆕 **thêm mới** (D33) — Google API không gọi được (SRS A3) |
 | `AUTH_ACCOUNT_DISABLED` | 403 | Auth | — |
 | `AUTH_ACCOUNT_LOCKED` | **423** | Auth | 🆕 **thêm mới** (D17) |
 | `RECIPE_NOT_FOUND` | 404 | Recipe | — |
@@ -899,6 +900,40 @@ là test lẽ ra phải fail trước khi vá).
 **Bài học:** một handler đọc `entity.NavigationCollection` sau khi gọi repository luôn cần
 kiểm tra ngược lại repository có `.Include()` đúng navigation đó không — compiler không giúp
 được ở đây vì `IReadOnlyCollection<T>` rỗng và `IReadOnlyCollection<T>` có dữ liệu có cùng kiểu.
+
+---
+
+## D33 — Google OAuth: gộp A1/A2 thành 400, thêm mã 502 cho A3
+
+> Phát hiện lúc lập kế hoạch FR-AUTH-003 (2026-09-23).
+
+**Nguồn mâu thuẫn:** SRS FR-AUTH-003 liệt 3 luồng thay thế: A1 (token Google không hợp lệ
+hoặc hết hạn → **401** Unauthorized), A2 (email Google bị revoke quyền → **400** Bad Request),
+A3 (Google API không khả dụng → **502** Bad Gateway). D9 đã chốt xác thực bằng ID Token
+(`GoogleJsonWebSignature.ValidateAsync`) nhưng chưa nói rõ 3 luồng lỗi này map ra sao. Bảng
+"Danh sách Application Error Code" phía trên đã ghi sẵn `AUTH_GOOGLE_TOKEN_INVALID` → **400**
+— mâu thuẫn trực tiếp với SRS A1 (401). Hệ thống cũng chưa có exception/HTTP mapping nào cho
+502 (`GlobalExceptionMiddleware` hiện chỉ có 400/401/403/404/409/423, còn lại → 500).
+
+**Chốt:**
+
+- **A1 + A2 gộp làm một.** `GoogleJsonWebSignature.ValidateAsync` chỉ có hai kết quả: hợp lệ,
+  hoặc ném `InvalidJwtException` — không có tín hiệu riêng để phân biệt "hết hạn" với "bị
+  revoke quyền" từ một ID Token đơn lẻ. Mọi lỗi xác thực token (invalid, expired, revoked,
+  sai signature, sai audience) → `DomainException(ErrorCodes.AuthGoogleTokenInvalid)` →
+  **400**, khớp đúng bảng Error Code đã chốt (không phải 401 như SRS A1 ghi).
+- **A3 giữ nguyên 502**, thêm exception mới `BadGatewayException` (cùng pattern với
+  `LockedException`), error code mới `AUTH_GOOGLE_UNAVAILABLE`. Dùng khi gọi Google API thất
+  bại vì lý do hạ tầng (timeout, DNS, Google trả 5xx) — khác bản chất với lỗi 4xx do client gửi
+  token sai. `GlobalExceptionMiddleware` thêm một nhánh map exception này sang 502 — đây là
+  mapping 5xx có chủ đích đầu tiên ngoài fallback 500 chung.
+
+**Vì:** ID Token của Google không mang state "revoked" tách biệt khỏi "invalid" — implement A2
+như một nhánh riêng là bất khả thi với cơ chế ID Token mà D9 đã chọn (không có gì để phân biệt).
+A3 là sự cố hạ tầng thật (Google service down), khác bản chất lỗi do client — giữ 502 giúp
+frontend phân biệt "thử lại sau" với "cần đăng nhập lại".
+
+**Sửa SRS:** FR-AUTH-003 — xoá luồng A2 (gộp vào A1), sửa A1 từ "401" thành "400".
 
 ---
 

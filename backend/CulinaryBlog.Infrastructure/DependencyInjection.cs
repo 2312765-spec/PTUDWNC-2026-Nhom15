@@ -64,6 +64,7 @@ public static class DependencyInjection
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<ISlugHelper, SlugHelper>();
         services.AddScoped<IJwtService, CulinaryBlog.Infrastructure.Auth.JwtService>();
+        services.AddScoped<IGoogleTokenValidator, CulinaryBlog.Infrastructure.Auth.GoogleTokenValidator>(); // FR-AUTH-003, D9
 
         // 6. File Storage thật (MinIO qua S3 API) — CONS-007/D16. Không dùng Mock ở bất kỳ
         // environment nào; integration test tự override bằng FakeFileStorageService riêng.
