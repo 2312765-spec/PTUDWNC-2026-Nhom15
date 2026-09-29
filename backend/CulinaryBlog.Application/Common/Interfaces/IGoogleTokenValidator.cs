@@ -10,7 +10,7 @@ public interface IGoogleTokenValidator
     /// Xác thực <paramref name="idToken"/> với Google.
     /// D33: mọi lỗi xác thực token (invalid, hết hạn, sai audience, bị revoke — SRS A1+A2 gộp
     /// làm một vì ID Token không phân biệt được hai trường hợp này) → ném
-    /// <see cref="CulinaryBlog.Domain.Common.DomainException"/> với
+    /// <see cref="CulinaryBlog.Application.Common.Exceptions.BadRequestException"/> với
     /// <c>ErrorCodes.AuthGoogleTokenInvalid</c> (400).
     /// Lỗi gọi Google thất bại vì hạ tầng (timeout, DNS, Google trả 5xx — SRS A3) → ném
     /// <c>BadGatewayException</c> với <c>ErrorCodes.AuthGoogleUnavailable</c> (502).

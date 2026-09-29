@@ -1,14 +1,19 @@
-using CulinaryBlog.Domain.Entities;
+﻿using CulinaryBlog.Domain.Entities;
+using CulinaryBlog.Domain.Enums;
 
 namespace CulinaryBlog.Domain.Interfaces;
 
-/// <summary>
-/// FR-RCP-008 (D) chỉ cần một method duy nhất để nạp Recipe kèm Images. FR-RCP-001..007 (C, S7)
-/// sẽ bổ sung thêm method (GetBySlugAsync, danh sách có filter...) khi tới lượt — không đổi gì
-/// ở đây, chỉ thêm, để tránh giẫm chân giữa hai nhánh làm song song (xem team-assignment.md mục 5).
-/// </summary>
 public interface IRecipeRepository
 {
-    /// <summary>Có tracking (không AsNoTracking) — dùng để mutate rồi SaveChanges.</summary>
+    Task<Recipe?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<Recipe?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default);
+    Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken = default);
+    Task AddAsync(Recipe recipe, CancellationToken cancellationToken = default);
+    void Update(Recipe recipe);
+    void Delete(Recipe recipe);
     Task<Recipe?> GetByIdWithImagesAsync(Guid id, CancellationToken ct = default);
+    Task<(IReadOnlyList<Recipe> Items, int TotalCount)> GetPagedByCategoryIdAsync(
+        Guid categoryId, RecipeStatus? status, int page, int pageSize, CancellationToken cancellationToken = default);
+    Task<string?> GetAuthorIdAsync(Guid id, CancellationToken ct = default);
+    Task<Recipe?> GetByIdWithImagesForUpdateAsync(Guid id, CancellationToken ct = default);
 }

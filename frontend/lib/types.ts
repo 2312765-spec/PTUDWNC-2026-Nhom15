@@ -51,7 +51,63 @@ export interface AuthResponse {
   user: UserProfile;
 }
 
-// TODO(S3 — B): CategoryDto, CategoryDetailDto
-// TODO(S4 — B): RecipeSummaryDto, RecipeDetailDto
+/** FR-CAT-001 — khớp CategoryDto của backend. */
+export interface CategoryDto {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  recipeCount: number;
+}
+
+/** FR-CAT-002 — khớp RecipeSummaryDto của backend. `status`/`difficulty` là tên enum dạng chuỗi. */
+export interface RecipeSummaryDto {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  featuredImageUrl: string | null;
+  status: string;
+  prepTimeMinutes: number;
+  cookTimeMinutes: number;
+  difficulty: string;
+  authorId: string;
+  authorName: string | null;
+  createdAt: string;
+}
+
+/** FR-CAT-002 — SRS 3.2: `{ category, recipes }` (KHÔNG phẳng). */
+export interface CategoryDetailResponseDto {
+  category: CategoryDto;
+  recipes: PagedResult<RecipeSummaryDto>;
+}
+
+// TODO(S4 — B): RecipeDetailDto
 // TODO(S6 — C): RecipeStepDto (timerMinutes — D6), RecipeIngredientDto (orderIndex — D7)
-// TODO(S8 — D): RecipeImageDto
+
+/**
+ * D27 — khớp response `POST /recipes/{id}/images` của backend
+ * (`UploadRecipeImageResult`) + state đầy đủ của `RecipeImage` (SRS 7.5).
+ * `mediumUrl`/`thumbnailUrl` là `null` cho tới khi FR-JOB-002 (resize job, chạy nền,
+ * không SignalR) xử lý xong — FE phải fallback về `originalUrl`.
+ */
+export interface RecipeImageDto {
+  imageId: string;
+  originalUrl: string;
+  mediumUrl: string | null;
+  thumbnailUrl: string | null;
+  altText: string | null;
+  isPrimary: boolean;
+  orderIndex: number;
+}
+
+/**
+ * D27 — response THẬT của `POST /recipes/{id}/images` (SRS 8.4): chỉ 4 trường. Không có
+ * `orderIndex`/`mediumUrl`/`thumbnailUrl` — gallery phải điền để thành `RecipeImageDto`.
+ */
+export interface UploadRecipeImageResponse {
+  imageId: string;
+  originalUrl: string;
+  altText: string | null;
+  isPrimary: boolean;
+}

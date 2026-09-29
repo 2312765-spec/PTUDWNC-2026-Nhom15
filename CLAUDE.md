@@ -16,6 +16,7 @@
 | `docs/team-assignment.md` | Phân công 4 người, lịch 8 tuần, quy tắc tránh giẫm chân | Cập nhật khi đổi phân công |
 | **`docs/decisions.md`** | **22 quyết định chốt các mâu thuẫn trong SRS** | Thêm D23, D24… khi phát hiện mâu thuẫn mới |
 | `docs/adr/` | Architecture Decision Records | Thêm 1 file mỗi quyết định kiến trúc |
+| `docs/plans/` | Kế hoạch implement từng FR (bước Plan, xem mục 9) | Chỉ tạo file khi người dùng đồng ý — xem mục 9 |
 
 ### Quy tắc vàng
 
@@ -112,7 +113,8 @@ API             → Application, Infrastructure, Domain
 │   ├── roadmap.md
 │   ├── decisions.md            ← chốt 22 mâu thuẫn của SRS, thắng SRS
 │   ├── team-assignment.md
-│   └── adr/
+│   ├── adr/
+│   └── plans/                  ← 1 file .md mỗi FR, chỉ tạo khi được đồng ý (mục 9)
 ├── backend/
 │   ├── CulinaryBlog.Domain/          Entities, ValueObjects, Enums, IRepository<T>
 │   ├── CulinaryBlog.Application/     Commands, Queries, Handlers, DTOs, Validators, Behaviors
@@ -296,7 +298,10 @@ docs: cập nhật traceability sau slice 3
 1. **Explore** — "Đọc `docs/SRS.md` phần FR-xxx và `docs/decisions.md`. Tóm tắt
    yêu cầu, nêu rõ quyết định D-x nào áp dụng cho FR này. Chưa viết code."
 2. **Plan** — "Lập kế hoạch implement FR-xxx. Liệt kê file sẽ tạo/sửa theo từng tầng.
-   Chưa code." → người review kế hoạch.
+   Chưa code." → người review kế hoạch. Trình bày kế hoạch xong, **hỏi người dùng có
+   đồng ý lưu kế hoạch này thành file `docs/plans/FR-xxx-<mô-tả-ngắn>.md` không** —
+   **chỉ tạo file khi được đồng ý**, không tự ý tạo. Đồng ý thì tạo file trước, rồi
+   mới sang bước Test first.
 3. **Test first** — "Viết integration test cho FR-xxx từ SRS. Chạy, xác nhận fail."
 4. **Code** — implement đến khi test pass.
 5. **Commit** — cập nhật `traceability.md`, commit.

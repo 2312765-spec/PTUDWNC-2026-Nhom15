@@ -1,6 +1,5 @@
 using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Application.Common.Interfaces;
-using CulinaryBlog.Domain.Common;
 using Google.Apis.Auth;
 using Microsoft.Extensions.Configuration;
 
@@ -8,7 +7,7 @@ namespace CulinaryBlog.Infrastructure.Auth;
 
 /// <summary>
 /// FR-AUTH-003, D9 — verify Google ID Token qua thư viện chính thức Google.Apis.Auth.
-/// D33: lỗi xác thực token (invalid/hết hạn/sai audience — SRS A1+A2 gộp) → DomainException 400.
+/// D33: lỗi xác thực token (invalid/hết hạn/sai audience — SRS A1+A2 gộp) → BadRequestException 400.
 /// Lỗi gọi Google thất bại vì hạ tầng (SRS A3) → BadGatewayException 502.
 /// </summary>
 public sealed class GoogleTokenValidator(IConfiguration configuration) : IGoogleTokenValidator
@@ -28,7 +27,7 @@ public sealed class GoogleTokenValidator(IConfiguration configuration) : IGoogle
         }
         catch (InvalidJwtException)
         {
-            throw new DomainException(ErrorCodes.AuthGoogleTokenInvalid, "Token Google không hợp lệ hoặc đã hết hạn.");
+            throw new BadRequestException(ErrorCodes.AuthGoogleTokenInvalid, "Token Google không hợp lệ hoặc đã hết hạn.");
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {

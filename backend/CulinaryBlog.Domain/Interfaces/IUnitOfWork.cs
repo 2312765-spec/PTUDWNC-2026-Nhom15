@@ -1,7 +1,12 @@
 namespace CulinaryBlog.Domain.Interfaces;
 
-/// <summary>Đảm bảo nhiều thao tác nằm trong một transaction (SRS Phụ lục C — Unit of Work).</summary>
 public interface IUnitOfWork
 {
-    Task<int> SaveChangesAsync(CancellationToken ct = default);
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    Task ExecuteInTransactionAsync(Func<Task> action, CancellationToken cancellationToken = default);
+    Task ExecuteInTransactionAsync(Func<CancellationToken, Task> action, CancellationToken cancellationToken = default);
+
+    Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken = default);
+    Task<T> ExecuteInTransactionAsync<T>(Func<CancellationToken, Task<T>> action, CancellationToken cancellationToken = default);
 }

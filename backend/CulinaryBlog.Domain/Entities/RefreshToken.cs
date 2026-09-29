@@ -1,36 +1,26 @@
 namespace CulinaryBlog.Domain.Entities;
 
 /// <summary>
-/// SRS 7.8. Theo D20: schema đúng có <see cref="TokenHash"/>/<see cref="RevokedAt"/>/
-/// <see cref="ReplacedByTokenHash"/> — KHÔNG có cột IsRevoked (computed từ RevokedAt),
-/// KHÔNG có ReplacedByToken (chỉ có hash). KHÔNG kế thừa BaseEntity (không IsDeleted/RowVersion —
-/// D20 không liệt hai cột đó trong schema 7.8).
-///
-/// UserId kiểu string để khớp AspNetUsers.Id (D23: ApplicationUser ở Infrastructure,
-/// Domain không có navigation property tới nó).
+/// Thực thể RefreshToken — SRS 7.8, Quyết định D20.
+/// Bảng Database gồm: Id, UserId, TokenHash, ExpiresAt, RevokedAt, ReplacedByTokenHash, CreatedAt, CreatedByIp.
+/// Chỉ lưu HASH của token (D25) — raw token không bao giờ chạm DB.
 /// </summary>
-public sealed class RefreshToken
+public class RefreshToken
 {
-    public Guid Id { get; private set; } = Guid.CreateVersion7();
-
+    public Guid Id { get; private set; } = Guid.NewGuid();
     public string UserId { get; private set; } = string.Empty;
-
     public string TokenHash { get; private set; } = string.Empty;
-
     public DateTime ExpiresAt { get; private set; }
-
     public DateTime? RevokedAt { get; private set; }
-
     public string? ReplacedByTokenHash { get; private set; }
-
-    public DateTime CreatedAt { get; private set; }
-
+    public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
     public string? CreatedByIp { get; private set; }
 
-    /// <summary>D20 — computed, không phải cột DB.</summary>
-    public bool IsRevoked => RevokedAt != null;
+    public DateTime? UpdatedAt { get; private set; }
 
-    public bool IsExpired => ExpiresAt <= DateTime.UtcNow;
+    public bool IsRevoked => RevokedAt.HasValue;
+
+    public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
 
     public bool IsActive => !IsRevoked && !IsExpired;
 
@@ -38,22 +28,26 @@ public sealed class RefreshToken
     {
     }
 
-    public static RefreshToken Create(string userId, string tokenHash, DateTime expiresAt, string? createdByIp)
+    private RefreshToken(string userId, string tokenHash, DateTime expiresAt, string? createdByIp)
     {
-        return new RefreshToken
-        {
-            UserId = userId,
-            TokenHash = tokenHash,
-            ExpiresAt = expiresAt,
-            CreatedAt = DateTime.UtcNow,
-            CreatedByIp = createdByIp,
-        };
+        UserId = userId;
+        TokenHash = tokenHash;
+        ExpiresAt = expiresAt;
+        CreatedByIp = createdByIp;
+        CreatedAt = DateTime.UtcNow;
     }
 
-    /// <summary>D20/NFR-SEC-002 — token rotation: token cũ bị revoke, trỏ sang token mới.</summary>
+    /// <summary>D20/D25 — tạo refresh token mới. tokenHash PHẢI là hash (SHA-256) của raw token, không phải raw token.</summary>
+    public static RefreshToken Create(string userId, string tokenHash, DateTime expiresAt, string? createdByIp = null)
+        => new(userId, tokenHash, expiresAt, createdByIp);
+
     public void Revoke(string? replacedByTokenHash = null)
     {
         RevokedAt = DateTime.UtcNow;
         ReplacedByTokenHash = replacedByTokenHash;
+        UpdatedAt = DateTime.UtcNow;
     }
+
+    /// <summary>Chỉ dùng khi Infrastructure phát hiện trùng TokenHash (xác suất cực thấp) — sinh lại hash mới.</summary>
+    public void ReassignTokenHash(string tokenHash) => TokenHash = tokenHash;
 }

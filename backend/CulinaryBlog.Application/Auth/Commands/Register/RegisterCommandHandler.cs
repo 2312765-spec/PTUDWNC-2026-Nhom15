@@ -31,6 +31,7 @@ public sealed class RegisterCommandHandler(
         var (rawRefreshToken, refreshTokenHash, refreshExpiresAt) = jwtService.GenerateRefreshToken();
 
         var refreshToken = RefreshToken.Create(user.UserId, refreshTokenHash, refreshExpiresAt, request.IpAddress);
+        
         await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 

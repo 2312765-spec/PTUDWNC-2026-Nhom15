@@ -1,52 +1,39 @@
 using CulinaryBlog.Domain.Common;
 using CulinaryBlog.Domain.Enums;
+using CulinaryBlog.Domain.Exceptions;
 
 namespace CulinaryBlog.Domain.Entities;
 
-/// <summary>
-/// SRS 7.2 — thực thể trung tâm. TODO(S5–S7 — C): method nghiệp vụ Publish()/Unpublish()/
-/// Archive() (D3: cần >=1 step VÀ >=1 ingredient để publish) và renumber step (D6) CHƯA
-/// hiện thực ở đây. Sprint 0 (B) chỉ tạo shape dữ liệu đủ cho migration + seed.
-/// </summary>
-public sealed class Recipe : BaseEntity
+public class Recipe : BaseEntity, IAggregateRoot
 {
     public string Title { get; private set; } = string.Empty;
     public string Slug { get; private set; } = string.Empty;
     public string Description { get; private set; } = string.Empty;
-
-    /// <summary>D18 — legacy field, nullable. Chi tiết dùng <see cref="Steps"/>.</summary>
-    public string? Instructions { get; private set; }
-
     public int PrepTime { get; private set; }
     public int CookTime { get; private set; }
-    public int Servings { get; private set; }
-    public RecipeDifficulty Difficulty { get; private set; }
-    public RecipeStatus Status { get; private set; }
-    public Guid CategoryId { get; private set; }
+    public int Servings { get; private set; } = 4;
+    public RecipeDifficulty Difficulty { get; private set; } = RecipeDifficulty.Easy;
+    public RecipeStatus Status { get; private set; } = RecipeStatus.Draft;
     public string AuthorId { get; private set; } = string.Empty;
     public DateTime? PublishedAt { get; private set; }
-    public RecipeNutrition Nutrition { get; private set; } = RecipeNutrition.Empty();
 
-    private readonly List<RecipeStep> _steps = [];
-    public IReadOnlyCollection<RecipeStep> Steps => _steps.AsReadOnly();
-
-    private readonly List<RecipeIngredient> _ingredients = [];
-    public IReadOnlyCollection<RecipeIngredient> Ingredients => _ingredients.AsReadOnly();
+    public Guid CategoryId { get; private set; }
+    public Category? Category { get; private set; }
 
     private readonly List<RecipeImage> _images = [];
     public IReadOnlyCollection<RecipeImage> Images => _images.AsReadOnly();
 
-    private Recipe()
-    {
-    }
+    private readonly List<RecipeIngredient> _ingredients = [];
+    public IReadOnlyCollection<RecipeIngredient> Ingredients => _ingredients.AsReadOnly();
 
-    /// <summary>
-    /// Dùng cho seeding Sprint 0. Validate auto-suffix slug (D10) và điều kiện publish
-    /// (D3) là việc của FR-RCP-003/005 (Sprint 2/3 — C), chưa hiện thực ở đây — tham số
-    /// <paramref name="status"/>/<paramref name="publishedAt"/> chỉ để seed dữ liệu mẫu
-    /// có đủ Draft/Published/Archived.
-    /// </summary>
-    public static Recipe Create(
+    private readonly List<RecipeStep> _steps = [];
+    public IReadOnlyCollection<RecipeStep> Steps => _steps.AsReadOnly();
+
+    public RecipeNutrition? Nutrition { get; private set; }
+
+    private Recipe() { }
+
+    private Recipe(
         string title,
         string slug,
         string description,
@@ -54,141 +41,225 @@ public sealed class Recipe : BaseEntity
         int cookTime,
         int servings,
         RecipeDifficulty difficulty,
-        Guid categoryId,
         string authorId,
-        string? instructions = null,
-        RecipeStatus status = RecipeStatus.Draft,
-        DateTime? publishedAt = null)
+        Guid categoryId)
     {
-        if (string.IsNullOrWhiteSpace(title))
-        {
-            throw new DomainException("RECIPE_TITLE_REQUIRED", "Tiêu đề công thức không được để trống.");
-        }
-
-        if (string.IsNullOrWhiteSpace(slug))
-        {
-            throw new DomainException("RECIPE_SLUG_REQUIRED", "Slug công thức không được để trống.");
-        }
-
-        if (string.IsNullOrWhiteSpace(description))
-        {
-            throw new DomainException("RECIPE_DESCRIPTION_REQUIRED", "Mô tả công thức không được để trống.");
-        }
-
-        // D19: prepTime > 0, cookTime >= 0 (0 = món không cần nấu), servings > 0.
-        if (prepTime <= 0)
-        {
-            throw new DomainException("RECIPE_PREP_TIME_INVALID", "Thời gian chuẩn bị phải > 0.");
-        }
-
-        if (cookTime < 0)
-        {
-            throw new DomainException("RECIPE_COOK_TIME_INVALID", "Thời gian nấu phải >= 0.");
-        }
-
-        if (servings <= 0)
-        {
-            throw new DomainException("RECIPE_SERVINGS_INVALID", "Số khẩu phần phải > 0.");
-        }
-
-        if (string.IsNullOrWhiteSpace(authorId))
-        {
-            throw new DomainException("RECIPE_AUTHOR_REQUIRED", "Công thức phải có tác giả.");
-        }
-
-        return new Recipe
-        {
-            Title = title,
-            Slug = slug,
-            Description = description,
-            Instructions = instructions,
-            PrepTime = prepTime,
-            CookTime = cookTime,
-            Servings = servings,
-            Difficulty = difficulty,
-            Status = status,
-            CategoryId = categoryId,
-            AuthorId = authorId,
-            PublishedAt = publishedAt,
-            Nutrition = RecipeNutrition.Empty(),
-        };
+        Title = title;
+        Slug = slug;
+        Description = description;
+        PrepTime = prepTime;
+        CookTime = cookTime;
+        Servings = servings;
+        Difficulty = difficulty;
+        AuthorId = authorId;
+        CategoryId = categoryId;
+        Status = RecipeStatus.Draft;
     }
 
-    /// <summary>Dùng cho seeding — thêm bước trực tiếp, không renumber (D6 để lại cho S6/S10 — C).</summary>
-    public void AddStep(string title, string description, int? timerMinutes = null, string? imageUrl = null)
+    public static Recipe Create(
+        string title = "Test Recipe",
+        string slug = "test-recipe",
+        string description = "Test Description",
+        int prepTime = 15,
+        int cookTime = 30,
+        int servings = 4,
+        RecipeDifficulty difficulty = RecipeDifficulty.Easy,
+        Guid? categoryId = null,
+        string authorId = "test-author",
+        RecipeStatus status = RecipeStatus.Draft)
     {
-        var nextNumber = _steps.Count == 0 ? 1 : _steps.Max(s => s.StepNumber) + 1;
-        _steps.Add(RecipeStep.Create(Id, nextNumber, title, description, timerMinutes, imageUrl));
+        var recipe = new Recipe(
+            title,
+            slug,
+            description,
+            prepTime,
+            cookTime,
+            servings,
+            difficulty,
+            authorId,
+            categoryId ?? Guid.NewGuid());
+
+        recipe.Status = status;
+        if (status == RecipeStatus.Published)
+        {
+            recipe.PublishedAt = DateTime.UtcNow;
+        }
+
+        return recipe;
     }
 
-    /// <summary>Dùng cho seeding — thêm nguyên liệu trực tiếp.</summary>
-    public void AddIngredient(string name, decimal? quantity = null, string? unit = null, string? notes = null)
+    /// <summary>D3: Chỉ publish được khi có ít nhất 1 step VÀ ít nhất 1 ingredient.</summary>
+    public void Publish()
     {
-        var orderIndex = _ingredients.Count;
-        _ingredients.Add(RecipeIngredient.Create(Id, name, quantity, unit, notes, orderIndex));
+        if (_steps.Count == 0 || _ingredients.Count == 0)
+        {
+            throw new DomainException(
+                "Không thể xuất bản công thức khi thiếu bước thực hiện hoặc nguyên liệu.",
+                "RECIPE_PUBLISH_INCOMPLETE");
+        }
+
+        Status = RecipeStatus.Published;
+        PublishedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void Archive()
+    {
+        Status = RecipeStatus.Archived;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void MoveToDraft()
+    {
+        Status = RecipeStatus.Draft;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void UpdateDetails(
+        string title,
+        string description,
+        int prepTime,
+        int cookTime,
+        int servings,
+        RecipeDifficulty difficulty,
+        Guid categoryId)
+    {
+        Title = title;
+        Description = description;
+        PrepTime = prepTime;
+        CookTime = cookTime;
+        Servings = servings;
+        Difficulty = difficulty;
+        CategoryId = categoryId;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void DemoteOtherPrimaryImages(Guid? currentImageId = null)
+    {
+        foreach (var img in _images)
+        {
+            if (currentImageId == null || img.Id != currentImageId)
+            {
+                img.SetPrimary(false);
+            }
+        }
     }
 
     /// <summary>
-    /// FR-RCP-008/D27 — ảnh đầu tiên tự động là primary, client không được chọn (D22).
-    /// orderIndex = Max(orderIndex hiện có) + 1, ảnh đầu tiên = 0.
+    /// FR-RCP-008 / Quyết định D22, D23:
+    /// - Ảnh đầu tiên thêm vào tự động là Primary, OrderIndex = 0.
+    /// - Ảnh thứ hai trở đi không Primary, OrderIndex = Max(OrderIndex) + 1.
     /// </summary>
-    public RecipeImage AttachImage(string originalUrl, string? altText = null)
+    public RecipeImage AttachImage(string originalUrl, string? altText = null, bool? isPrimary = null, int? displayOrder = null)
     {
-        var isPrimary = _images.Count == 0;
-        var orderIndex = _images.Count == 0 ? 0 : _images.Max(i => i.OrderIndex) + 1;
+        bool finalIsPrimary = isPrimary ?? (_images.Count == 0);
+        int finalOrder = displayOrder ?? (_images.Count == 0 ? 0 : (_images.Max(i => i.OrderIndex) + 1));
 
-        var image = RecipeImage.Create(Id, originalUrl, isPrimary, orderIndex, altText: altText);
+        if (finalIsPrimary)
+        {
+            DemoteOtherPrimaryImages();
+        }
+
+        var image = new RecipeImage
+        {
+            RecipeId = Id,
+            OriginalUrl = originalUrl,
+            AltText = altText ?? string.Empty,
+            IsPrimary = finalIsPrimary,
+            OrderIndex = finalOrder,
+        };
+
         _images.Add(image);
         return image;
     }
 
-    /// <summary>
-    /// FR-RCP-008/D22 — PATCH metadata ảnh. Handler phải tự kiểm tra ảnh tồn tại trước (404
-    /// RECIPE_IMAGE_NOT_FOUND) — đó không phải business rule nên không nằm ở đây.
-    /// </summary>
-    public void UpdateImage(Guid imageId, string? altText, bool? isPrimary, int? orderIndex)
+    public void AddStep(int stepNumber, string title, string description, int? timerMinutes = null, string? imageUrl = null)
     {
-        var image = FindImageOrThrow(imageId);
-
-        if (isPrimary == false && image.IsPrimary)
+        _steps.Add(new RecipeStep
         {
-            throw new DomainException(
-                "RECIPE_PRIMARY_IMAGE_REQUIRED",
-                "Công thức phải luôn có đúng một ảnh chính — không thể bỏ primary mà không chọn ảnh khác thay thế.");
+            RecipeId = Id,
+            StepNumber = stepNumber,
+            Title = title,
+            Description = description,
+            TimerMinutes = timerMinutes,
+            ImageUrl = imageUrl
+        });
+    }
+
+    public void AddIngredient(string name, string amount, string? unit, string? preparation = null)
+    {
+        _ingredients.Add(new RecipeIngredient
+        {
+            RecipeId = Id,
+            Name = name,
+            Amount = amount,
+            Unit = unit,
+            Preparation = preparation
+        });
+    }
+
+    public void SetNutrition(int calories, int protein, int carbs, int fat)
+    {
+        Nutrition = new RecipeNutrition
+        {
+            RecipeId = Id,
+            Calories = calories,
+            Protein = protein,
+            Carbs = carbs,
+            Fat = fat
+        };
+    }
+
+    /// <summary>
+    /// Xóa ảnh (D22). Nếu ảnh bị xóa là Primary, tự động chọn ảnh còn lại có OrderIndex nhỏ nhất làm Primary mới.
+    /// </summary>
+    public RecipeImage RemoveImage(Guid imageId)
+    {
+        var img = _images.FirstOrDefault(x => x.Id == imageId)
+            ?? throw new DomainException("Không tìm thấy ảnh để xóa.", "RECIPE_IMAGE_NOT_FOUND");
+
+        bool wasPrimary = img.IsPrimary;
+        _images.Remove(img);
+
+        if (wasPrimary && _images.Count > 0)
+        {
+            var nextPrimary = _images.OrderBy(i => i.OrderIndex).First();
+            nextPrimary.SetPrimary(true);
+        }
+
+        return img;
+    }
+
+    /// <summary>
+    /// Cập nhật ảnh (D22/D23). Cả 3 trường AltText/IsPrimary/OrderIndex đều tùy chọn (null = giữ nguyên)
+    /// và được áp dụng trong CÙNG một lần gọi — tránh bug "chỉ gửi orderIndex thì không lưu gì".
+    /// </summary>
+    public RecipeImage UpdateImage(Guid imageId, string? altText = null, bool? isPrimary = null, int? orderIndex = null)
+    {
+        var img = _images.FirstOrDefault(x => x.Id == imageId)
+            ?? throw new DomainException("Không tìm thấy ảnh để cập nhật.", "RECIPE_IMAGE_NOT_FOUND");
+
+        if (isPrimary == false && img.IsPrimary)
+        {
+            throw new DomainException("Công thức luôn yêu cầu phải có một ảnh đại diện chính.", "RECIPE_PRIMARY_IMAGE_REQUIRED");
+        }
+
+        if (altText is not null)
+        {
+            img.UpdateAltText(altText);
+        }
+
+        if (orderIndex.HasValue)
+        {
+            img.UpdateOrderIndex(orderIndex.Value);
         }
 
         if (isPrimary == true)
         {
-            foreach (var other in _images.Where(i => i.Id != imageId))
-            {
-                other.SetPrimary(false);
-            }
-
-            image.SetPrimary(true);
+            img.SetPrimary(true);
+            DemoteOtherPrimaryImages(imageId);
         }
 
-        image.UpdateMetadata(altText, orderIndex);
+        return img;
     }
-
-    /// <summary>FR-RCP-008/D22 — xóa ảnh đang primary thì ảnh còn lại có orderIndex nhỏ nhất tự lên thay.</summary>
-    public RecipeImage RemoveImage(Guid imageId)
-    {
-        var image = FindImageOrThrow(imageId);
-        _images.Remove(image);
-
-        if (image.IsPrimary && _images.Count > 0)
-        {
-            _images.OrderBy(i => i.OrderIndex).First().SetPrimary(true);
-        }
-
-        return image;
-    }
-
-    /// <summary>
-    /// Không throw NotFoundException (404) — lớp đó thuộc Application. Nhánh này chỉ chạy nếu
-    /// handler gọi sai (bỏ qua bước kiểm tra tồn tại) — coi là lỗi lập trình, không phải business rule.
-    /// </summary>
-    private RecipeImage FindImageOrThrow(Guid imageId) =>
-        _images.FirstOrDefault(i => i.Id == imageId)
-            ?? throw new InvalidOperationException($"Recipe {Id} không có ảnh {imageId}.");
 }

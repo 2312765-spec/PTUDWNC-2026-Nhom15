@@ -1,6 +1,5 @@
 using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Application.Common.Interfaces;
-using CulinaryBlog.Domain.Common;
 
 namespace CulinaryBlog.IntegrationTests.Common;
 
@@ -23,7 +22,7 @@ public sealed class FakeGoogleTokenValidator : IGoogleTokenValidator
     {
         if (idToken == InvalidToken)
         {
-            throw new DomainException(ErrorCodes.AuthGoogleTokenInvalid, "Token Google không hợp lệ hoặc đã hết hạn.");
+            throw new BadRequestException(ErrorCodes.AuthGoogleTokenInvalid, "Token Google không hợp lệ hoặc đã hết hạn.");
         }
 
         if (idToken == UnavailableToken)
@@ -34,7 +33,7 @@ public sealed class FakeGoogleTokenValidator : IGoogleTokenValidator
         var parts = idToken.Split('|');
         if (parts.Length != 5 || parts[0] != "fake:google")
         {
-            throw new DomainException(ErrorCodes.AuthGoogleTokenInvalid, "Token Google không hợp lệ hoặc đã hết hạn.");
+            throw new BadRequestException(ErrorCodes.AuthGoogleTokenInvalid, "Token Google không hợp lệ hoặc đã hết hạn.");
         }
 
         var picture = string.IsNullOrEmpty(parts[3]) ? null : parts[3];
