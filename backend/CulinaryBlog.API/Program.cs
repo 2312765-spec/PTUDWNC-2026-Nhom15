@@ -37,6 +37,9 @@ builder.Host.UseSerilog((context, services, config) => config
     .Enrich.FromLogContext()
     .Enrich.WithMachineName());
 
+// ---- OpenTelemetry tracing + metrics (FR-OBS-003, D36–D39) ----------------
+builder.Services.AddAppTelemetry(builder.Configuration, builder.Environment);
+
 // ---- Tầng ứng dụng (KHÔNG DÙNG AddControllers theo CONS-003) ------------
 builder.Services.AddApplication();
 builder.Services.AddInfrastructureServices(builder.Configuration);
