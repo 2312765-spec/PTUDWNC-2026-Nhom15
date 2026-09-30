@@ -24,4 +24,17 @@ public interface IRecipeRepository
         Guid categoryId, RecipeStatus? status, int page, int pageSize, CancellationToken cancellationToken = default);
     Task<string?> GetAuthorIdAsync(Guid id, CancellationToken ct = default);
     Task<Recipe?> GetByIdWithImagesForUpdateAsync(Guid id, CancellationToken ct = default);
+
+
+
+    // FR-RCP-001, FR-SRCH-002, FR-SRCH-003, FR-SRCH-004: Lọc, sắp xếp, phân trang
+    Task<(IReadOnlyList<Recipe> Items, int TotalCount)> GetPagedRecipesAsync(
+        Guid? categoryId,
+        string? difficulty,
+        int? maxCookTime,
+        int? minServings,
+        string? sort,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
 }
