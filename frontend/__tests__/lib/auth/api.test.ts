@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import { googleLogin, login, register } from '@/lib/auth/api';
+import { googleLogin, login, refresh, register } from '@/lib/auth/api';
 
 describe('lib/auth/api — FR-AUTH-001', () => {
   it('FR-AUTH-001/D24: POST /auth/register với body D5 và trả nguyên AuthResponseDto', async () => {
@@ -46,5 +46,21 @@ describe('lib/auth/api — FR-AUTH-003', () => {
 
     await expect(googleLogin(body)).resolves.toBe(data);
     expect(post).toHaveBeenCalledWith('/auth/google', body, undefined);
+  });
+});
+
+describe('lib/auth/api — FR-AUTH-004', () => {
+  it('FR-AUTH-004/D24: POST /auth/refresh với { refreshToken } và trả nguyên AuthResponseDto', async () => {
+    const body = { refreshToken: 'raw-refresh' };
+    const data = {
+      accessToken: 'a2',
+      refreshToken: 'r2',
+      expiresAt: '2026-09-23T10:30:00Z',
+      user: {},
+    };
+    const post = jest.spyOn(apiClient, 'post').mockResolvedValue({ data });
+
+    await expect(refresh(body)).resolves.toBe(data);
+    expect(post).toHaveBeenCalledWith('/auth/refresh', body, undefined);
   });
 });

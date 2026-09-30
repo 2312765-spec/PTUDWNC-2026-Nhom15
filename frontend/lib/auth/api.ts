@@ -59,3 +59,22 @@ export async function googleLogin(body: GoogleLoginRequest): Promise<AuthRespons
   );
   return data;
 }
+
+/** FR-AUTH-004 — wire contract của POST /auth/refresh: RT nằm trong body, không dùng cookie. */
+export interface RefreshRequest {
+  refreshToken: string;
+}
+
+/**
+ * FR-AUTH-004 — 200 trả AuthResponseDto với cặp token MỚI (D24, rotation). RT cũ bị thu hồi
+ * ngay; gửi lại RT cũ sẽ kích hoạt reuse detection (D35) — gọi qua refreshAccessToken().
+ */
+export async function refresh(body: RefreshRequest): Promise<AuthResponse> {
+  const baseURL = serverBaseUrl();
+  const { data } = await apiClient.post<AuthResponse>(
+    '/auth/refresh',
+    body,
+    baseURL ? { baseURL } : undefined,
+  );
+  return data;
+}
