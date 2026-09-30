@@ -1,4 +1,5 @@
 using CulinaryBlog.Application.Auth.Dtos;
+using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Interfaces;
@@ -23,6 +24,13 @@ public sealed class GoogleLoginCommandHandler(
     public async Task<AuthResponseDto> Handle(GoogleLoginCommand request, CancellationToken cancellationToken)
     {
         var googleUser = await googleTokenValidator.ValidateAsync(request.IdToken, cancellationToken);
+
+        // Chống chiếm tài khoản: email chưa được Google xác minh thì không được dùng để liên kết
+        // vào tài khoản có sẵn hay tạo tài khoản mới. Gộp vào mã lỗi token không hợp lệ (D33).
+        if (!googleUser.EmailVerified)
+        {
+            throw new BadRequestException(ErrorCodes.AuthGoogleTokenInvalid, "Email tài khoản Google chưa được xác minh.");
+        }
 
         var (user, isNewUser) = await identityService.LoginOrRegisterWithGoogleAsync(
             googleUser.Email,

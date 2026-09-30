@@ -48,6 +48,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D30 | Bug: mất ErrorCode của FluentValidation | `GlobalExceptionMiddleware` phải giữ ErrorCode riêng của từng rule |
 | D31 | Bug: thêm child entity vào aggregate đã track | EF Core hiểu nhầm thành UPDATE thay vì INSERT |
 | D32 | Bug: `CategoryRepository.GetBySlugAsync` thiếu Include | `category.Recipes` luôn rỗng — FR-CAT-002 không hoạt động |
+| D34 | `RowVersion` trên PostgreSQL | **Code tự sinh** qua `RowVersionInterceptor` — `[Timestamp]` chỉ tự chạy trên SQL Server |
 
 ---
 
@@ -934,6 +935,43 @@ A3 là sự cố hạ tầng thật (Google service down), khác bản chất l�
 frontend phân biệt "thử lại sau" với "cần đăng nhập lại".
 
 **Sửa SRS:** FR-AUTH-003 — xoá luồng A2 (gộp vào A1), sửa A1 từ "401" thành "400".
+
+---
+
+## D34 — RowVersion trên PostgreSQL: code tự sinh, không dựa vào `[Timestamp]`
+
+> Phát hiện khi rà soát sau PR #25 (2026-09-30). Kế hoạch: `docs/plans/D34-rowversion-concurrency.md`.
+
+**Nguồn mâu thuẫn:** SRS 7.1 ghi `RowVersion` là "bytea (timestamp), NOT NULL, Concurrency Token —
+EF Core [Timestamp] annotation", và CONS-006 chốt PostgreSQL là DBMS duy nhất. `[Timestamp]` /
+`IsRowVersion()` dựa vào kiểu `rowversion` do **SQL Server** tự tăng sau mỗi lần ghi — PostgreSQL
+không có cơ chế tương đương cho cột `bytea`. Kết quả thực tế: `RowVersion` giữ giá trị rỗng mãi,
+EF sinh `UPDATE ... WHERE "RowVersion" = ''` luôn đúng, hai người cùng sửa thì người sau âm thầm
+ghi đè người trước — không bao giờ có 409 như D4 và FR-RCP-004 A2 yêu cầu.
+
+**Chốt:**
+
+- Giữ cột `RowVersion bytea` đúng SRS (không đổi schema, không migration).
+- `Infrastructure/Persistence/RowVersionInterceptor.cs`: trước mỗi `SaveChanges`, mọi `BaseEntity`
+  ở trạng thái `Added`/`Modified` — hoặc có owned entity (vd. `Recipe.Nutrition`) thay đổi —
+  nhận 16 byte ngẫu nhiên mới. EF vẫn dùng giá trị **gốc** trong mệnh đề WHERE nên nếu người khác
+  đã lưu trước → 0 dòng → `DbUpdateConcurrencyException` → **409 `RECIPE_CONCURRENCY_CONFLICT`** (D4).
+- Không dùng cột hệ thống `xmin` của PostgreSQL (cách Npgsql khuyến nghị): phải bỏ cột
+  `RowVersion`, lệch SRS 7.1 nhiều hơn mà lợi ích không đáng kể ở quy mô dự án.
+- Kèm theo: đăng ký `AuditInterceptor` (SRS 7.1 — `CreatedAt`/`UpdatedAt`) vốn đã viết nhưng chưa
+  từng được gắn vào DbContext.
+
+**Quy tắc cho FR-RCP-004 (và mọi Command sửa có `If-Match`):** interceptor chỉ chặn được hai request
+**chen nhau** giữa lúc đọc và lúc lưu. Để chặn client sửa trên bản đã cũ (đọc từ vài phút trước),
+handler PHẢI so `RowVersion` client gửi (header `If-Match`, base64) với `recipe.RowVersion` vừa load —
+khác → `ConflictException(ErrorCodes.RecipeConcurrencyConflict)` → 409. Response trả `RowVersion` mới
+(header `ETag`) cho lần sửa kế tiếp.
+
+**Vì:** giữ đúng mô hình dữ liệu SRS, cục bộ trong Infrastructure (Domain/Application không đổi),
+và có test trên PostgreSQL thật (`IntegrationTests/Common/ConcurrencyTests.cs`).
+
+**Sửa SRS:** mục 7.1 — `RowVersion`: bỏ "EF Core [Timestamp] annotation", thay bằng "giá trị do
+ứng dụng sinh mới mỗi lần ghi (xem D34)".
 
 ---
 

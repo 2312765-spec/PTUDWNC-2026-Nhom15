@@ -67,7 +67,6 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
             .Include(r => r.Images)
             .Where(r => r.CategoryId == categoryId && !r.IsDeleted);
 
-        // Nếu có truyền status cụ thể (ví dụ: Published) thì lọc theo status đó
         if (status.HasValue)
         {
             query = query.Where(r => r.Status == status.Value);
@@ -84,33 +83,44 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
         return (items, totalCount);
     }
 
-    // FR-SRCH-001: Tìm kiếm toàn văn FTS
+    // FR-SRCH-001: Tìm kiếm toàn văn FTS tiếng Việt
     public async Task<(IReadOnlyList<Recipe> Items, int TotalCount)> SearchPublishedRecipesAsync(
         string? searchTerm, 
         int page, 
         int pageSize, 
         CancellationToken cancellationToken = default)
     {
-        var query = context.Recipes
+        var baseQuery = context.Recipes
             .AsNoTracking()
             .Include(r => r.Images)
             .Where(r => !r.IsDeleted && r.Status == RecipeStatus.Published);
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
-            var terms = searchTerm.Trim().ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            foreach (var term in terms)
+            var raw = searchTerm.Trim();
+            var cleanTerms = System.Text.RegularExpressions.Regex.Split(raw, @"[^\p{L}\p{N}]+")
+                .Where(t => t.Length > 0)
+                .ToArray();
+
+            if (cleanTerms.Length > 0)
             {
-                query = query.Where(r => 
-                    r.Title.ToLower().Contains(term) || 
-                    (r.Description != null && r.Description.ToLower().Contains(term)));
+                var tsQueryString = string.Join(" & ", cleanTerms.Select(t => $"{t}:*"));
+                var likePatterns = cleanTerms.Select(t => $"%{t}%").ToArray();
+
+                baseQuery = baseQuery.Where(r =>
+                    EF.Functions.ToTsVector("simple", EF.Functions.Unaccent(r.Title + " " + (r.Description ?? "")))
+                        .Matches(EF.Functions.ToTsQuery("simple", EF.Functions.Unaccent(tsQueryString)))
+                    || likePatterns.All(p =>
+                        EF.Functions.ILike(EF.Functions.Unaccent(r.Title), EF.Functions.Unaccent(p)) ||
+                        (r.Description != null && EF.Functions.ILike(EF.Functions.Unaccent(r.Description), EF.Functions.Unaccent(p)))));
             }
         }
 
-        var totalCount = await query.CountAsync(cancellationToken);
+        var totalCount = await baseQuery.CountAsync(cancellationToken);
 
-        var items = await query
-            .OrderByDescending(r => r.CreatedAt)
+        var items = await baseQuery
+            .OrderByDescending(r => r.Title.ToLower() == (searchTerm ?? "").Trim().ToLower())
+            .ThenByDescending(r => r.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
@@ -134,7 +144,7 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
             .Include(r => r.Images)
             .Where(r => !r.IsDeleted && r.Status == RecipeStatus.Published);
 
-        // FR-SRCH-002: Lọc công thức
+        // FR-SRCH-002: Lọc công thức (AND logic)
         if (categoryId.HasValue && categoryId.Value != Guid.Empty)
         {
             query = query.Where(r => r.CategoryId == categoryId.Value);
@@ -144,13 +154,17 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
         {
             var diff = difficulty.Trim().ToLowerInvariant();
             if (diff is "easy" or "1")
-            {
-                query = query.Where(r => r.Difficulty == RecipeDifficulty.Easy);
+            {               
+                 query = query.Where(r => r.Difficulty == RecipeDifficulty.Easy);
+            }           
+             else if (diff is "medium" or "2")
+             {   
+            query = query.Where(r => r.Difficulty == RecipeDifficulty.Medium);
             }
-            else if (diff is "medium" or "2")
-                {query = query.Where(r => r.Difficulty == RecipeDifficulty.Medium);}
             else if (diff is "hard" or "3")
-               {query = query.Where(r => r.Difficulty == RecipeDifficulty.Hard);}
+            {   
+                query = query.Where(r => r.Difficulty == RecipeDifficulty.Hard);
+            }
         }
 
         if (maxCookTime.HasValue)

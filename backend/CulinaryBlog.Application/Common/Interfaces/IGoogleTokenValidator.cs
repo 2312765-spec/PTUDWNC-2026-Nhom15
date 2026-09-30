@@ -18,5 +18,8 @@ public interface IGoogleTokenValidator
     Task<GoogleUserInfo> ValidateAsync(string idToken, CancellationToken ct = default);
 }
 
-/// <summary>Thông tin profile Google sau khi verify ID Token thành công (D9).</summary>
-public sealed record GoogleUserInfo(string Email, string Name, string? Picture, string ProviderKey);
+/// <summary>
+/// Thông tin profile Google sau khi verify ID Token thành công (D9).
+/// <paramref name="EmailVerified"/> = claim <c>email_verified</c> — chỉ tin <paramref name="Email"/> khi true.
+/// </summary>
+public sealed record GoogleUserInfo(string Email, string Name, string? Picture, string ProviderKey, bool EmailVerified);

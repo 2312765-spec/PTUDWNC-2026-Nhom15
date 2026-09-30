@@ -95,6 +95,78 @@ public sealed class GoogleLoginTests(PostgresApiFactory factory) : IClassFixture
         problem!.Type.Should().Be(ErrorCodes.AuthGoogleUnavailable);
     }
 
+    /// <summary>
+    /// Chống chiếm tài khoản: Google cho tạo tài khoản với email không phải Gmail mà chưa xác minh
+    /// (email_verified = false). Nếu vẫn liên kết theo email, kẻ tấn công vào được tài khoản
+    /// đăng ký thủ công của nạn nhân mà không cần mật khẩu.
+    /// </summary>
+    [Fact(DisplayName = "FR-AUTH-003/NFR-SEC: email Google chưa xác minh + trùng tài khoản có sẵn → 400, KHÔNG liên kết")]
+    public async Task GoogleLogin_UnverifiedEmail_ExistingAccount_Returns400AndDoesNotLink()
+    {
+        var email = $"victim-{Guid.NewGuid():N}@example.com";
+        var registerResponse = await _client.PostAsJsonAsync(
+            "/api/v1/auth/register",
+            new { email, password = "Str0ng!Pass1", displayName = "Nạn nhân" });
+        registerResponse.EnsureSuccessStatusCode();
+
+        var idToken = FakeGoogleTokenValidator.ForUser(email, "Kẻ tấn công", null, Guid.NewGuid().ToString(), emailVerified: false);
+
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/google", new { idToken });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        problem!.Type.Should().Be(ErrorCodes.AuthGoogleTokenInvalid);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
+        var userId = await db.Users.Where(u => u.Email == email).Select(u => u.Id).SingleAsync();
+        (await db.UserLogins.CountAsync(l => l.UserId == userId)).Should().Be(0);
+    }
+
+    [Fact(DisplayName = "FR-AUTH-003/NFR-SEC: email Google chưa xác minh, chưa có tài khoản → 400, không tạo user")]
+    public async Task GoogleLogin_UnverifiedEmail_NewAccount_Returns400()
+    {
+        var email = $"unverified-{Guid.NewGuid():N}@example.com";
+        var idToken = FakeGoogleTokenValidator.ForUser(email, "Ai đó", null, Guid.NewGuid().ToString(), emailVerified: false);
+
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/google", new { idToken });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
+        (await db.Users.CountAsync(u => u.Email == email)).Should().Be(0);
+    }
+
+    /// <summary>
+    /// Google ID (sub) là định danh bất biến; email trên Google có thể đổi. Phải tìm theo sub trước,
+    /// nếu không user đổi email Google sẽ bị tạo tài khoản thứ hai.
+    /// </summary>
+    [Fact(DisplayName = "FR-AUTH-003/D9: cùng Google ID nhưng email Google đã đổi → vẫn đăng nhập đúng tài khoản cũ")]
+    public async Task GoogleLogin_SameProviderKey_ChangedEmail_ReturnsSameAccount()
+    {
+        var providerKey = Guid.NewGuid().ToString();
+        var oldEmail = $"old-{Guid.NewGuid():N}@example.com";
+        var newEmail = $"new-{Guid.NewGuid():N}@example.com";
+
+        var first = await _client.PostAsJsonAsync(
+            "/api/v1/auth/google",
+            new { idToken = FakeGoogleTokenValidator.ForUser(oldEmail, "Người dùng", null, providerKey) });
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+        var firstBody = await first.Content.ReadFromJsonAsync<AuthResponseDto>(JsonOptions);
+
+        var second = await _client.PostAsJsonAsync(
+            "/api/v1/auth/google",
+            new { idToken = FakeGoogleTokenValidator.ForUser(newEmail, "Người dùng", null, providerKey) });
+
+        second.StatusCode.Should().Be(HttpStatusCode.OK);
+        var secondBody = await second.Content.ReadFromJsonAsync<AuthResponseDto>(JsonOptions);
+        secondBody!.User.Id.Should().Be(firstBody!.User.Id);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
+        (await db.Users.CountAsync(u => u.Email == newEmail)).Should().Be(0);
+    }
+
     [Fact(DisplayName = "D4: idToken rỗng → 400 VALIDATION_ERROR (không phải 422)")]
     public async Task GoogleLogin_EmptyIdToken_Returns400ValidationError()
     {

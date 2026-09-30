@@ -1,27 +1,46 @@
 using CulinaryBlog.API.Extensions;
+using CulinaryBlog.Application.Categories.DTOs;
+using CulinaryBlog.Application.Common.Models;
+using CulinaryBlog.Application.Recipes.Queries.SearchRecipes;
+using CulinaryBlog.Domain.Common;
+using MediatR;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 
 namespace CulinaryBlog.API.Endpoints;
 
 /// <summary>
-/// Module Công thức — SRS mục 8.3. Chủ sở hữu: <b>B</b> (queries) + <b>C</b> (commands).
+/// Module Công thức — SRS mục 8.3. Chủ sở hữu: B (queries) + C (commands).
 ///
 /// ⚠️ THỨ TỰ ĐĂNG KÝ ROUTE QUAN TRỌNG (D10):
 /// "/search" phải đăng ký TRƯỚC "/{slug}", nếu không request tới /recipes/search
-/// sẽ khớp vào route slug. SlugHelper cũng cấm sinh slug "search".
+/// sẽ khớp vào route slug.
 /// </summary>
 public static class RecipeEndpoints
 {
     public static void MapRecipeEndpoints(this IEndpointRouteBuilder app)
     {
-          var group = app.MapGroup("/api/v1/recipes").WithTags("Recipes");
+        var group = app.MapGroup("/api/v1/recipes").WithTags("Recipes");
+
         // ---- B: queries ----
         group.MapGet("/", () => NotImplementedResults.Pending("FR-RCP-001", "B"))
              .WithSummary("Danh sách — authorization filter + filter/sort/paging (FR-SRCH-002/003/004)");
-
-        // PHẢI đứng trước /{slug}
-        group.MapGet("/search", () => NotImplementedResults.Pending("FR-SRCH-001", "B"))
-             .WithSummary("Full-text search tiếng Việt — ?q= (tối thiểu 2 ký tự)");
-
+          
+        // FR-SRCH-001: Tìm kiếm toàn văn công thức (BẮT BUỘC ĐỨNG TRƯỚC /{slug})
+        group.MapGet("/search", async (
+            [AsParameters] SearchRecipesQuery query,
+            ISender mediator,
+            CancellationToken ct) =>
+        {
+            var result = await mediator.Send(query, ct);
+            return TypedResults.Ok(result);
+        })
+        .WithName("SearchRecipes")
+        .WithSummary("Full-text search tiếng Việt (FR-SRCH-001)")
+        .WithDescription("Tìm kiếm công thức nấu ăn bằng từ khóa tiếng Việt có dấu hoặc không dấu.")
+        .Produces<PagedResult<RecipeSummaryDto>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest);
+          
         group.MapGet("/{slug}", (string slug) => NotImplementedResults.Pending("FR-RCP-002", "B"))
              .WithSummary("Chi tiết theo slug — Draft/Archived: chỉ owner hoặc Admin (403)");
 

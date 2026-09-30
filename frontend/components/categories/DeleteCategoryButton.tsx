@@ -9,6 +9,8 @@ export interface DeleteCategoryButtonProps {
   categoryId: string;
   categoryName: string;
   recipeCount?: number;
+  /** Gọi sau khi xóa thành công. Mặc định router.refresh() (trang Server Component như /categories). */
+  onDeleted?: () => void;
 }
 
 /**
@@ -16,7 +18,12 @@ export interface DeleteCategoryButtonProps {
  * công thức). Chỉ Admin mới xóa được — backend tự chặn 403 qua Policies.Admin; nút này
  * chưa tự ẩn theo role vì FE chưa có Auth.js (xem TODO(S2 — A) trong lib/api-client.ts).
  */
-export function DeleteCategoryButton({ categoryId, categoryName, recipeCount = 0 }: DeleteCategoryButtonProps) {
+export function DeleteCategoryButton({
+  categoryId,
+  categoryName,
+  recipeCount = 0,
+  onDeleted,
+}: DeleteCategoryButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
@@ -33,7 +40,11 @@ export function DeleteCategoryButton({ categoryId, categoryName, recipeCount = 0
         description: `Danh mục "${categoryName}" đã được xóa.`,
       });
       setIsOpen(false);
-      router.refresh();
+      if (onDeleted) {
+        onDeleted();
+      } else {
+        router.refresh();
+      }
     } catch (err) {
       const problem = toProblemDetails(err);
       toast.show({

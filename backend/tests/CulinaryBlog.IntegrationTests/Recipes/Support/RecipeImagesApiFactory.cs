@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
+using Testcontainers.Redis;
 using Xunit;
 
 namespace CulinaryBlog.IntegrationTests.Recipes.Support;
@@ -28,11 +29,14 @@ public sealed class RecipeImagesApiFactory : WebApplicationFactory<Program>, IAs
         .WithPassword("postgres")
         .Build();
 
+    // Redis riêng — xem lý do ở PostgresApiFactory (không dùng chung Redis dev localhost:6379).
+    private readonly RedisContainer _redis = new RedisBuilder().Build();
+
     public FakeFileStorageService FileStorage { get; } = new();
 
     public async Task InitializeAsync()
     {
-        await _postgres.StartAsync();
+        await Task.WhenAll(_postgres.StartAsync(), _redis.StartAsync());
 
         // Truy cập Services buộc host build ngay bây giờ (ConfigureWebHost đọc
         // _postgres.GetConnectionString(), nên container phải start TRƯỚC dòng này).
@@ -48,6 +52,7 @@ public sealed class RecipeImagesApiFactory : WebApplicationFactory<Program>, IAs
     async Task IAsyncLifetime.DisposeAsync()
     {
         await _postgres.DisposeAsync().AsTask();
+        await _redis.DisposeAsync().AsTask();
         await base.DisposeAsync().AsTask();
     }
 
@@ -58,7 +63,7 @@ public sealed class RecipeImagesApiFactory : WebApplicationFactory<Program>, IAs
         // UseSetting (không phải ConfigureAppConfiguration) — xem lý do chi tiết ở
         // PostgresApiFactory: Program.cs đọc builder.Configuration[...] đồng bộ trước Build().
         builder.UseSetting("ConnectionStrings:Postgres", _postgres.GetConnectionString());
-        builder.UseSetting("ConnectionStrings:Redis", "localhost:6379");
+        builder.UseSetting("ConnectionStrings:Redis", _redis.GetConnectionString());
         builder.UseSetting("Jwt:Key", "test-only-khoa-ky-jwt-toi-thieu-32-ky-tu-cho-integration-test");
         builder.UseSetting("Jwt:Issuer", "CulinaryBlog");
         builder.UseSetting("Jwt:Audience", "CulinaryBlogClient");
