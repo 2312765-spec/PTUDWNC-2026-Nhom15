@@ -49,6 +49,10 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D31 | Bug: thêm child entity vào aggregate đã track | EF Core hiểu nhầm thành UPDATE thay vì INSERT |
 | D32 | Bug: `CategoryRepository.GetBySlugAsync` thiếu Include | `category.Recipes` luôn rỗng — FR-CAT-002 không hoạt động |
 | D34 | `RowVersion` trên PostgreSQL | **Code tự sinh** qua `RowVersionInterceptor` — `[Timestamp]` chỉ tự chạy trên SQL Server |
+| D36 | Đích export OpenTelemetry | Dev: **trace → Seq** (OTLP HTTP), metric không export · Prod: cả hai → Collector |
+| D37 | "EF Core traces" | **`Npgsql.OpenTelemetry`** (span theo câu SQL), không dùng gói EF Core beta |
+| D38 | Error rate | **5xx / exception** (`error.type`) — 4xx không tính lỗi server |
+| D39 | Metric recipe created/published | `RecipeMetrics` làm trước; **C gọi** trong handler FR-RCP-003/005 |
 
 ---
 
@@ -972,6 +976,94 @@ và có test trên PostgreSQL thật (`IntegrationTests/Common/ConcurrencyTests.
 
 **Sửa SRS:** mục 7.1 — `RowVersion`: bỏ "EF Core [Timestamp] annotation", thay bằng "giá trị do
 ứng dụng sinh mới mỗi lần ghi (xem D34)".
+
+---
+
+## D36 — OpenTelemetry: đích export theo môi trường
+
+> FR-OBS-003 (2026-09-30). Kế hoạch: `docs/plans/FR-OBS-003-tracing-metrics.md`. D35 đã được giữ
+> cho FR-AUTH-004 (A).
+
+**Nguồn mâu thuẫn:** SRS 3.7 (FR-OBS-003) ghi "Traces được export đến Seq (development)" và mục
+tích hợp ghi "Development: Seq OTLP", nhưng cùng FR đó yêu cầu metrics (request count, duration,
+error rate) mà **Seq không ingest metrics** — chỉ nhận OTLP logs và traces. Bảng tích hợp 2.x còn
+ghi Collector nhận "OTLP / gRPC", trong khi Seq nhận OTLP qua **HTTP/protobuf**.
+
+**Chốt:**
+
+- Mỗi signal (trace, metric) có exporter OTLP riêng, **chỉ đăng ký khi có endpoint** cấu hình
+  (`OTEL_EXPORTER_OTLP_ENDPOINT` hoặc biến riêng từng signal). Không có endpoint → instrumentation
+  vẫn chạy (TraceId vẫn vào log) nhưng không gửi đi đâu. Môi trường `Testing` không export.
+- **Development:** trace → Seq `http://localhost:5341/ingest/otlp/v1/traces`, protocol
+  `http/protobuf`. Metric **không export** (xem tại chỗ bằng `dotnet-counters` nếu cần).
+- **Production:** trace + metric → OTel Collector qua `OTEL_EXPORTER_OTLP_ENDPOINT` (gRPC mặc định),
+  Collector chuyển tiếp tới Grafana Tempo/Jaeger và Prometheus/Grafana.
+
+**Vì:** giữ đúng ý SRS (dev xem trace trong Seq cạnh log, lọc theo TraceId) mà không gửi metric vào
+một đích trả lỗi liên tục.
+
+**Sửa SRS:** FR-OBS-003 — "Traces được export đến Seq (development)" thêm "; metrics chỉ export ở
+production (Seq không nhận metrics)". Bảng tích hợp — Seq nhận OTLP qua HTTP/protobuf.
+
+---
+
+## D37 — "EF Core database traces" dùng `Npgsql.OpenTelemetry`
+
+> FR-OBS-003 (2026-09-30).
+
+**Nguồn mâu thuẫn:** SRS 3.7 yêu cầu "EF Core database operation traces" nhưng không nêu gói.
+`OpenTelemetry.Instrumentation.EntityFrameworkCore` vẫn ở bản **beta**; NFR-MAINT yêu cầu phụ thuộc
+ổn định.
+
+**Chốt:** dùng **`Npgsql.OpenTelemetry`** (`TracerProviderBuilder.AddNpgsql()`), bản stable cùng
+phiên bản với driver Npgsql. Mỗi câu lệnh SQL mà EF Core gửi xuống là một span (`db.statement` đã
+tham số hóa — **không chứa giá trị tham số**, không lộ dữ liệu người dùng hay hash token).
+
+**Vì:** CONS-006 chốt PostgreSQL là DBMS duy nhất nên instrumentation ở tầng driver phủ đủ mọi truy
+vấn EF Core (và cả Hangfire.PostgreSql), không cần gói beta.
+
+**Sửa SRS:** FR-OBS-003 — "EF Core database operation traces" → "database operation traces
+(Npgsql instrumentation)".
+
+---
+
+## D38 — Định nghĩa "error rate"
+
+> FR-OBS-003 (2026-09-30).
+
+**Nguồn mâu thuẫn:** SRS 3.7 liệt kê metric "error rate" nhưng không định nghĩa lỗi là gì.
+
+**Chốt:** theo OpenTelemetry semantic convention của ASP.NET Core — request **lỗi** là request có
+thuộc tính `error.type` trên histogram `http.server.request.duration`: status **5xx** hoặc exception
+chưa xử lý. **4xx không tính là lỗi server** (400 validation, 401 token sai, 404…). API không tự
+tính tỉ lệ; backend quan sát (Grafana) tính từ histogram có sẵn của ASP.NET Core.
+
+**Vì:** 4xx là lỗi của client, đưa vào error rate sẽ làm cảnh báo kêu mỗi khi có người gõ sai mật khẩu.
+
+**Sửa SRS:** FR-OBS-003 — "error rate" thêm "(tỉ lệ response 5xx)".
+
+---
+
+## D39 — Metric nghiệp vụ recipe created/published: tách phần đo và phần gọi
+
+> FR-OBS-003 (2026-09-30).
+
+**Nguồn mâu thuẫn:** FR-OBS-003 (D, slice S11) yêu cầu metric "recipe created/published count",
+nhưng handler tạo và publish recipe thuộc FR-RCP-003/005 (C, slice S5/S7) — chưa tồn tại lúc làm
+FR-OBS-003, và `Application/Recipes/Commands/**` do C sở hữu.
+
+**Chốt:**
+
+- D tạo `Application/Common/Observability/RecipeMetrics.cs` (meter `CulinaryBlog.Recipes`, counter
+  `culinaryblog.recipes.created`, `culinaryblog.recipes.published`) — chỉ dùng
+  `System.Diagnostics.Metrics` (BCL), không reference OpenTelemetry trong Application (CONS-001).
+- C gọi `RecordCreated()` trong handler FR-RCP-003 và `RecordPublished()` trong handler FR-RCP-005,
+  **sau khi `SaveChangesAsync` thành công** (không đếm lần publish bị D3 chặn hay lỗi DB).
+- FR-OBS-003 để trạng thái 🟡 trong `traceability.md` cho tới khi hai lời gọi đó có mặt.
+
+**Vì:** không sửa file của người khác, không chặn FR-OBS-003 chờ slice S5/S7.
+
+**Sửa SRS:** không cần.
 
 ---
 
