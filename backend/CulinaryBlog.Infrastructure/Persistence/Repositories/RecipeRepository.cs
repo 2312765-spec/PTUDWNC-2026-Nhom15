@@ -103,9 +103,11 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
         {
             var raw = searchTerm.Trim();
 
-            // Làm sạch từ khóa để tránh lỗi cú pháp tsquery
-            var cleanTerms = System.Text.RegularExpressions.Regex.Replace(raw, @"['""&!|:()\\*]", " ")
-                .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            // Làm sạch từ khóa để tránh lỗi cú pháp tsquery: chỉ giữ chữ + số (kể cả chữ có dấu).
+            // Danh sách đen ký tự cũ bỏ sót toán tử "<->", "<N>" của tsquery → to_tsquery ném lỗi → 500.
+            var cleanTerms = System.Text.RegularExpressions.Regex.Split(raw, @"[^\p{L}\p{N}]+")
+                .Where(t => t.Length > 0)
+                .ToArray();
 
             if (cleanTerms.Length > 0)
             {

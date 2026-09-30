@@ -29,4 +29,21 @@ public sealed class SearchRecipesTests
 
         result.IsValid.Should().BeTrue();
     }
+
+    [Fact(DisplayName = "FR-SRCH-004: pageSize > 50 không bị validator chặn (handler clamp)")]
+    public void Validator_PageSizeOverMax_Passes()
+    {
+        var result = _validator.Validate(new SearchRecipesQuery("pho", 1, 100));
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact(DisplayName = "FR-SRCH-001/D8: cache key dạng recipes:search:{hash}, không chứa từ khóa thô")]
+    public void CacheKey_IsHashed()
+    {
+        var key = new SearchRecipesQuery("Phở Bò").CacheKey;
+
+        key.Should().MatchRegex("^recipes:search:[0-9a-f]{64}$");
+        key.Should().Be(new SearchRecipesQuery("  phở bò ").CacheKey);
+    }
 }

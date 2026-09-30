@@ -10,8 +10,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using CulinaryBlog.Application.Categories.Commands.DeleteCategory;
-using CulinaryBlog.Domain.Common;
-using CulinaryBlog.Application.Recipes.Queries.SearchRecipes;
 namespace CulinaryBlog.API.Endpoints;
 
 /// <summary>

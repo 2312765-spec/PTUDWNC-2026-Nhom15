@@ -18,7 +18,8 @@ public sealed class SearchRecipesQueryValidator : AbstractValidator<SearchRecipe
         RuleFor(x => x.Page)
             .GreaterThanOrEqualTo(1).WithMessage("Số trang phải lớn hơn hoặc bằng 1.");
 
+        // Không chặn cận trên: pageSize > 50 được handler clamp về PagedResult.MaxPageSize, không trả lỗi.
         RuleFor(x => x.PageSize)
-            .InclusiveBetween(1, 50).WithMessage("Kích thước trang phải từ 1 đến 50.");
+            .GreaterThanOrEqualTo(1).WithMessage("Kích thước trang phải lớn hơn hoặc bằng 1.");
     }
 }

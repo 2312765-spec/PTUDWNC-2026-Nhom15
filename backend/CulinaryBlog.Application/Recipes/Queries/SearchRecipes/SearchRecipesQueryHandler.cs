@@ -13,7 +13,7 @@ public sealed class SearchRecipesQueryHandler(
     {
         var rawQuery = (request.Q ?? string.Empty).Trim();
         var page = request.Page < 1 ? 1 : request.Page;
-        var pageSize = Math.Clamp(request.PageSize, 1, 50);
+        var pageSize = Math.Clamp(request.PageSize, 1, PagedResult<RecipeSummaryDto>.MaxPageSize);
 
         var (recipes, totalCount) = await recipeRepository.SearchPublishedRecipesAsync(
             rawQuery,
@@ -34,7 +34,7 @@ public sealed class SearchRecipesQueryHandler(
                 r.Title,
                 r.Slug,
                 r.Description,
-                primaryImage?.ToString(), // Lấy chuỗi đường dẫn ảnh
+                primaryImage?.OriginalUrl,
                 r.Status.ToString(),
                 r.PrepTime,
                 r.CookTime,
