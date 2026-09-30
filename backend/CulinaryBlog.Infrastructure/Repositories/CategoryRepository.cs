@@ -1,4 +1,5 @@
 ﻿using CulinaryBlog.Domain.Entities;
+using CulinaryBlog.Domain.Enums;
 using CulinaryBlog.Domain.Interfaces;
 using CulinaryBlog.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -32,13 +33,11 @@ public sealed class CategoryRepository : ICategoryRepository
     }
 
     /// <summary>
-    /// FR-CAT-002: Lấy chi tiết danh mục theo Slug kèm công thức và ảnh
+    /// FR-CAT-002: Lấy chi tiết danh mục theo Slug
     /// </summary>
     public async Task<Category?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Categories
-            .Include(c => c.Recipes.Where(r => !r.IsDeleted))
-                .ThenInclude(r => r.Images)
             .FirstOrDefaultAsync(c => c.Slug == slug && !c.IsDeleted, cancellationToken);
     }
 
@@ -63,10 +62,28 @@ public sealed class CategoryRepository : ICategoryRepository
     /// <summary>
     /// Kiểm tra tồn tại danh mục khác có cùng tên (khi cập nhật)
     /// </summary>
-    public async Task<bool> ExistsByNameExcludingIdAsync(string name, Guid excludeId, CancellationToken cancellationToken = default)
+    public async Task<bool> ExistsByNameAsync(string name, Guid excludeId, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Categories
             .AnyAsync(c => c.Name.ToLower() == name.ToLower() && c.Id != excludeId && !c.IsDeleted, cancellationToken);
+    }
+
+    /// <summary>
+    /// Kiểm tra danh mục có chứa recipe nào chưa xóa mềm không (D2 / FR-CAT-005)
+    /// </summary>
+    public async Task<bool> HasRecipesAsync(Guid categoryId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Recipes
+            .AnyAsync(r => r.CategoryId == categoryId && !r.IsDeleted, cancellationToken);
+    }
+
+    /// <summary>
+    /// Đếm tổng số recipe thuộc category chưa xóa (kể cả Draft, Archived) cho DeleteCategoryCommand
+    /// </summary>
+    public async Task<int> GetTotalRecipeCountAsync(Guid categoryId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Recipes
+            .CountAsync(r => r.CategoryId == categoryId && !r.IsDeleted, cancellationToken);
     }
 
     /// <summary>
@@ -75,7 +92,7 @@ public sealed class CategoryRepository : ICategoryRepository
     public async Task<int> GetPublishedRecipeCountAsync(Guid categoryId, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Recipes
-            .CountAsync(r => r.CategoryId == categoryId && r.Status == Domain.Enums.RecipeStatus.Published && !r.IsDeleted, cancellationToken);
+            .CountAsync(r => r.CategoryId == categoryId && r.Status == RecipeStatus.Published && !r.IsDeleted, cancellationToken);
     }
 
     /// <summary>
@@ -90,13 +107,13 @@ public sealed class CategoryRepository : ICategoryRepository
     }
 
     /// <summary>
-    /// Lấy tất cả danh mục kèm theo Recipes đã xuất bản
+    /// Lấy tất cả danh mục kèm theo Recipes đã xuất bản cho GetCategoriesQueryHandler
     /// </summary>
     public async Task<IReadOnlyList<Category>> GetAllWithRecipesAsync(CancellationToken cancellationToken = default)
     {
         return await _dbContext.Categories
             .Where(c => !c.IsDeleted)
-            .Include(c => c.Recipes.Where(r => !r.IsDeleted && r.Status == Domain.Enums.RecipeStatus.Published))
+            .Include(c => c.Recipes.Where(r => !r.IsDeleted && r.Status == RecipeStatus.Published))
                 .ThenInclude(r => r.Images)
             .OrderBy(c => c.Name)
             .ToListAsync(cancellationToken);
@@ -113,11 +130,4 @@ public sealed class CategoryRepository : ICategoryRepository
         category.SoftDelete();
         _dbContext.Categories.Update(category);
     }
-    public async Task<int> GetTotalRecipeCountAsync(Guid categoryId, CancellationToken cancellationToken = default)
-{
-    // Đếm tất cả recipe thuộc category chưa bị xóa
-    return await _dbContext.Recipes
-        .Where(r => r.CategoryId == categoryId && !r.IsDeleted)
-        .CountAsync(cancellationToken);
-}
 }
