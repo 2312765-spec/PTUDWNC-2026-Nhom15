@@ -167,10 +167,12 @@ var app = builder.Build();
 // 1. CorrelationId
 app.UseMiddleware<CorrelationIdMiddleware>();
 
-// 2. RFC 7807 Global Exception Handling
-app.UseMiddleware<GlobalExceptionMiddleware>();
-
+// 2. Request log (FR-OBS-002) — PHẢI nằm NGOÀI GlobalExceptionMiddleware: đặt bên trong thì nó thấy
+//    exception đang bay qua (trước khi được đổi thành 400/404…) và log mọi lỗi nghiệp vụ thành 500/Error.
 app.UseSerilogRequestLogging(options => options.GetLevel = RequestLogLevel.Get);
+
+// 3. RFC 7807 Global Exception Handling
+app.UseMiddleware<GlobalExceptionMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {

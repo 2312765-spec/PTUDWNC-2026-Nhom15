@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
+using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using CulinaryBlog.API.Logging;
 using CulinaryBlog.API.Middleware;
 using CulinaryBlog.Application.Common.Interfaces;
@@ -71,6 +73,27 @@ public sealed class StructuredLoggingTests(CapturingLogApiFactory factory) : ICl
         ScalarValue(log, "RequestPath").Should().Be("/health/live");
         ScalarValue(log, "StatusCode").Should().Be(200);
         log.Properties.Should().ContainKey("Elapsed");
+    }
+
+    [Fact(DisplayName = "FR-OBS-002: lỗi 4xx do exception -> request log ghi đúng status client nhận, không phải 500/Error")]
+    public async Task HandledException_RequestLogHasFinalStatus()
+    {
+        // ValidationBehavior ném ValidationException → GlobalExceptionMiddleware đổi thành 400.
+        // Request log phải thấy 400 (status thật), không thấy exception đang bay qua.
+        var correlationId = Guid.NewGuid().ToString();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login")
+        {
+            Content = JsonContent.Create(new { email = "", password = "" }),
+        };
+        request.Headers.Add(CorrelationIdMiddleware.HeaderName, correlationId);
+
+        var response = await factory.CreateClient().SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var log = await factory.WaitForRequestLogAsync(correlationId);
+        ScalarValue(log, "StatusCode").Should().Be(400);
+        log.Level.Should().NotBe(LogEventLevel.Error);
+        log.Exception.Should().BeNull();
     }
 
     [Theory(DisplayName = "FR-OBS-002: mức log của request HTTP theo status/thời gian/exception")]
