@@ -33,11 +33,13 @@ public sealed class CategoryRepository : ICategoryRepository
     }
 
     /// <summary>
-    /// FR-CAT-002: Lấy chi tiết danh mục theo Slug
+    /// FR-CAT-002: Lấy chi tiết danh mục theo Slug kèm theo Recipes và Images
     /// </summary>
     public async Task<Category?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Categories
+            .Include(c => c.Recipes.Where(r => !r.IsDeleted))
+                .ThenInclude(r => r.Images)
             .FirstOrDefaultAsync(c => c.Slug == slug && !c.IsDeleted, cancellationToken);
     }
 

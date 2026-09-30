@@ -54,7 +54,7 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
         return await GetByIdWithImagesAsync(id, ct);
     }
 
-    // FR-CAT-002: Lấy công thức theo danh mục
+    // FR-CAT-002: Lấy công thức theo danh mục (hỗ trợ cả Published và Draft theo quyền)
     public async Task<(IReadOnlyList<Recipe> Items, int TotalCount)> GetPagedByCategoryIdAsync(
         Guid categoryId, 
         RecipeStatus? status, 
@@ -67,13 +67,10 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
             .Include(r => r.Images)
             .Where(r => r.CategoryId == categoryId && !r.IsDeleted);
 
+        // Nếu có truyền status cụ thể (ví dụ: Published) thì lọc theo status đó
         if (status.HasValue)
         {
             query = query.Where(r => r.Status == status.Value);
-        }
-        else
-        {
-            query = query.Where(r => r.Status == RecipeStatus.Published);
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
