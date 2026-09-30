@@ -34,6 +34,6 @@ public sealed class GoogleTokenValidator(IConfiguration configuration) : IGoogle
             throw new BadGatewayException(ErrorCodes.AuthGoogleUnavailable, "Không thể xác thực với Google lúc này.");
         }
 
-        return new GoogleUserInfo(payload.Email, payload.Name, payload.Picture, payload.Subject);
+        return new GoogleUserInfo(payload.Email, payload.Name, payload.Picture, payload.Subject, payload.EmailVerified);
     }
 }
