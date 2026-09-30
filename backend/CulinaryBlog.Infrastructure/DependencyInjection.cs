@@ -30,12 +30,10 @@ public static class DependencyInjection
                             ?? configuration.GetConnectionString("Postgres")
                             ?? "Host=localhost;Port=5432;Database=culinaryblog;Username=postgres;Password=postgres";
 
+        // KHÔNG tắt PendingModelChangesWarning: nó là chốt chặn duy nhất khi code entity/config lệch
+        // khỏi migration — lần trước bị tắt, model trôi xa DB đến mức migration tự sinh sẽ DROP 11 cột.
         services.AddDbContext<CulinaryBlogDbContext>(options =>
-{
-    options.UseNpgsql(connectionString);
-    options.ConfigureWarnings(w =>
-        w.Ignore(RelationalEventId.PendingModelChangesWarning));
-});
+            options.UseNpgsql(connectionString));
 
         // 1. Cấu hình ASP.NET Core Identity
         services.AddIdentityCore<ApplicationUser>(options =>

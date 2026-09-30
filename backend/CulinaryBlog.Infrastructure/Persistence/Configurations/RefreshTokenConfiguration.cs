@@ -1,4 +1,5 @@
 using CulinaryBlog.Domain.Entities;
+using CulinaryBlog.Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -23,11 +24,11 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
             .IsRequired()
             .HasMaxLength(450);
 
+        // D20 — SHA-256 dạng hex: đúng 64 ký tự (JwtService.HashToken).
         builder.Property(rt => rt.TokenHash)
             .IsRequired()
-            .HasMaxLength(256);
+            .HasMaxLength(64);
 
-        // Ràng buộc Unique Index cho TokenHash
         builder.HasIndex(rt => rt.TokenHash)
             .IsUnique();
 
@@ -37,10 +38,19 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
         builder.Property(rt => rt.CreatedAt)
             .IsRequired();
 
+        // 45 = độ dài tối đa của địa chỉ IPv6 dạng chuỗi.
         builder.Property(rt => rt.CreatedByIp)
-            .HasMaxLength(50);
+            .HasMaxLength(45);
 
         builder.Property(rt => rt.ReplacedByTokenHash)
-            .HasMaxLength(256);
+            .HasMaxLength(64);
+
+        // Xóa user → xóa luôn refresh token của user đó, không để token mồ côi.
+        builder.HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey(rt => rt.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasIndex(rt => rt.UserId);
     }
 }
