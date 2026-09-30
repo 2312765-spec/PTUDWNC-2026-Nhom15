@@ -85,7 +85,7 @@ public static class CategoryEndpoints
         .WithName("UpdateCategory")
         .WithSummary("Cập nhật thông tin danh mục (FR-CAT-004)")
         .WithDescription("Cập nhật Tên và Mô tả của danh mục. Theo Quyết định D10, slug được giữ nguyên để không làm gãy liên kết SEO.")
-       .RequireAuthorization(Policies.Admin)
+        .RequireAuthorization(Policies.Admin)
         .Produces<CategoryDto>(StatusCodes.Status200OK)
         .ProducesValidationProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
