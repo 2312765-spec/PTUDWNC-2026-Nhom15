@@ -86,4 +86,51 @@ public sealed class IdentityService(UserManager<ApplicationUser> userManager) : 
 
         return new AuthenticatedUser(user.Id, user.Email!, user.DisplayName, user.AvatarUrl, user.Bio, [.. roles]);
     }
+
+    public async Task<(AuthenticatedUser User, bool IsNewUser)> LoginOrRegisterWithGoogleAsync(
+        string email,
+        string displayName,
+        string? avatarUrl,
+        string providerKey,
+        CancellationToken ct = default)
+    {
+        var loginInfo = new UserLoginInfo("Google", providerKey, "Google");
+        var user = await userManager.FindByEmailAsync(email);
+
+        if (user is not null)
+        {
+            // D9 — email đã đăng ký thủ công (hoặc Google) trước đó: LIÊN KẾT, không tạo
+            // tài khoản thứ hai. displayName/avatarUrl của tài khoản hiện có giữ nguyên.
+            var existingLogins = await userManager.GetLoginsAsync(user);
+            if (existingLogins.All(l => l.LoginProvider != loginInfo.LoginProvider))
+            {
+                await userManager.AddLoginAsync(user, loginInfo);
+            }
+
+            var existingRoles = await userManager.GetRolesAsync(user);
+            return (new AuthenticatedUser(user.Id, user.Email!, user.DisplayName, user.AvatarUrl, user.Bio, [.. existingRoles]), false);
+        }
+
+        // D9, D5 — chưa có tài khoản: tự tạo, displayName/avatarUrl lấy từ Google profile,
+        // role Author mặc định. Không có password (login duy nhất qua Google).
+        var newUser = new ApplicationUser
+        {
+            UserName = email,
+            Email = email,
+            DisplayName = displayName,
+            AvatarUrl = avatarUrl,
+        };
+
+        var createResult = await userManager.CreateAsync(newUser);
+        if (!createResult.Succeeded)
+        {
+            var detail = string.Join(" ", createResult.Errors.Select(e => e.Description));
+            throw new BadRequestException(ErrorCodes.ValidationError, detail);
+        }
+
+        await userManager.AddToRoleAsync(newUser, Roles.Author);
+        await userManager.AddLoginAsync(newUser, loginInfo);
+
+        return (new AuthenticatedUser(newUser.Id, newUser.Email!, newUser.DisplayName, newUser.AvatarUrl, newUser.Bio, [Roles.Author]), true);
+    }
 }

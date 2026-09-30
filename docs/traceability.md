@@ -14,8 +14,8 @@
 > Tóm tắt: **A** = FR-AUTH + FR-JOB-001 · **B** = FR-CAT + FR-RCP-001/002 + FR-SRCH ·
 > **C** = FR-RCP-003/004/005/006/007/009/010 · **D** = FR-RCP-008 + FR-FILE + FR-JOB-002/003 + FR-OBS.
 
-**Tiến độ:** 8 / 34 FR (24%) — A 2/8 · B 3/11 · C 0/7 · D 3/8 (FR-RCP-008, FR-FILE-001/002 —
-FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
+**Tiến độ:** 11 / 34 FR (32%) — A 2/8 · B 4/11 (CAT-001→004) · C 0/7 ·
+D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
 
 ---
 
@@ -23,9 +23,9 @@ FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
 
 | FR | Tên | Ưu tiên | Endpoint | Slice | Application Layer | Infrastructure / Domain | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|---|---|
-| FR-AUTH-001 | Đăng ký tài khoản | M | `POST /api/v1/auth/register` → 201 | S2 | `RegisterCommand(+Handler,+Validator)` | `ApplicationUser` (Infrastructure, D23), `JwtService`, `RefreshToken` (Domain, D26) | `Auth/RegisterTests.cs`, `Auth/RegisterCommand{Validator,Handler}Tests.cs`, `Domain/RefreshTokenTests.cs` | D5, D20, D23, D24, D25, D26, D29 | ✅ |
-| FR-AUTH-002 | Đăng nhập email/password | M | `POST /api/v1/auth/login` → 200 | S2 | `LoginCommand(+Handler,+Validator)` | `IdentityService.ValidateCredentialsAsync` (lockout + IsActive) | `Auth/LoginTests.cs`, `Auth/LoginCommand{Validator,Handler}Tests.cs` | D4, D5, D11, D17, D20, D24, D26 | ✅ |
-| FR-AUTH-003 | Đăng nhập Google OAuth | S | `POST /api/v1/auth/google` → 200 | S9 | `GoogleLoginCommand(+Handler)` | Google ID Token verify, Auth.js v5 (FE) | `Auth/GoogleLoginTests.cs` | **D9**, D5 | ⬜ |
+| FR-AUTH-001 | Đăng ký tài khoản | M | `POST /api/v1/auth/register` → 201 | S2 | `RegisterCommand(+Handler,+Validator)` | `ApplicationUser` (Infrastructure, D23), `JwtService`, `RefreshToken` (Domain, D26) | `Auth/RegisterTests.cs`, `Auth/RegisterCommand{Validator,Handler}Tests.cs`, `Domain/RefreshTokenTests.cs` · FE: `/auth/register` + Auth.js v5 provider `register` (`auth.ts`, `lib/auth/credentials.ts`, `app/auth/register/actions.ts`) — `__tests__/lib/auth/{schemas,api,api.server,credentials}.test.ts`, `__tests__/app/auth/register/{RegisterForm,page,actions}.test.ts(x)` (44 test) | D5, D20, D23, D24, D25, D26, D29 | ✅ (E2E Playwright chưa có) |
+| FR-AUTH-002 | Đăng nhập email/password | M | `POST /api/v1/auth/login` → 200 | S2 | `LoginCommand(+Handler,+Validator)` | `IdentityService.ValidateCredentialsAsync` (lockout + IsActive) | `Auth/LoginTests.cs`, `Auth/LoginCommand{Validator,Handler}Tests.cs` · FE: `/auth/login` + Auth.js v5 provider `login` (`auth.ts`, `lib/auth/credentials.ts`, `lib/auth/callback-url.ts`, `app/auth/login/actions.ts`) — `__tests__/lib/auth/{schemas,api,api.server,credentials,callback-url}.test.ts`, `__tests__/app/auth/login/{LoginForm,page,actions}.test.ts(x)` (41 test) | D4, D5, D11, D17, D20, D24, D26 | ✅ (E2E Playwright chưa có) |
+| FR-AUTH-003 | Đăng nhập Google OAuth | S | `POST /api/v1/auth/google` → 200 | S9 | `GoogleLoginCommand(+Handler,+Validator)` | `IGoogleTokenValidator`/`GoogleTokenValidator`, `IdentityService.LoginOrRegisterWithGoogleAsync` · FE: nút "Tiếp tục với Google" trên `/auth/login` + `/auth/register`, Auth.js v5 provider `google` (`auth.ts`, `lib/auth/credentials.ts`, `app/auth/GoogleSignInButton.tsx`) | `Auth/GoogleLoginTests.cs` · `__tests__/lib/auth/{api,credentials}.test.ts`, `__tests__/app/auth/login/{LoginForm,page}.test.tsx`, `__tests__/app/auth/register/RegisterForm.test.tsx` (13 test) | **D9**, D5, D12, **D33** | ✅ (E2E Playwright chưa có) |
 | FR-AUTH-004 | Làm mới access token | M | `POST /api/v1/auth/refresh` → 200 | S2 | `RefreshTokenCommand(+Handler)` | `RefreshTokenRepository` (rotation + reuse detection) | `Auth/RefreshTokenTests.cs` | **D20**, D11 | ⬜ |
 | FR-AUTH-005 | Đăng xuất / revoke | M | `POST /api/v1/auth/logout` → 204 | S2 | `LogoutCommand(+Handler)` | `RefreshTokenRepository` | `Auth/LogoutTests.cs` | D20 | ⬜ |
 | FR-AUTH-006 | Xem hồ sơ cá nhân | S | `GET /api/v1/auth/me` → 200 | S2 | `GetCurrentUserQuery(+Handler)` | `ICurrentUser` | `Auth/ProfileTests.cs` | **D5**, D12 | ⬜ |
@@ -144,16 +144,22 @@ FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
 
 | FR | Tên | Gọi từ đâu | Slice | Hiện thực | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|
-| FR-FILE-001 | Upload file lên MinIO | FR-RCP-008 | S8 | `IFileStorageService.UploadAsync()` → `MinioFileStorageService` (AWSSDK.S3). Bucket `culinary-blog` (public-read), key `recipes/{recipeId}/{Guid}{ext}` (`ObjectKey`), max 5MB, magic bytes (`ImageSignature`) | `UnitTests/Images/{ImageSignatureTests,ObjectKeyTests}.cs`. **`MinioFileStorageService` chạy thật (S3 client) chưa có test riêng** — `ImagesTests.cs` dùng `FakeFileStorageService`, chỉ xác nhận Command/Handler/Domain/endpoint | D16 | ✅* |
-| FR-FILE-002 | Xóa file khỏi MinIO | **Chỉ** từ `DELETE /recipes/{id}/images/{imageId}` | S8 | `IFileStorageService.DeleteAsync()`. Idempotent (bắt `AmazonS3Exception` 404). Enqueue qua `IBackgroundJobService.EnqueueDeleteImageFile()` — Hangfire retry 3× mặc định | Như trên (`ImagesTests.cs` xác nhận enqueue qua Fake, chưa test job Hangfire chạy thật) | **D1** | ✅* |
+| FR-FILE-001 | Upload file lên MinIO | FR-RCP-008 | S8 | `IFileStorageService.UploadAsync()` → `MinioFileStorageService` (AWSSDK.S3). Bucket `culinary-blog` (public-read), key `recipes/{recipeId}/{Guid}{ext}` (`ObjectKey`), max 5MB, magic bytes (`ImageSignature`) | `UnitTests/Images/{ImageSignatureTests,ObjectKeyTests}.cs` + `IntegrationTests/Files/MinioFileStorageServiceTests.cs` (S3 server thật qua Testcontainers — `adobe/s3mock`, xem ghi chú dưới bảng — xác nhận `PutObjectAsync` lưu đúng bytes/content-type). `ImagesTests.cs` (dùng `FakeFileStorageService`) xác nhận Command/Handler/Domain/endpoint | D16 | ✅ |
+| FR-FILE-002 | Xóa file khỏi MinIO | **Chỉ** từ `DELETE /recipes/{id}/images/{imageId}` | S8 | `IFileStorageService.DeleteAsync()`. Idempotent (bắt `AmazonS3Exception` 404). Enqueue qua `IBackgroundJobService.EnqueueDeleteImageFile()` — Hangfire retry 3× mặc định | `IntegrationTests/Files/MinioFileStorageServiceTests.cs` xác nhận `DeleteObjectAsync` thật (xóa object tồn tại + idempotent khi object không tồn tại). `ImagesTests.cs` xác nhận enqueue qua Fake — **job Hangfire chạy thật (worker thực thi `EnqueueDeleteImageFile`) chưa có test riêng**, thuộc phạm vi FR-JOB | **D1** | ✅ |
 
 > **D1 thu hẹp phạm vi FR-FILE-002:** vì Recipe là soft delete, không có job xóa hàng loạt
 > file khi xóa recipe. FR-FILE-002 chỉ chạy khi Author xóa **một ảnh cụ thể**.
 >
-> **\* Còn thiếu:** test tích hợp `MinioFileStorageService` với MinIO thật (Testcontainers hoặc
-> docker-compose) — việc gọi S3 API thật (`PutObjectAsync`/`DeleteObjectAsync`) chưa được xác
-> nhận bằng test tự động, chỉ được review bằng mắt. Cần làm trước khi coi FR-FILE-001/002 "xong"
-> theo đúng nghĩa `docs/CLAUDE.md` mục 7 (integration test mỗi endpoint).
+> **Test S3 thật** (`MinioFileStorageServiceTests.cs`, cập nhật 2026-09-28): PR #17 CI đỏ vì
+> `quay.io/minio/minio` (và `minio/minio` trên Docker Hub, kể cả tag cũ) trả 401 khi pull ẩn danh
+> — MinIO Inc. đã khóa phân phối image công khai trên **cả hai** registry (không phải lỗi CI, xác
+> nhận lại bằng `docker pull` trực tiếp). Đổi sang `adobe/s3mock` (mã nguồn mở, Adobe, vẫn pull tự
+> do, chỉ hỗ trợ path-style — khớp `ForcePathStyle=true` sẵn có) làm S3 server thật thay thế, qua
+> helper dùng chung `IntegrationTests/Common/S3MockContainer.cs`. Gọi thẳng `MinioFileStorageService`
+> vào server thật, xác nhận `PutObjectAsync`/`DeleteObjectAsync` — đóng khoảng trống trước đây (chỉ
+> có review bằng mắt, chưa có test tự động cho tầng Infrastructure thật). **Lưu ý cho D:**
+> `docker-compose.yml` (dev/prod thật) vẫn dùng `quay.io/minio/minio:latest` — nếu registry đó
+> cũng chặn máy dev/CI của nhóm, cần xử lý riêng ở đó (ngoài phạm vi test này).
 
 ---
 
@@ -183,8 +189,8 @@ FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
 
 | FR | Tên | Endpoint / Cơ chế | Slice | Hiện thực | Test | TT |
 |---|---|---|---|---|---|---|
-| FR-OBS-001 | Health Check | `GET /health` · `/health/live` · `/health/ready` | S1 | `AspNetCore.HealthChecks.NpgSql` + `.Redis` + `.Minio`. Live = process; Ready = DB + Redis | `Observability/HealthTests.cs` | ⬜ |
-| FR-OBS-002 | Structured Logging | Serilog + `CorrelationIdMiddleware` | S1 | Mọi request log `CorrelationId` (X-Correlation-ID), method/path/status/elapsed/UserId. `LoggingBehavior` log mọi Command/Query. Cảnh báo > 500ms | `Observability/LoggingTests.cs` | ⬜ |
+| FR-OBS-001 | Health Check | `GET /health` · `/health/live` · `/health/ready` | S1 | `AspNetCore.HealthChecks.NpgSql` + `.Redis` + `.Aws.S3` (MinIO qua S3 API, không có gói `.Minio` riêng). `/health` tổng hợp cả 3; Live = process; Ready = chỉ DB + Redis (MinIO không gắn tag `ready`, đúng SRS) | `Observability/HealthTests.cs` (3 test: tất cả khỏe qua Testcontainers Postgres+MinIO) + `HealthReadyDegradedTests` trong cùng file (1 test lỗi: DB chết → 503) | ✅ |
+| FR-OBS-002 | Structured Logging | Serilog + `CorrelationIdMiddleware` | S1 | Mọi request log `CorrelationId` (X-Correlation-ID), method/path/status/elapsed/UserId. `LoggingBehavior` log mọi Command/Query. Cảnh báo > 500ms | `Observability/LoggingTests.cs` (CorrelationId: tự sinh, giữ nguyên khi client gửi, có cả trên 404) + `UnitTests/Observability/LoggingBehaviorTests.cs` (Information/Warning >500ms/Error+rethrow) | ✅ |
 | FR-OBS-003 | Tracing & Metrics | OpenTelemetry → OTLP | S11 | HTTP traces, EF Core traces, custom metrics (recipe created/published). `Activity.TraceId` gắn vào structured log | `Observability/TracingTests.cs` | ⬜ |
 
 ---
@@ -230,14 +236,14 @@ FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
 
 | Module | Tổng FR | ✅ | 🟡 | ⬜ |
 |---|---|---|---|---|
-| FR-AUTH | 7 | 0 | 0 | 7 |
-| FR-CAT | 5 | 0 | 0 | 5 |
-| FR-RCP | 10 | 0 | 0 | 10 |
+| FR-AUTH | 7 | 2 | 0 | 5 |
+| FR-CAT | 5 | 4 | 0 | 1 |
+| FR-RCP | 10 | 1 | 0 | 9 |
 | FR-SRCH | 4 | 0 | 0 | 4 |
-| FR-FILE | 2 | 0 | 0 | 2 |
+| FR-FILE | 2 | 2 | 0 | 0 |
 | FR-JOB | 3 | 0 | 0 | 3 |
-| FR-OBS | 3 | 0 | 0 | 3 |
-| **Tổng** | **34** | **0** | **0** | **34** |
+| FR-OBS | 3 | 2 | 0 | 1 |
+| **Tổng** | **34** | **11** | **0** | **23** |
 
 > Không còn FR nào bị chặn — cả 22 mâu thuẫn trong SRS đã chốt tại `decisions.md`.
 > Cột **Quyết định** ở mỗi bảng cho biết FR đó phải đọc mục D nào trước khi code.
