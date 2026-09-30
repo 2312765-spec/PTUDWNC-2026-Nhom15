@@ -1,6 +1,7 @@
 using System.Text;
 using CulinaryBlog.API.Endpoints;
 using CulinaryBlog.API.Extensions;
+using CulinaryBlog.API.Logging;
 using CulinaryBlog.API.Middleware;
 using CulinaryBlog.Application;
 using CulinaryBlog.Application.Common.Interfaces;
@@ -17,6 +18,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Scalar.AspNetCore;
 using Serilog;
+using Serilog.Core;
 using System.Security.Claims;
 // ---------------------------------------------------------------------------
 // Culinary Blog API — .NET 10 Minimal APIs (CONS-003: KHÔNG dùng MVC Controllers)
@@ -26,6 +28,9 @@ using System.Security.Claims;
 var builder = WebApplication.CreateBuilder(args);
 
 // ---- Serilog (CONS-010, FR-OBS-002) --------------------------------------
+// ReadFrom.Services lấy mọi ILogEventEnricher/ILogEventSink đăng ký trong DI.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<ILogEventEnricher, UserIdEnricher>();
 builder.Host.UseSerilog((context, services, config) => config
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)
@@ -165,7 +170,7 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 // 2. RFC 7807 Global Exception Handling
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
-app.UseSerilogRequestLogging();
+app.UseSerilogRequestLogging(options => options.GetLevel = RequestLogLevel.Get);
 
 if (app.Environment.IsDevelopment())
 {
