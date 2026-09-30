@@ -114,14 +114,18 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
                 // Xây dựng tsquery dạng prefix matching theo SRS: "pho:* & bo:*"
                 var tsQueryString = string.Join(" & ", cleanTerms.Select(t => $"{t}:*"));
 
+                // Dựng pattern ILIKE phía C#: nội suy chuỗi bên trong lambda của .All() không dịch được sang SQL
+                // (EF ném "Translation of method 'string.Format' failed" → mọi request search trả 500).
+                var likePatterns = cleanTerms.Select(t => $"%{t}%").ToArray();
+
                 // Dùng EF.Functions của PostgreSQL với unaccent để tìm kiếm không dấu ("pho" ra "Phở")
                 // Kết hợp cả Full-Text Search và ILike unaccent để đạt độ chính xác 100%
                 baseQuery = baseQuery.Where(r =>
                     EF.Functions.ToTsVector("simple", EF.Functions.Unaccent(r.Title + " " + (r.Description ?? "")))
                         .Matches(EF.Functions.ToTsQuery("simple", EF.Functions.Unaccent(tsQueryString)))
-                    || cleanTerms.All(t => 
-                        EF.Functions.ILike(EF.Functions.Unaccent(r.Title), $"%{t}%") ||
-                        (r.Description != null && EF.Functions.ILike(EF.Functions.Unaccent(r.Description), $"%{t}%"))));
+                    || likePatterns.All(p =>
+                        EF.Functions.ILike(EF.Functions.Unaccent(r.Title), EF.Functions.Unaccent(p)) ||
+                        (r.Description != null && EF.Functions.ILike(EF.Functions.Unaccent(r.Description), EF.Functions.Unaccent(p)))));
             }
         }
 
