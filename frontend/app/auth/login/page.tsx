@@ -28,7 +28,9 @@ interface LoginPageProps {
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const callbackUrl = safeCallbackUrl(params.callbackUrl);
-  const hasGoogleError = params.error !== undefined;
+  // FR-AUTH-004 — SessionExpiryWatcher đưa về đây khi refresh token hết hạn/bị thu hồi.
+  const sessionExpired = params.error === 'SessionExpired';
+  const hasGoogleError = params.error !== undefined && !sessionExpired;
 
   // Đã đăng nhập thì không cần ở lại trang này.
   if (await auth()) redirect(callbackUrl);
@@ -52,7 +54,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </div>
 
         <div className="rounded-lg border border-border bg-surface p-6 shadow-sm sm:p-8">
-          <LoginForm callbackUrl={callbackUrl} showGoogleError={hasGoogleError} />
+          <LoginForm
+            callbackUrl={callbackUrl}
+            showGoogleError={hasGoogleError}
+            showSessionExpired={sessionExpired}
+          />
         </div>
 
         <p className="mt-6 text-center text-sm text-ink-muted">

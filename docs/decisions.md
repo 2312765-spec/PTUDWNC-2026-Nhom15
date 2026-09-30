@@ -48,7 +48,9 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D30 | Bug: mất ErrorCode của FluentValidation | `GlobalExceptionMiddleware` phải giữ ErrorCode riêng của từng rule |
 | D31 | Bug: thêm child entity vào aggregate đã track | EF Core hiểu nhầm thành UPDATE thay vì INSERT |
 | D32 | Bug: `CategoryRepository.GetBySlugAsync` thiếu Include | `category.Recipes` luôn rỗng — FR-CAT-002 không hoạt động |
+| D33 | Google OAuth lỗi | A1+A2 → 400 `AUTH_GOOGLE_TOKEN_INVALID`, A3 → 502 `AUTH_GOOGLE_UNAVAILABLE` |
 | D34 | `RowVersion` trên PostgreSQL | **Code tự sinh** qua `RowVersionInterceptor` — `[Timestamp]` chỉ tự chạy trên SQL Server |
+| D35 | Refresh token (FR-AUTH-004) | A1/A4 → 401 `AUTH_TOKEN_INVALID` · không check lockout · reuse → revoke **mọi** RT của user · race → 401 không revoke family |
 
 ---
 
@@ -972,6 +974,40 @@ và có test trên PostgreSQL thật (`IntegrationTests/Common/ConcurrencyTests.
 
 **Sửa SRS:** mục 7.1 — `RowVersion`: bỏ "EF Core [Timestamp] annotation", thay bằng "giá trị do
 ứng dụng sinh mới mỗi lần ghi (xem D34)".
+
+---
+
+## D35 — Refresh token (FR-AUTH-004): mã lỗi, lockout, phạm vi "token family", race
+
+> Phát hiện lúc lập kế hoạch FR-AUTH-004 (2026-09-30). Xem `docs/plans/FR-AUTH-004-lam-moi-token.md`.
+
+**Nguồn mâu thuẫn / thiếu:** SRS FR-AUTH-004 chỉ ghi "401" cho A1–A4, không có error code.
+A4 gộp "bị xóa hoặc bị khóa" → 401, trong khi D11 đã chốt `IsActive = false` → 403. A3 ghi
+"**có thể** revoke toàn bộ" (tùy chọn), NFR-SEC-002 ghi **bắt buộc** revoke "token family" nhưng
+schema 7.8 không có cột family. Bảng 8.1 ghi response `{ accessToken, refreshToken, expiresIn }`
+khác `AuthResponseDto` ở Chương 3. Không chỗ nào nói về hai request refresh đồng thời.
+
+**Chốt:**
+
+1. **A1** (RT không có trong DB) và **A4 — user bị xóa** → 401 `AUTH_TOKEN_INVALID`.
+2. **A4 — `IsActive = false`** → 403 `AUTH_ACCOUNT_DISABLED` (giữ D11).
+3. **Lockout do sai mật khẩu (D17) KHÔNG kiểm tra khi refresh.** Người giữ RT hợp lệ đã chứng
+   minh danh tính; nếu kiểm tra, kẻ tấn công chỉ cần cố ý nhập sai 5 lần là đá được chủ tài
+   khoản ra khỏi mọi phiên. "Bị khóa" trong A4 hiểu là khóa bởi Admin — đã phủ bởi mục 2.
+4. **Thứ tự kiểm tra:** tồn tại → **revoked** → expired → user. Token vừa revoke vừa hết hạn
+   vẫn phải kích hoạt reuse detection.
+5. **Reuse detection** (NFR-SEC-002 thắng chữ "có thể" của A3): revoke **mọi RT còn hiệu lực
+   của user** (không truy chuỗi `ReplacedByTokenHash`) → log WARNING → 401
+   `AUTH_REFRESH_TOKEN_REVOKED`. Đơn giản, không cần cột `FamilyId`/migration, và an toàn hơn:
+   khi đã có dấu hiệu lộ token thì đăng xuất user trên mọi thiết bị.
+6. **Race** (hai request cùng một RT): revoke RT cũ bằng UPDATE có điều kiện
+   `RevokedAt IS NULL`. Request thua → 401 `AUTH_REFRESH_TOKEN_REVOKED` nhưng **không** revoke
+   family (thường là client mở 2 tab, không phải tấn công).
+7. **Response** = `AuthResponseDto` giống login (theo lập luận D24).
+
+**Sửa SRS:** FR-AUTH-004 — A1/A4 ghi rõ mã lỗi như trên, tách "bị khóa" thành 403 (D11); A3
+đổi "có thể" thành "phải revoke mọi RT còn hiệu lực của user"; bảng 8.1 dòng `/auth/refresh`
+đổi response thành `AuthResponseDto`.
 
 ---
 

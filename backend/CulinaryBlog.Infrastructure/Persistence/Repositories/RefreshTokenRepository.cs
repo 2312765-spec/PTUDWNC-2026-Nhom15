@@ -21,10 +21,35 @@ public sealed class RefreshTokenRepository(CulinaryBlogDbContext dbContext) : IR
         await dbContext.RefreshTokens.AddAsync(token, ct);
     }
 
-    public async Task<RefreshToken?> GetByTokenAsync(string token, CancellationToken cancellationToken = default)
+    public async Task<RefreshToken?> GetByTokenAsync(string tokenHash, CancellationToken cancellationToken = default)
     {
         return await dbContext.RefreshTokens
-            .FirstOrDefaultAsync(r => r.TokenHash == token, cancellationToken);
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.TokenHash == tokenHash, cancellationToken);
+    }
+
+    public async Task<bool> TryRevokeAsync(string tokenHash, string replacedByTokenHash, CancellationToken cancellationToken = default)
+    {
+        // D35-6 — điều kiện RevokedAt == null nằm trong chính câu UPDATE, nên chỉ một trong hai
+        // request đồng thời cập nhật được dòng này.
+        var now = DateTime.UtcNow;
+        var affected = await dbContext.RefreshTokens
+            .Where(r => r.TokenHash == tokenHash && r.RevokedAt == null)
+            .ExecuteUpdateAsync(
+                s => s
+                    .SetProperty(r => r.RevokedAt, now)
+                    .SetProperty(r => r.ReplacedByTokenHash, replacedByTokenHash),
+                cancellationToken);
+
+        return affected == 1;
+    }
+
+    public async Task<int> RevokeAllActiveForUserAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        return await dbContext.RefreshTokens
+            .Where(r => r.UserId == userId && r.RevokedAt == null && r.ExpiresAt > now)
+            .ExecuteUpdateAsync(s => s.SetProperty(r => r.RevokedAt, now), cancellationToken);
     }
 
     public async Task AddAsync(string userId, string token, DateTime expiresAt = default, CancellationToken cancellationToken = default)
