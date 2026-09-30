@@ -1,6 +1,7 @@
 using CulinaryBlog.API.Extensions;
 using CulinaryBlog.Application.Auth.Commands.GoogleLogin;
 using CulinaryBlog.Application.Auth.Commands.Login;
+using CulinaryBlog.Application.Auth.Commands.Refresh;
 using CulinaryBlog.Application.Auth.Commands.Register;
 using CulinaryBlog.Application.Auth.Dtos;
 using MediatR;
@@ -40,8 +41,14 @@ public static class AuthEndpoints
              .ProducesProblem(StatusCodes.Status502BadGateway)
              .AllowAnonymous();
 
-        group.MapPost("/refresh", () => NotImplementedResults.Pending("FR-AUTH-004", "A"));
-        
+        group.MapPost("/refresh", RefreshAsync)
+             .WithSummary("Làm mới access token bằng refresh token (rotation + reuse detection)")
+             .Produces<AuthResponseDto>(StatusCodes.Status200OK)
+             .ProducesValidationProblem()
+             .ProducesProblem(StatusCodes.Status401Unauthorized)
+             .ProducesProblem(StatusCodes.Status403Forbidden)
+             .AllowAnonymous();
+
         group.MapPost("/logout", () => NotImplementedResults.Pending("FR-AUTH-005", "A"))
              .RequireAuthorization();
 
@@ -103,7 +110,25 @@ public static class AuthEndpoints
 
         return TypedResults.Ok(result);
     }
+
+    private static async Task<IResult> RefreshAsync(
+        RefreshTokenRequest request,
+        HttpContext httpContext,
+        ISender sender,
+        CancellationToken ct)
+    {
+        var command = new RefreshTokenCommand(
+            request.RefreshToken,
+            httpContext.Connection.RemoteIpAddress?.ToString());
+
+        var result = await sender.Send(command, ct);
+
+        return TypedResults.Ok(result);
+    }
 }
+
+/// <summary>FR-AUTH-004 — refresh token trong body, không dùng cookie (SRS Chương 8, chống CSRF).</summary>
+public sealed record RefreshTokenRequest(string RefreshToken);
 
 public sealed record RegisterRequest(string Email, string Password, string DisplayName);
 
