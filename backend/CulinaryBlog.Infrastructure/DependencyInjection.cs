@@ -32,8 +32,15 @@ public static class DependencyInjection
 
         // KHÔNG tắt PendingModelChangesWarning: nó là chốt chặn duy nhất khi code entity/config lệch
         // khỏi migration — lần trước bị tắt, model trôi xa DB đến mức migration tự sinh sẽ DROP 11 cột.
-        services.AddDbContext<CulinaryBlogDbContext>(options =>
-            options.UseNpgsql(connectionString));
+        // SRS 7.1 (CreatedAt/UpdatedAt) + D34 (RowVersion). Cả hai interceptor không giữ state nên
+        // dùng chung một instance cho mọi DbContext.
+        services.AddSingleton<AuditInterceptor>();
+        services.AddSingleton<RowVersionInterceptor>();
+        services.AddDbContext<CulinaryBlogDbContext>((sp, options) =>
+            options.UseNpgsql(connectionString)
+                .AddInterceptors(
+                    sp.GetRequiredService<AuditInterceptor>(),
+                    sp.GetRequiredService<RowVersionInterceptor>()));
 
         // 1. Cấu hình ASP.NET Core Identity
         services.AddIdentityCore<ApplicationUser>(options =>
