@@ -22,7 +22,8 @@ public class CulinaryBlogApiFactory : WebApplicationFactory<Program>
         // IAuthenticationSchemeProvider không resolve được. UseSetting ghi thẳng vào config
         // nguồn mà WebApplicationFactory dùng để khởi tạo builder, nên luôn có mặt kịp thời.
         builder.UseSetting("ConnectionStrings:Postgres", "Host=localhost;Port=5432;Database=culinaryblog_test;Username=postgres;Password=postgres");
-        builder.UseSetting("ConnectionStrings:Redis", "localhost:6379");
+        // Cổng 1 luôn đóng: smoke test không cần cache, và không được đụng Redis dev (localhost:6379).
+        builder.UseSetting("ConnectionStrings:Redis", "localhost:1");
         builder.UseSetting("Jwt:Key", "test-only-khoa-ky-jwt-toi-thieu-32-ky-tu-cho-integration-test");
         builder.UseSetting("Jwt:Issuer", "CulinaryBlog");
         builder.UseSetting("Jwt:Audience", "CulinaryBlogClient");
