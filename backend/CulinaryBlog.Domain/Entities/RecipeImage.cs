@@ -12,6 +12,13 @@ public class RecipeImage : BaseEntity
 {
     public Guid RecipeId { get; internal set; }
     public string OriginalUrl { get; internal set; } = string.Empty;
+
+    /// <summary>SRS 7.5 — ảnh 800×600 do FR-JOB-002 sinh. Null khi job chưa chạy.</summary>
+    public string? MediumUrl { get; internal set; }
+
+    /// <summary>SRS 7.5 — ảnh 300×300 do FR-JOB-002 sinh. Null khi job chưa chạy.</summary>
+    public string? ThumbnailUrl { get; internal set; }
+
     public string? AltText { get; internal set; } = string.Empty;
     public bool IsPrimary { get; internal set; }
     public int OrderIndex { get; internal set; }

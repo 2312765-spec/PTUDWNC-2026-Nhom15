@@ -4,35 +4,28 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CulinaryBlog.Infrastructure.Persistence.Configurations;
 
-public class RecipeImageConfiguration : IEntityTypeConfiguration<RecipeImage>
+/// <summary>SRS 7.5 + D22/D23. Quan hệ với Recipe cấu hình ở RecipeConfiguration.</summary>
+public sealed class RecipeImageConfiguration : IEntityTypeConfiguration<RecipeImage>
 {
-     public void Configure(EntityTypeBuilder<RecipeImage> builder)
+    public void Configure(EntityTypeBuilder<RecipeImage> builder)
     {
         builder.ToTable("RecipeImages");
 
-        builder.HasKey(x => x.Id);
-
-        // ĐẶC BIỆT QUAN TRỌNG: Cấu hình rõ ràng quan hệ với Recipe để triệt tiêu cột "RecipeId1"
-        builder.HasOne(x => x.Recipe)
-               .WithMany(r => r.Images)
-               .HasForeignKey(x => x.RecipeId)
-               .IsRequired()
-               .OnDelete(DeleteBehavior.Cascade);
-
-        // Bỏ qua DisplayOrder vì nó chỉ là alias trong C#
+        // DisplayOrder chỉ là alias C# của OrderIndex, không phải cột.
         builder.Ignore(x => x.DisplayOrder);
 
-        builder.Property(x => x.OrderIndex)
-               .IsRequired();
+        builder.Property(x => x.OriginalUrl).HasMaxLength(500).IsRequired();
+        builder.Property(x => x.MediumUrl).HasMaxLength(500);
+        builder.Property(x => x.ThumbnailUrl).HasMaxLength(500);
+        builder.Property(x => x.AltText).HasMaxLength(200);
+        builder.Property(x => x.IsPrimary).HasDefaultValue(false);
+        builder.Property(x => x.OrderIndex).HasDefaultValue(0);
 
-        builder.Property(x => x.OriginalUrl)
-               .IsRequired()
-               .HasMaxLength(2048);
+        builder.HasIndex(x => x.RecipeId, "IX_RecipeImages_RecipeId");
 
-        builder.Property(x => x.AltText)
-               .HasMaxLength(500);
-
-        builder.Property(x => x.IsPrimary)
-               .IsRequired();
+        // D22 — mỗi recipe tối đa một ảnh Primary (migration AddRecipeImagePrimaryIndex).
+        builder.HasIndex(x => x.RecipeId, "IX_RecipeImages_RecipeId_IsPrimary")
+            .IsUnique()
+            .HasFilter("\"IsPrimary\" = true");
     }
 }

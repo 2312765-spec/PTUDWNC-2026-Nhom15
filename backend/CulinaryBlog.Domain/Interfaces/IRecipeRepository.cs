@@ -5,6 +5,14 @@ namespace CulinaryBlog.Domain.Interfaces;
 
 public interface IRecipeRepository
 {
+    /// <summary>
+    /// Tìm kiếm toàn văn công thức (FR-SRCH-001).
+    /// </summary>
+    Task<(IReadOnlyList<Recipe> Items, int TotalCount)> SearchPublishedRecipesAsync(
+        string? searchTerm, 
+        int page, 
+        int pageSize, 
+        CancellationToken cancellationToken = default);
     Task<Recipe?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<Recipe?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default);
     Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken = default);

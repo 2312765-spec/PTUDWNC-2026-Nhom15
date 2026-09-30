@@ -86,4 +86,66 @@ public sealed class IdentityService(UserManager<ApplicationUser> userManager) : 
 
         return new AuthenticatedUser(user.Id, user.Email!, user.DisplayName, user.AvatarUrl, user.Bio, [.. roles]);
     }
+
+    public async Task<(AuthenticatedUser User, bool IsNewUser)> LoginOrRegisterWithGoogleAsync(
+        string email,
+        string displayName,
+        string? avatarUrl,
+        string providerKey,
+        CancellationToken ct = default)
+    {
+        var loginInfo = new UserLoginInfo("Google", providerKey, "Google");
+
+        // Tìm theo Google ID (sub) trước — bất biến, còn email trên Google có thể đổi. Chỉ khi chưa
+        // liên kết mới tìm theo email (caller đã đảm bảo email_verified = true).
+        var user = await userManager.FindByLoginAsync(loginInfo.LoginProvider, loginInfo.ProviderKey)
+            ?? await userManager.FindByEmailAsync(email);
+
+        if (user is not null)
+        {
+            // D9 — email đã đăng ký thủ công (hoặc Google) trước đó: LIÊN KẾT, không tạo
+            // tài khoản thứ hai. displayName/avatarUrl của tài khoản hiện có giữ nguyên.
+            var existingLogins = await userManager.GetLoginsAsync(user);
+            if (existingLogins.All(l => l.LoginProvider != loginInfo.LoginProvider))
+            {
+                EnsureSucceeded(await userManager.AddLoginAsync(user, loginInfo), "liên kết Google");
+            }
+
+            var existingRoles = await userManager.GetRolesAsync(user);
+            return (new AuthenticatedUser(user.Id, user.Email!, user.DisplayName, user.AvatarUrl, user.Bio, [.. existingRoles]), false);
+        }
+
+        // D9, D5 — chưa có tài khoản: tự tạo, displayName/avatarUrl lấy từ Google profile,
+        // role Author mặc định. Không có password (login duy nhất qua Google).
+        var newUser = new ApplicationUser
+        {
+            UserName = email,
+            Email = email,
+            DisplayName = displayName,
+            AvatarUrl = avatarUrl,
+        };
+
+        var createResult = await userManager.CreateAsync(newUser);
+        if (!createResult.Succeeded)
+        {
+            var detail = string.Join(" ", createResult.Errors.Select(e => e.Description));
+            throw new BadRequestException(ErrorCodes.ValidationError, detail);
+        }
+
+        EnsureSucceeded(await userManager.AddToRoleAsync(newUser, Roles.Author), "gán role Author");
+        EnsureSucceeded(await userManager.AddLoginAsync(newUser, loginInfo), "liên kết Google");
+
+        return (new AuthenticatedUser(newUser.Id, newUser.Email!, newUser.DisplayName, newUser.AvatarUrl, newUser.Bio, [Roles.Author]), true);
+    }
+
+    // Lỗi Identity ở đây là lỗi hệ thống (không phải do input người dùng) → để middleware trả 500
+    // và log đầy đủ, thay vì bỏ qua rồi vẫn phát token cho user ở trạng thái dở dang.
+    private static void EnsureSucceeded(IdentityResult result, string operation)
+    {
+        if (!result.Succeeded)
+        {
+            var detail = string.Join(" ", result.Errors.Select(e => e.Code));
+            throw new InvalidOperationException($"Identity: {operation} thất bại ({detail}).");
+        }
+    }
 }

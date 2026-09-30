@@ -15,7 +15,8 @@ public sealed class DegradedApiFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
 
         builder.UseSetting("ConnectionStrings:Postgres", "Host=localhost;Port=1;Database=culinaryblog_test;Username=postgres;Password=postgres;Timeout=1");
-        builder.UseSetting("ConnectionStrings:Redis", "localhost:6379");
+        // Cổng 1 luôn đóng — không đụng Redis dev (localhost:6379); kết quả như nhau trên dev và CI.
+        builder.UseSetting("ConnectionStrings:Redis", "localhost:1");
         builder.UseSetting("Jwt:Key", "test-only-khoa-ky-jwt-toi-thieu-32-ky-tu-cho-integration-test");
         builder.UseSetting("Jwt:Issuer", "CulinaryBlog");
         builder.UseSetting("Jwt:Audience", "CulinaryBlogClient");

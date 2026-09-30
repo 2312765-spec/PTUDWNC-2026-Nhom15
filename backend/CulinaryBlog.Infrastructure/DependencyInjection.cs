@@ -30,12 +30,17 @@ public static class DependencyInjection
                             ?? configuration.GetConnectionString("Postgres")
                             ?? "Host=localhost;Port=5432;Database=culinaryblog;Username=postgres;Password=postgres";
 
-        services.AddDbContext<CulinaryBlogDbContext>(options =>
-{
-    options.UseNpgsql(connectionString);
-    options.ConfigureWarnings(w =>
-        w.Ignore(RelationalEventId.PendingModelChangesWarning));
-});
+        // KHÔNG tắt PendingModelChangesWarning: nó là chốt chặn duy nhất khi code entity/config lệch
+        // khỏi migration — lần trước bị tắt, model trôi xa DB đến mức migration tự sinh sẽ DROP 11 cột.
+        // SRS 7.1 (CreatedAt/UpdatedAt) + D34 (RowVersion). Cả hai interceptor không giữ state nên
+        // dùng chung một instance cho mọi DbContext.
+        services.AddSingleton<AuditInterceptor>();
+        services.AddSingleton<RowVersionInterceptor>();
+        services.AddDbContext<CulinaryBlogDbContext>((sp, options) =>
+            options.UseNpgsql(connectionString)
+                .AddInterceptors(
+                    sp.GetRequiredService<AuditInterceptor>(),
+                    sp.GetRequiredService<RowVersionInterceptor>()));
 
         // 1. Cấu hình ASP.NET Core Identity
         services.AddIdentityCore<ApplicationUser>(options =>
@@ -64,6 +69,7 @@ public static class DependencyInjection
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<ISlugHelper, SlugHelper>();
         services.AddScoped<IJwtService, CulinaryBlog.Infrastructure.Auth.JwtService>();
+        services.AddScoped<IGoogleTokenValidator, CulinaryBlog.Infrastructure.Auth.GoogleTokenValidator>(); // FR-AUTH-003, D9
 
         // 6. File Storage thật (MinIO qua S3 API) — CONS-007/D16. Không dùng Mock ở bất kỳ
         // environment nào; integration test tự override bằng FakeFileStorageService riêng.
