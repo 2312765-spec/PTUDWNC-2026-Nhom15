@@ -3,8 +3,10 @@ using CulinaryBlog.Application.Categories.DTOs;
 using CulinaryBlog.Application.Common.Models;
 using CulinaryBlog.Application.Recipes.Queries.SearchRecipes;
 using CulinaryBlog.Domain.Common;
+using CulinaryBlog.Domain.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 
 namespace CulinaryBlog.API.Endpoints;
@@ -23,8 +25,49 @@ public static class RecipeEndpoints
         var group = app.MapGroup("/api/v1/recipes").WithTags("Recipes");
 
         // ---- B: queries ----
-        group.MapGet("/", () => NotImplementedResults.Pending("FR-RCP-001", "B"))
-             .WithSummary("Danh sách — authorization filter + filter/sort/paging (FR-SRCH-002/003/004)");
+        // FR-RCP-001, FR-SRCH-002, FR-SRCH-003, FR-SRCH-004: Danh sách công thức có lọc, sắp xếp, phân trang
+        group.MapGet("/", async (
+            [FromQuery] Guid? categoryId,
+            [FromQuery] string? difficulty,
+            [FromQuery] int? maxCookTime,
+            [FromQuery] int? minServings,
+            [FromQuery] string? sort,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 12,
+            IRecipeRepository recipeRepository = default!,
+            CancellationToken ct = default) =>
+        {
+            var (items, totalCount) = await recipeRepository.GetPagedRecipesAsync(
+                categoryId,
+                difficulty,
+                maxCookTime,
+                minServings,
+                sort,
+                page,
+                pageSize,
+                ct);
+
+            var dtos = items.Select(r => new RecipeSummaryDto(
+                r.Id,
+                r.Title,
+                r.Slug,
+                r.Description,
+                r.Images.FirstOrDefault(i => i.IsPrimary)?.OriginalUrl ?? r.Images.FirstOrDefault()?.OriginalUrl,
+                r.Status.ToString(),
+                r.PrepTime,
+                r.CookTime,
+                r.Difficulty.ToString(),
+                Guid.TryParse(r.AuthorId, out var authorGuid) ? authorGuid : Guid.Empty,
+                null,
+                r.CreatedAt
+            )).ToList();
+
+            var result = new PagedResult<RecipeSummaryDto>(dtos, totalCount, page, pageSize);
+            return TypedResults.Ok(result);
+        })
+        .WithName("GetRecipes")
+        .WithSummary("Danh sách — authorization filter + filter/sort/paging (FR-SRCH-002/003/004)")
+        .Produces<PagedResult<RecipeSummaryDto>>(StatusCodes.Status200OK);
           
         // FR-SRCH-001: Tìm kiếm toàn văn công thức (BẮT BUỘC ĐỨNG TRƯỚC /{slug})
         group.MapGet("/search", async (
