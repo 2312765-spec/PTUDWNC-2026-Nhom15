@@ -71,7 +71,7 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để 
 
 | FR | Tên | Ưu tiên | Endpoint | Slice | Application Layer | Infrastructure / Domain | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|---|---|
-| FR-RCP-001 | Danh sách công thức (paged/filter/sort) | M | `GET /api/v1/recipes` → 200 | S4 | `GetRecipesQuery(+Handler)` `ICacheable` | `RecipeRepository` IQueryable + authorization filter | `Recipes/ListTests.cs` | D8, D14 | ⬜ |
+| FR-RCP-001 | Danh sách công thức (paged/filter/sort) | M | `GET /api/v1/recipes` → 200 | S4 | `GetRecipesQuery(+Handler,+Validator)` `ICacheable` (cache key hash có phạm vi người xem) | `RecipeRepository.GetPagedRecipesAsync` + authorization filter (Guest Published · Author + Draft/Archived của mình · Admin tất cả) | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` | D4, D8, D14 | 🟡 BE xong, FE `/recipes` (SSR) chưa |
 | FR-RCP-002 | Chi tiết công thức | M | `GET /api/v1/recipes/{slug}` → 200/403/404 | S4 | `GetRecipeBySlugQuery(+Handler)` `ICacheable` | Eager loading Steps/Ingredients/Images/Category/Author | `Recipes/DetailTests.cs` | D8 | ⬜ |
 | FR-RCP-003 | Tạo công thức | M | `POST /api/v1/recipes` → 201 | S5 | `CreateRecipeCommand(+Handler,+Validator)` | `Recipe.Create()`, `SlugHelper` | `Recipes/CreateTests.cs` | **D10, D18, D19** | ⬜ |
 | FR-RCP-004 | Cập nhật công thức | M | `PUT /api/v1/recipes/{id}` → 200 | S5 | `UpdateRecipeCommand(+Handler,+Validator)` | `RowVersion` concurrency, `RecipeAuthorizationHandler` | `Recipes/UpdateTests.cs` | **D4**, D13 | ⬜ |
@@ -121,10 +121,10 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để 
 
 | FR | Tên | Ưu tiên | Endpoint / Tham số | Slice | Hiện thực | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|---|
-| FR-SRCH-001 | Full-text search tiếng Việt | M | `GET /api/v1/recipes/search?q=` | S10 | `SearchRecipesQuery` + `RecipeRepository.SearchPublishedRecipesAsync` (`to_tsvector('simple', unaccent(...))` tính lúc query, prefix `:*`), migration `AddUnaccentExtension`. **Còn thiếu:** cột `SearchVector` + GIN index + trigger, xếp theo `ts_rank` | `IntegrationTests/Recipes/SearchRecipesTests.cs`, `UnitTests/Recipes/SearchRecipesTests.cs` | D4, D8 | 🟡 |
-| FR-SRCH-002 | Lọc | M | `?categoryId=&difficulty=&maxCookTime=&minServings=` | S4 | Tích hợp trong `GetRecipesQuery` (AND logic) | `Recipes/FilterTests.cs` | **D14** | ⬜ |
-| FR-SRCH-003 | Sắp xếp | M | `?sort=createdAt` / `-createdAt` / `title` / `-cookTime` | S4 | Tích hợp trong `GetRecipesQuery`, mặc định `-createdAt` | `Recipes/SortTests.cs` | — | ⬜ |
-| FR-SRCH-004 | Phân trang offset | M | `?page=1&pageSize=12` (max 50) | S4 | `PagedResult<T>` + COUNT trước SKIP/TAKE | `Recipes/PaginationTests.cs` | — | ⬜ |
+| FR-SRCH-001 | Full-text search tiếng Việt | M | `GET /api/v1/recipes/search?q=` | S10 | `SearchRecipesQuery` + `RecipeRepository.SearchPublishedRecipesAsync` (`to_tsvector('simple', unaccent(...))` tính lúc query, prefix `:*`), migration `AddUnaccentExtension`. **Còn thiếu:** cột `SearchVector` + GIN index + trigger, xếp theo `ts_rank` | `IntegrationTests/Recipes/SearchRecipesTests.cs`, `UnitTests/Recipes/SearchRecipesTests.cs` · FE: `/search` SSR (`app/(public)/search/{page,SearchForm,SearchResults,SearchPagination}.tsx`, `lib/recipes.ts`) — `__tests__/app/search/*.test.tsx`, `__tests__/lib/recipes.test.ts` (18 test) | D4, D8 | 🟡 |
+| FR-SRCH-002 | Lọc | M | `?categoryId=&difficulty=&maxCookTime=&minServings=` | S4 | Tích hợp trong `GetRecipesQuery` (AND logic), difficulty Easy/Medium/Hard/Expert | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` | **D14** | 🟡 BE xong, FE chưa |
+| FR-SRCH-003 | Sắp xếp | M | `?sort=createdAt` / `-createdAt` / `title` / `-cookTime` | S4 | Tích hợp trong `GetRecipesQuery`, mặc định `-createdAt`, sort lạ → 400 | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` | D4 | 🟡 BE xong, FE chưa |
+| FR-SRCH-004 | Phân trang offset | M | `?page=1&pageSize=12` (max 50) | S4 | `PagedResult<T>` + COUNT trước SKIP/TAKE, pageSize > 50 clamp | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` | D4 | 🟡 BE xong, FE chưa |
 
 **Điểm kiểm thử bắt buộc**
 

@@ -54,7 +54,7 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
         return await GetByIdWithImagesAsync(id, ct);
     }
 
-    // FR-CAT-002: Lấy công thức theo danh mục
+    // FR-CAT-002: Lấy công thức theo danh mục (hỗ trợ cả Published và Draft theo quyền)
     public async Task<(IReadOnlyList<Recipe> Items, int TotalCount)> GetPagedByCategoryIdAsync(
         Guid categoryId, 
         RecipeStatus? status, 
@@ -67,9 +67,14 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
             .Include(r => r.Images)
             .Where(r => r.CategoryId == categoryId && !r.IsDeleted);
 
+        // Mặc định nếu không truyền status thì lấy Published — tránh lộ Draft khi người gọi quên truyền.
         if (status.HasValue)
         {
             query = query.Where(r => r.Status == status.Value);
+        }
+        else
+        {
+            query = query.Where(r => r.Status == RecipeStatus.Published);
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
@@ -128,13 +133,15 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
         return (items, totalCount);
     }
 
-    // FR-RCP-001, FR-SRCH-002, FR-SRCH-003, FR-SRCH-004: Danh sách công thức có lọc, sắp xếp, phân trang
+    // FR-RCP-001, FR-SRCH-002 (Lọc), FR-SRCH-003 (Sắp xếp), FR-SRCH-004 (Phân trang)
     public async Task<(IReadOnlyList<Recipe> Items, int TotalCount)> GetPagedRecipesAsync(
         Guid? categoryId,
-        string? difficulty,
+        RecipeDifficulty? difficulty,
         int? maxCookTime,
         int? minServings,
         string? sort,
+        bool includeAllStatuses,
+        string? nonPublishedOwnerId,
         int page,
         int pageSize,
         CancellationToken cancellationToken = default)
@@ -142,24 +149,26 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
         var query = context.Recipes
             .AsNoTracking()
             .Include(r => r.Images)
-            .Where(r => !r.IsDeleted && r.Status == RecipeStatus.Published);
+            .Where(r => !r.IsDeleted);
 
-        // FR-SRCH-002: Lọc công thức
+        // FR-RCP-001: Guest → Published · Author → + Draft/Archived của mình · Admin → tất cả
+        if (!includeAllStatuses)
+        {
+            query = string.IsNullOrEmpty(nonPublishedOwnerId)
+                ? query.Where(r => r.Status == RecipeStatus.Published)
+                : query.Where(r => r.Status == RecipeStatus.Published || r.AuthorId == nonPublishedOwnerId);
+        }
+
+        // FR-SRCH-002: Lọc công thức (AND logic)
         if (categoryId.HasValue && categoryId.Value != Guid.Empty)
         {
             query = query.Where(r => r.CategoryId == categoryId.Value);
         }
 
-        if (!string.IsNullOrWhiteSpace(difficulty))
+        if (difficulty.HasValue)
         {
-            var diff = difficulty.Trim().ToLowerInvariant();
-            if (diff is "easy" or "1"){                query = query.Where(r => r.Difficulty == RecipeDifficulty.Easy);
-}
-            else if (diff is "medium" or "2")
-{                query = query.Where(r => r.Difficulty == RecipeDifficulty.Medium);
-}            else if (diff is "hard" or "3")
-{                query = query.Where(r => r.Difficulty == RecipeDifficulty.Hard);
-}        }
+            query = query.Where(r => r.Difficulty == difficulty.Value);
+        }
 
         if (maxCookTime.HasValue)
         {
@@ -171,7 +180,7 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
             query = query.Where(r => r.Servings >= minServings.Value);
         }
 
-        // FR-SRCH-003: Sắp xếp kết quả
+        // FR-SRCH-003: Sắp xếp kết quả (mặc định -createdAt)
         var s = (sort ?? "-createdat").Trim().ToLowerInvariant();
         query = s switch
         {
@@ -186,7 +195,7 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
 
         var totalCount = await query.CountAsync(cancellationToken);
 
-        // FR-SRCH-004: Phân trang
+        // FR-SRCH-004: Phân trang SKIP / TAKE
         var items = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
