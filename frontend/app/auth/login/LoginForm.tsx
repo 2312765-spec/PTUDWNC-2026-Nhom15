@@ -51,10 +51,13 @@ interface FormError {
 export function LoginForm({
   callbackUrl = '/dashboard',
   showGoogleError = false,
+  showSessionExpired = false,
 }: {
   callbackUrl?: string;
   /** FR-AUTH-003 — true khi Auth.js redirect về đây kèm ?error= sau khi profile() của Google ném lỗi. */
   showGoogleError?: boolean;
+  /** FR-AUTH-004 — true khi SessionExpiryWatcher đưa về đây kèm ?error=SessionExpired. */
+  showSessionExpired?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -63,12 +66,21 @@ export function LoginForm({
   const [formError, setFormError] = useState<FormError | null>(null);
 
   useEffect(() => {
-    if (!showGoogleError) return;
-    toast.show({
-      variant: 'error',
-      title: 'Đăng nhập Google thất bại',
-      description: 'Không thể xác thực với Google lúc này. Vui lòng thử lại.',
-    });
+    if (!showGoogleError && !showSessionExpired) return;
+    toast.show(
+      showSessionExpired
+        ? {
+            // Không phải lỗi của người dùng — thông tin, không dùng variant 'error'.
+            variant: 'info',
+            title: 'Phiên đăng nhập đã hết hạn',
+            description: 'Vui lòng đăng nhập lại để tiếp tục.',
+          }
+        : {
+            variant: 'error',
+            title: 'Đăng nhập Google thất bại',
+            description: 'Không thể xác thực với Google lúc này. Vui lòng thử lại.',
+          },
+    );
     // Dọn ?error= khỏi URL để refresh trang không hiện lại toast, giữ lại callbackUrl nếu có.
     const target =
       callbackUrl === '/dashboard'
@@ -76,7 +88,7 @@ export function LoginForm({
         : `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`;
     router.replace(target, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showGoogleError]);
+  }, [showGoogleError, showSessionExpired]);
 
   const {
     register,

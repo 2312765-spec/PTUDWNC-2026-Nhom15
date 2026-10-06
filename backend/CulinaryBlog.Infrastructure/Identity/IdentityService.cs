@@ -148,4 +148,24 @@ public sealed class IdentityService(UserManager<ApplicationUser> userManager) : 
             throw new InvalidOperationException($"Identity: {operation} thất bại ({detail}).");
         }
     }
+
+    public async Task<AuthenticatedUser?> GetUserForRefreshAsync(string userId, CancellationToken ct = default)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null)
+        {
+            return null;
+        }
+
+        if (!user.IsActive)
+        {
+            // D11 — kiểm tra ở cả login và refresh.
+            throw new ForbiddenException(ErrorCodes.AuthAccountDisabled, "Tài khoản đã bị vô hiệu hóa.");
+        }
+
+        // D35-3 — cố ý KHÔNG gọi IsLockedOutAsync: lockout chỉ chặn đoán mật khẩu ở login.
+        var roles = await userManager.GetRolesAsync(user);
+
+        return new AuthenticatedUser(user.Id, user.Email!, user.DisplayName, user.AvatarUrl, user.Bio, [.. roles]);
+    }
 }

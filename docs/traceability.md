@@ -14,7 +14,7 @@
 > Tóm tắt: **A** = FR-AUTH + FR-JOB-001 · **B** = FR-CAT + FR-RCP-001/002 + FR-SRCH ·
 > **C** = FR-RCP-003/004/005/006/007/009/010 · **D** = FR-RCP-008 + FR-FILE + FR-JOB-002/003 + FR-OBS.
 
-**Tiến độ:** 17 / 34 FR (50%) — A 3/8 (AUTH-001→003) · B 9/11 (CAT-001→005, RCP-001, SRCH-002→004; SRCH-001 🟡) · C 0/7 ·
+**Tiến độ:** 18 / 34 FR (53%) — A 4/8 (AUTH-001→004) · B 9/11 (CAT-001→005, RCP-001, SRCH-002→004; SRCH-001 🟡) · C 0/7 ·
 D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002; FR-OBS-003 🟡 — FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
 
 ---
@@ -26,7 +26,7 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002; FR-OBS-003 🟡 — FR-JOB-0
 | FR-AUTH-001 | Đăng ký tài khoản | M | `POST /api/v1/auth/register` → 201 | S2 | `RegisterCommand(+Handler,+Validator)` | `ApplicationUser` (Infrastructure, D23), `JwtService`, `RefreshToken` (Domain, D26) | `Auth/RegisterTests.cs`, `Auth/RegisterCommand{Validator,Handler}Tests.cs`, `Domain/RefreshTokenTests.cs` · FE: `/auth/register` + Auth.js v5 provider `register` (`auth.ts`, `lib/auth/credentials.ts`, `app/auth/register/actions.ts`) — `__tests__/lib/auth/{schemas,api,api.server,credentials}.test.ts`, `__tests__/app/auth/register/{RegisterForm,page,actions}.test.ts(x)` (44 test) | D5, D20, D23, D24, D25, D26, D29 | ✅ (E2E Playwright chưa có) |
 | FR-AUTH-002 | Đăng nhập email/password | M | `POST /api/v1/auth/login` → 200 | S2 | `LoginCommand(+Handler,+Validator)` | `IdentityService.ValidateCredentialsAsync` (lockout + IsActive) | `Auth/LoginTests.cs`, `Auth/LoginCommand{Validator,Handler}Tests.cs` · FE: `/auth/login` + Auth.js v5 provider `login` (`auth.ts`, `lib/auth/credentials.ts`, `lib/auth/callback-url.ts`, `app/auth/login/actions.ts`) — `__tests__/lib/auth/{schemas,api,api.server,credentials,callback-url}.test.ts`, `__tests__/app/auth/login/{LoginForm,page,actions}.test.ts(x)` (41 test) | D4, D5, D11, D17, D20, D24, D26 | ✅ (E2E Playwright chưa có) |
 | FR-AUTH-003 | Đăng nhập Google OAuth | S | `POST /api/v1/auth/google` → 200 | S9 | `GoogleLoginCommand(+Handler,+Validator)` | `IGoogleTokenValidator`/`GoogleTokenValidator`, `IdentityService.LoginOrRegisterWithGoogleAsync` · FE: nút "Tiếp tục với Google" trên `/auth/login` + `/auth/register`, Auth.js v5 provider `google` (`auth.ts`, `lib/auth/credentials.ts`, `app/auth/GoogleSignInButton.tsx`) | `Auth/GoogleLoginTests.cs` (gồm chặn `email_verified = false` chống chiếm tài khoản, tìm theo Google ID trước email) · `__tests__/lib/auth/{api,credentials}.test.ts`, `__tests__/app/auth/login/{LoginForm,page}.test.tsx`, `__tests__/app/auth/register/RegisterForm.test.tsx` (13 test) | **D9**, D5, D12, **D33** | ✅ (E2E Playwright chưa có) |
-| FR-AUTH-004 | Làm mới access token | M | `POST /api/v1/auth/refresh` → 200 | S2 | `RefreshTokenCommand(+Handler)` | `RefreshTokenRepository` (rotation + reuse detection) | `Auth/RefreshTokenTests.cs` | **D20**, D11 | ⬜ |
+| FR-AUTH-004 | Làm mới access token | M | `POST /api/v1/auth/refresh` → 200 | S2 | `RefreshTokenCommand(+Handler,+Validator)` (`Auth/Commands/Refresh/`), `IIdentityService.GetUserForRefreshAsync` | `RefreshTokenRepository.TryRevokeAsync` (rotation, UPDATE có điều kiện chống race) + `RevokeAllActiveForUserAsync` (reuse detection), `IdentityService` | `Auth/RefreshTokenTests.cs` (15 integration), `Auth/RefreshTokenCommand{Handler,Validator}Tests.cs` (13 unit) · Plan: `docs/plans/FR-AUTH-004-lam-moi-token.md` · FE: Auth.js tự refresh trong callback `jwt` (`lib/auth/{refresh,callbacks}.ts`, gộp refresh trùng theo RT để không kích hoạt reuse detection), chạy ở `proxy.ts` để ghi cookie trước render, `components/auth/SessionExpiryWatcher.tsx` đăng xuất khi RT bị từ chối → `/auth/login?error=SessionExpired` — `__tests__/lib/auth/{refresh,callbacks,api,api.server}.test.ts`, `__tests__/proxy.test.ts`, `__tests__/components/auth/SessionExpiryWatcher.test.tsx`, `__tests__/app/auth/login/{page,LoginForm}.test.tsx` (45 test) · Plan FE: `docs/plans/FR-AUTH-004-frontend-tu-refresh.md` | **D20**, D11, D24, D25, **D35** | ✅ (E2E Playwright chưa có) |
 | FR-AUTH-005 | Đăng xuất / revoke | M | `POST /api/v1/auth/logout` → 204 | S2 | `LogoutCommand(+Handler)` | `RefreshTokenRepository` | `Auth/LogoutTests.cs` | D20 | ⬜ |
 | FR-AUTH-006 | Xem hồ sơ cá nhân | S | `GET /api/v1/auth/me` → 200 | S2 | `GetCurrentUserQuery(+Handler)` | `ICurrentUser` | `Auth/ProfileTests.cs` | **D5**, D12 | ⬜ |
 | FR-AUTH-007 | Cập nhật hồ sơ | S | `PATCH /api/v1/auth/me` → 200 | S2 | `UpdateProfileCommand(+Handler,+Validator)` | `UserManager` | `Auth/ProfileTests.cs` | **D5** | ⬜ |
@@ -236,14 +236,14 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002; FR-OBS-003 🟡 — FR-JOB-0
 
 | Module | Tổng FR | ✅ | 🟡 | ⬜ |
 |---|---|---|---|---|
-| FR-AUTH | 7 | 3 | 0 | 4 |
+| FR-AUTH | 7 | 4 | 0 | 3 |
 | FR-CAT | 5 | 5 | 0 | 0 |
 | FR-RCP | 10 | 2 | 0 | 8 |
 | FR-SRCH | 4 | 3 | 1 | 0 |
 | FR-FILE | 2 | 2 | 0 | 0 |
 | FR-JOB | 3 | 0 | 0 | 3 |
 | FR-OBS | 3 | 2 | 1 | 0 |
-| **Tổng** | **34** | **17** | **2** | **15** |
+| **Tổng** | **34** | **18** | **2** | **14** |
 
 > Không còn FR nào bị chặn — cả 22 mâu thuẫn trong SRS đã chốt tại `decisions.md`.
 > Cột **Quyết định** ở mỗi bảng cho biết FR đó phải đọc mục D nào trước khi code.

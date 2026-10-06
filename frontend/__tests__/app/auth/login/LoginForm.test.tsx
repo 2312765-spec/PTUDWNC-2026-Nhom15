@@ -263,3 +263,42 @@ describe('LoginForm — Google (FR-AUTH-003, D9)', () => {
     expect(screen.queryByText('Đăng nhập Google thất bại')).not.toBeInTheDocument();
   });
 });
+
+describe('LoginForm — phiên hết hạn (FR-AUTH-004)', () => {
+  it('FR-AUTH-004: showSessionExpired=true → toast thông tin (không phải lỗi) mời đăng nhập lại', async () => {
+    renderWithProviders(<LoginForm showSessionExpired />);
+
+    const toast = await screen.findByRole('status');
+    expect(toast).toHaveTextContent('Phiên đăng nhập đã hết hạn');
+    expect(toast).toHaveTextContent('Vui lòng đăng nhập lại');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('FR-AUTH-004: showSessionExpired=true → dọn ?error= khỏi URL, giữ callbackUrl', async () => {
+    // jest.setup.ts mock useRouter() với replace mới mỗi lần gọi — thay tạm để bắt được lời gọi.
+    const navigation = jest.requireMock('next/navigation') as Record<string, unknown>;
+    const originalUseRouter = navigation.useRouter;
+    const replace = jest.fn();
+    navigation.useRouter = () => ({
+      push: mockPush,
+      replace,
+      back: jest.fn(),
+      prefetch: jest.fn(),
+    });
+
+    try {
+      renderWithProviders(<LoginForm showSessionExpired callbackUrl="/dashboard/recipes/new" />);
+      await screen.findByRole('status');
+      expect(replace).toHaveBeenCalledWith('/auth/login?callbackUrl=%2Fdashboard%2Frecipes%2Fnew', {
+        scroll: false,
+      });
+    } finally {
+      navigation.useRouter = originalUseRouter;
+    }
+  });
+
+  it('FR-AUTH-004: mặc định (không hết phiên) → không có toast phiên hết hạn', () => {
+    setup();
+    expect(screen.queryByText('Phiên đăng nhập đã hết hạn')).not.toBeInTheDocument();
+  });
+});
