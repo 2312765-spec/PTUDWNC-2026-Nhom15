@@ -1,5 +1,5 @@
 import { ApiError } from '@/lib/categories';
-import { searchRecipes } from '@/lib/recipes';
+import { getRecipes, searchRecipes, toRecipeListQuery } from '@/lib/recipes';
 
 const mockFetch = jest.fn();
 
@@ -42,5 +42,48 @@ describe('lib/recipes — FR-SRCH-001', () => {
     } as unknown as Response);
 
     await expect(searchRecipes('pho')).rejects.toMatchObject({ status: 502, code: 'UNKNOWN_ERROR' });
+  });
+});
+
+describe('lib/recipes — FR-RCP-001 / FR-SRCH-002/003/004', () => {
+  it('FR-SRCH-002/003/004: query bỏ trường rỗng, sort mặc định và page 1', () => {
+    expect(
+      toRecipeListQuery({ categoryId: '', difficulty: '', sort: '-createdAt', page: 1 }).toString(),
+    ).toBe('');
+  });
+
+  it('FR-SRCH-002/003/004: query giữ đủ filter (D14 có minServings), sort và page > 1', () => {
+    const query = toRecipeListQuery(
+      { categoryId: 'c1', difficulty: 'Expert', maxCookTime: '30', minServings: '2', sort: 'title', page: 3 },
+      12,
+    );
+
+    expect(Object.fromEntries(query)).toEqual({
+      categoryId: 'c1',
+      difficulty: 'Expert',
+      maxCookTime: '30',
+      minServings: '2',
+      sort: 'title',
+      page: '3',
+      pageSize: '12',
+    });
+  });
+
+  it('FR-RCP-001: gọi GET /recipes với filter, no-store (SRS 5.1 SSR)', async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, { items: [] }));
+
+    await getRecipes({ difficulty: 'Easy', page: 2 });
+
+    const [url, init] = mockFetch.mock.calls[0];
+    const parsed = new URL(url);
+    expect(parsed.pathname).toMatch(/\/recipes$/);
+    expect(Object.fromEntries(parsed.searchParams)).toEqual({ difficulty: 'Easy', page: '2', pageSize: '12' });
+    expect(init).toEqual({ cache: 'no-store' });
+  });
+
+  it('NFR-USE-003/D4: bộ lọc sai → ApiError VALIDATION_ERROR', async () => {
+    mockFetch.mockResolvedValue(jsonResponse(400, { type: 'VALIDATION_ERROR' }));
+
+    await expect(getRecipes({ sort: 'servings' })).rejects.toEqual(new ApiError(400, 'VALIDATION_ERROR'));
   });
 });
