@@ -25,15 +25,20 @@ public interface IRecipeRepository
     Task<string?> GetAuthorIdAsync(Guid id, CancellationToken ct = default);
     Task<Recipe?> GetByIdWithImagesForUpdateAsync(Guid id, CancellationToken ct = default);
 
-
-
-    // FR-RCP-001, FR-SRCH-002, FR-SRCH-003, FR-SRCH-004: Lọc, sắp xếp, phân trang
+    /// <summary>
+    /// FR-RCP-001, FR-SRCH-002/003/004: lọc (AND), sắp xếp, phân trang.
+    /// Phạm vi trạng thái do Application quyết định:
+    /// <paramref name="includeAllStatuses"/> = true → không lọc Status (Admin);
+    /// ngược lại chỉ Published, cộng Draft/Archived có AuthorId == <paramref name="nonPublishedOwnerId"/> (nếu có).
+    /// </summary>
     Task<(IReadOnlyList<Recipe> Items, int TotalCount)> GetPagedRecipesAsync(
         Guid? categoryId,
-        string? difficulty,
+        RecipeDifficulty? difficulty,
         int? maxCookTime,
         int? minServings,
         string? sort,
+        bool includeAllStatuses,
+        string? nonPublishedOwnerId,
         int page,
         int pageSize,
         CancellationToken cancellationToken = default);

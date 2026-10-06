@@ -67,9 +67,14 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
             .Include(r => r.Images)
             .Where(r => r.CategoryId == categoryId && !r.IsDeleted);
 
+        // Mặc định nếu không truyền status thì lấy Published — tránh lộ Draft khi người gọi quên truyền.
         if (status.HasValue)
         {
             query = query.Where(r => r.Status == status.Value);
+        }
+        else
+        {
+            query = query.Where(r => r.Status == RecipeStatus.Published);
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
@@ -131,10 +136,12 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
     // FR-RCP-001, FR-SRCH-002 (Lọc), FR-SRCH-003 (Sắp xếp), FR-SRCH-004 (Phân trang)
     public async Task<(IReadOnlyList<Recipe> Items, int TotalCount)> GetPagedRecipesAsync(
         Guid? categoryId,
-        string? difficulty,
+        RecipeDifficulty? difficulty,
         int? maxCookTime,
         int? minServings,
         string? sort,
+        bool includeAllStatuses,
+        string? nonPublishedOwnerId,
         int page,
         int pageSize,
         CancellationToken cancellationToken = default)
@@ -142,7 +149,15 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
         var query = context.Recipes
             .AsNoTracking()
             .Include(r => r.Images)
-            .Where(r => !r.IsDeleted && r.Status == RecipeStatus.Published);
+            .Where(r => !r.IsDeleted);
+
+        // FR-RCP-001: Guest → Published · Author → + Draft/Archived của mình · Admin → tất cả
+        if (!includeAllStatuses)
+        {
+            query = string.IsNullOrEmpty(nonPublishedOwnerId)
+                ? query.Where(r => r.Status == RecipeStatus.Published)
+                : query.Where(r => r.Status == RecipeStatus.Published || r.AuthorId == nonPublishedOwnerId);
+        }
 
         // FR-SRCH-002: Lọc công thức (AND logic)
         if (categoryId.HasValue && categoryId.Value != Guid.Empty)
@@ -150,21 +165,9 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
             query = query.Where(r => r.CategoryId == categoryId.Value);
         }
 
-        if (!string.IsNullOrWhiteSpace(difficulty))
+        if (difficulty.HasValue)
         {
-            var diff = difficulty.Trim().ToLowerInvariant();
-            if (diff is "easy" or "1")
-            {               
-                 query = query.Where(r => r.Difficulty == RecipeDifficulty.Easy);
-            }           
-             else if (diff is "medium" or "2")
-             {   
-            query = query.Where(r => r.Difficulty == RecipeDifficulty.Medium);
-            }
-            else if (diff is "hard" or "3")
-            {   
-                query = query.Where(r => r.Difficulty == RecipeDifficulty.Hard);
-            }
+            query = query.Where(r => r.Difficulty == difficulty.Value);
         }
 
         if (maxCookTime.HasValue)

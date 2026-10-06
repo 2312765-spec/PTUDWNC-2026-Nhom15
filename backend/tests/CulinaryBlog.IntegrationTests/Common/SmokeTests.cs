@@ -40,7 +40,7 @@ public class SmokeTests(CulinaryBlogApiFactory factory) : IClassFixture<Culinary
     }
 
     [Theory(DisplayName = "Endpoint chưa hiện thực trả 501 kèm mã FR")]
-    [InlineData("/api/v1/recipes")]
+    [InlineData("/api/v1/recipes/pho-bo")] // FR-RCP-002 (GET /recipes đã hiện thực ở FR-RCP-001)
     public async Task PendingEndpoints_Return501(string url)
     {
         var response = await _client.GetAsync(url);
