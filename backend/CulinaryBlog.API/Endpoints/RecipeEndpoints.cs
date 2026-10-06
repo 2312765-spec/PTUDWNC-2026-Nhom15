@@ -1,6 +1,8 @@
 using CulinaryBlog.API.Extensions;
 using CulinaryBlog.Application.Categories.DTOs;
+using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Application.Common.Models;
+using CulinaryBlog.Application.Recipes.Queries.GetRecipes;
 using CulinaryBlog.Application.Recipes.Queries.SearchRecipes;
 using CulinaryBlog.Domain.Common;
 using MediatR;
@@ -23,8 +25,33 @@ public static class RecipeEndpoints
         var group = app.MapGroup("/api/v1/recipes").WithTags("Recipes");
 
         // ---- B: queries ----
-        group.MapGet("/", () => NotImplementedResults.Pending("FR-RCP-001", "B"))
-             .WithSummary("Danh sách — authorization filter + filter/sort/paging (FR-SRCH-002/003/004)");
+        // FR-RCP-001 + FR-SRCH-002/003/004. Tham số khai báo tường minh (không [AsParameters]) để
+        // CurrentUserId/IsAdmin chỉ đến từ token, client không bind được qua query string.
+        group.MapGet("/", async (
+            Guid? categoryId,
+            string? difficulty,
+            int? maxCookTime,
+            int? minServings,
+            string? sort,
+            int? page,
+            int? pageSize,
+            ICurrentUser currentUser,
+            ISender mediator,
+            CancellationToken ct) =>
+        {
+            var query = new GetRecipesQuery(
+                categoryId, difficulty, maxCookTime, minServings, sort ?? "-createdAt",
+                page ?? 1, pageSize ?? PagedResult<RecipeSummaryDto>.DefaultPageSize,
+                CurrentUserId: currentUser.UserId, IsAdmin: currentUser.IsAdmin);
+            var result = await mediator.Send(query, ct);
+            return TypedResults.Ok(result);
+        })
+        .WithName("GetRecipes")
+        .WithSummary("Danh sách — authorization filter + filter/sort/paging (FR-SRCH-002/003/004)")
+        .WithDescription("Guest thấy Published; Author thấy thêm Draft/Archived của mình; Admin thấy tất cả.")
+        .Produces<PagedResult<RecipeSummaryDto>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .AllowAnonymous();
           
         // FR-SRCH-001: Tìm kiếm toàn văn công thức (BẮT BUỘC ĐỨNG TRƯỚC /{slug})
         group.MapGet("/search", async (

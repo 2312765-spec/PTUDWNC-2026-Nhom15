@@ -20,10 +20,11 @@ public sealed class DeleteCategoryCommandHandlerTests
 
         await act.Should().ThrowAsync<NotFoundException>();
     }
-
+    
     [Fact(DisplayName = "FR-CAT-005: Xóa danh mục còn công thức → ném ConflictException (409)")]
     public async Task Handle_CategoryHasRecipes_ThrowsConflictException()
     {
+        
         var cat = Category.Create("Món bánh", "mon-banh", "Mô tả");
         var repo = new TestCategoryRepository { Category = cat, RecipeCount = 5 };
         var uow = new TestUnitOfWork();
@@ -51,6 +52,15 @@ public sealed class DeleteCategoryCommandHandlerTests
 
     private sealed class TestCategoryRepository : ICategoryRepository
     {
+        public Task<IReadOnlyList<Category>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<Category>>([]);
+        }
+
+        public Task<bool> HasRecipesAsync(Guid categoryId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(false);
+        }
         public Category? Category { get; set; }
         public int RecipeCount { get; set; }
         public bool Updated { get; private set; }
