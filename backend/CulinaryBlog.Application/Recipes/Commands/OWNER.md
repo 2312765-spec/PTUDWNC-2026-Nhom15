@@ -17,3 +17,7 @@ Commands/
 xóa MinIO, **sai cả ba**), **D3** (publish cần ≥1 step VÀ ≥1 ingredient), D4 (concurrency → 409),
 D6 (`timerMinutes`, server sinh `stepNumber`), D7 (`quantity`/`unit` nullable, `orderIndex`),
 D10, D13 (slug bất biến), D19 (`cookTime >= 0`).
+
+**Metric nghiệp vụ (D39, FR-OBS-003 — D đã làm sẵn `Common/Observability/RecipeMetrics.cs`):**
+inject `RecipeMetrics`, gọi `RecordCreated()` trong handler FR-RCP-003 và `RecordPublished()` trong
+handler FR-RCP-005 — **sau khi `SaveChangesAsync` thành công** (không đếm lần bị D3 chặn hay lỗi DB).
