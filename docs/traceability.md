@@ -14,8 +14,8 @@
 > Tóm tắt: **A** = FR-AUTH + FR-JOB-001 · **B** = FR-CAT + FR-RCP-001/002 + FR-SRCH ·
 > **C** = FR-RCP-003/004/005/006/007/009/010 · **D** = FR-RCP-008 + FR-FILE + FR-JOB-002/003 + FR-OBS.
 
-**Tiến độ:** 11 / 34 FR (32%) — A 2/8 · B 4/11 (CAT-001→004) · C 0/7 ·
-D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
+**Tiến độ:** 17 / 34 FR (50%) — A 3/8 (AUTH-001→003) · B 9/11 (CAT-001→005, RCP-001, SRCH-002→004; SRCH-001 🟡) · C 0/7 ·
+D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002; FR-OBS-003 🟡 — FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
 
 ---
 
@@ -71,7 +71,7 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để 
 
 | FR | Tên | Ưu tiên | Endpoint | Slice | Application Layer | Infrastructure / Domain | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|---|---|
-| FR-RCP-001 | Danh sách công thức (paged/filter/sort) | M | `GET /api/v1/recipes` → 200 | S4 | `GetRecipesQuery(+Handler,+Validator)` `ICacheable` (cache key hash có phạm vi người xem) | `RecipeRepository.GetPagedRecipesAsync` + authorization filter (Guest Published · Author + Draft/Archived của mình · Admin tất cả) | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` | D4, D8, D14 | 🟡 BE xong, FE `/recipes` (SSR) chưa |
+| FR-RCP-001 | Danh sách công thức (paged/filter/sort) | M | `GET /api/v1/recipes` → 200 | S4 | `GetRecipesQuery(+Handler,+Validator)` `ICacheable` (cache key hash có phạm vi người xem) | `RecipeRepository.GetPagedRecipesAsync` + authorization filter (Guest Published · Author + Draft/Archived của mình · Admin tất cả) | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` SSR (`app/(public)/recipes/{page,RecipeFilters,RecipeResults,RecipesPagination}.tsx`, `lib/recipes.ts`, `components/recipes/RecipeCard.tsx`) — `__tests__/app/recipes/*.test.tsx`, `__tests__/lib/recipes.test.ts` | D4, D8, D14 | ✅ (E2E Playwright chưa có) |
 | FR-RCP-002 | Chi tiết công thức | M | `GET /api/v1/recipes/{slug}` → 200/403/404 | S4 | `GetRecipeBySlugQuery(+Handler)` `ICacheable` | Eager loading Steps/Ingredients/Images/Category/Author | `Recipes/DetailTests.cs` | D8 | ⬜ |
 | FR-RCP-003 | Tạo công thức | M | `POST /api/v1/recipes` → 201 | S5 | `CreateRecipeCommand(+Handler,+Validator)` | `Recipe.Create()`, `SlugHelper` | `Recipes/CreateTests.cs` | **D10, D18, D19** | ⬜ |
 | FR-RCP-004 | Cập nhật công thức | M | `PUT /api/v1/recipes/{id}` → 200 | S5 | `UpdateRecipeCommand(+Handler,+Validator)` | `RowVersion` concurrency, `RecipeAuthorizationHandler` | `Recipes/UpdateTests.cs` | **D4**, D13 | ⬜ |
@@ -122,9 +122,9 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để 
 | FR | Tên | Ưu tiên | Endpoint / Tham số | Slice | Hiện thực | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|---|
 | FR-SRCH-001 | Full-text search tiếng Việt | M | `GET /api/v1/recipes/search?q=` | S10 | `SearchRecipesQuery` + `RecipeRepository.SearchPublishedRecipesAsync` (`to_tsvector('simple', unaccent(...))` tính lúc query, prefix `:*`), migration `AddUnaccentExtension`. **Còn thiếu:** cột `SearchVector` + GIN index + trigger, xếp theo `ts_rank` | `IntegrationTests/Recipes/SearchRecipesTests.cs`, `UnitTests/Recipes/SearchRecipesTests.cs` · FE: `/search` SSR (`app/(public)/search/{page,SearchForm,SearchResults,SearchPagination}.tsx`, `lib/recipes.ts`) — `__tests__/app/search/*.test.tsx`, `__tests__/lib/recipes.test.ts` (18 test) | D4, D8 | 🟡 |
-| FR-SRCH-002 | Lọc | M | `?categoryId=&difficulty=&maxCookTime=&minServings=` | S4 | Tích hợp trong `GetRecipesQuery` (AND logic), difficulty Easy/Medium/Hard/Expert | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` | **D14** | 🟡 BE xong, FE chưa |
-| FR-SRCH-003 | Sắp xếp | M | `?sort=createdAt` / `-createdAt` / `title` / `-cookTime` | S4 | Tích hợp trong `GetRecipesQuery`, mặc định `-createdAt`, sort lạ → 400 | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` | D4 | 🟡 BE xong, FE chưa |
-| FR-SRCH-004 | Phân trang offset | M | `?page=1&pageSize=12` (max 50) | S4 | `PagedResult<T>` + COUNT trước SKIP/TAKE, pageSize > 50 clamp | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` | D4 | 🟡 BE xong, FE chưa |
+| FR-SRCH-002 | Lọc | M | `?categoryId=&difficulty=&maxCookTime=&minServings=` | S4 | Tích hợp trong `GetRecipesQuery` (AND logic), difficulty Easy/Medium/Hard/Expert | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` (`RecipeFilters`, `RecipesPagination`, `lib/recipes.ts`) — `__tests__/app/recipes/*.test.tsx` | **D14** | ✅ (E2E Playwright chưa có) |
+| FR-SRCH-003 | Sắp xếp | M | `?sort=createdAt` / `-createdAt` / `title` / `-cookTime` | S4 | Tích hợp trong `GetRecipesQuery`, mặc định `-createdAt`, sort lạ → 400 | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` (`RecipeFilters`, `RecipesPagination`, `lib/recipes.ts`) — `__tests__/app/recipes/*.test.tsx` | D4 | ✅ (E2E Playwright chưa có) |
+| FR-SRCH-004 | Phân trang offset | M | `?page=1&pageSize=12` (max 50) | S4 | `PagedResult<T>` + COUNT trước SKIP/TAKE, pageSize > 50 clamp | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` (`RecipeFilters`, `RecipesPagination`, `lib/recipes.ts`) — `__tests__/app/recipes/*.test.tsx` | D4 | ✅ (E2E Playwright chưa có) |
 
 **Điểm kiểm thử bắt buộc**
 
@@ -236,14 +236,14 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để 
 
 | Module | Tổng FR | ✅ | 🟡 | ⬜ |
 |---|---|---|---|---|
-| FR-AUTH | 7 | 2 | 0 | 5 |
-| FR-CAT | 5 | 4 | 0 | 1 |
-| FR-RCP | 10 | 1 | 0 | 9 |
-| FR-SRCH | 4 | 0 | 0 | 4 |
+| FR-AUTH | 7 | 3 | 0 | 4 |
+| FR-CAT | 5 | 5 | 0 | 0 |
+| FR-RCP | 10 | 2 | 0 | 8 |
+| FR-SRCH | 4 | 3 | 1 | 0 |
 | FR-FILE | 2 | 2 | 0 | 0 |
 | FR-JOB | 3 | 0 | 0 | 3 |
-| FR-OBS | 3 | 2 | 0 | 1 |
-| **Tổng** | **34** | **11** | **0** | **23** |
+| FR-OBS | 3 | 2 | 1 | 0 |
+| **Tổng** | **34** | **17** | **2** | **15** |
 
 > Không còn FR nào bị chặn — cả 22 mâu thuẫn trong SRS đã chốt tại `decisions.md`.
 > Cột **Quyết định** ở mỗi bảng cho biết FR đó phải đọc mục D nào trước khi code.
