@@ -14,8 +14,8 @@
 > Tóm tắt: **A** = FR-AUTH + FR-JOB-001 · **B** = FR-CAT + FR-RCP-001/002 + FR-SRCH ·
 > **C** = FR-RCP-003/004/005/006/007/009/010 · **D** = FR-RCP-008 + FR-FILE + FR-JOB-002/003 + FR-OBS.
 
-**Tiến độ:** 15 / 34 FR (44%) — A 2/8 · B 8/11 (CAT-001→004, RCP-001, SRCH-002→004) · C 0/7 ·
-D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
+**Tiến độ:** 17 / 34 FR (50%) — A 3/8 (AUTH-001→003) · B 9/11 (CAT-001→005, RCP-001, SRCH-002→004; SRCH-001 🟡) · C 0/7 ·
+D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002; FR-OBS-003 🟡 — FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
 
 ---
 
@@ -236,14 +236,14 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để 
 
 | Module | Tổng FR | ✅ | 🟡 | ⬜ |
 |---|---|---|---|---|
-| FR-AUTH | 7 | 2 | 0 | 5 |
-| FR-CAT | 5 | 4 | 0 | 1 |
-| FR-RCP | 10 | 1 | 0 | 9 |
-| FR-SRCH | 4 | 0 | 0 | 4 |
+| FR-AUTH | 7 | 3 | 0 | 4 |
+| FR-CAT | 5 | 5 | 0 | 0 |
+| FR-RCP | 10 | 2 | 0 | 8 |
+| FR-SRCH | 4 | 3 | 1 | 0 |
 | FR-FILE | 2 | 2 | 0 | 0 |
 | FR-JOB | 3 | 0 | 0 | 3 |
-| FR-OBS | 3 | 2 | 0 | 1 |
-| **Tổng** | **34** | **11** | **0** | **23** |
+| FR-OBS | 3 | 2 | 1 | 0 |
+| **Tổng** | **34** | **17** | **2** | **15** |
 
 > Không còn FR nào bị chặn — cả 22 mâu thuẫn trong SRS đã chốt tại `decisions.md`.
 > Cột **Quyết định** ở mỗi bảng cho biết FR đó phải đọc mục D nào trước khi code.
