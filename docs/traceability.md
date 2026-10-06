@@ -14,8 +14,8 @@
 > Tóm tắt: **A** = FR-AUTH + FR-JOB-001 · **B** = FR-CAT + FR-RCP-001/002 + FR-SRCH ·
 > **C** = FR-RCP-003/004/005/006/007/009/010 · **D** = FR-RCP-008 + FR-FILE + FR-JOB-002/003 + FR-OBS.
 
-**Tiến độ:** 13 / 34 FR (38%) — A 4/8 (AUTH-001→004) · B 4/11 (CAT-001→004) · C 0/7 ·
-D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
+**Tiến độ:** 18 / 34 FR (53%) — A 4/8 (AUTH-001→004) · B 9/11 (CAT-001→005, RCP-001, SRCH-002→004; SRCH-001 🟡) · C 0/7 ·
+D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002; FR-OBS-003 🟡 — FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
 
 ---
 
@@ -71,7 +71,7 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để 
 
 | FR | Tên | Ưu tiên | Endpoint | Slice | Application Layer | Infrastructure / Domain | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|---|---|
-| FR-RCP-001 | Danh sách công thức (paged/filter/sort) | M | `GET /api/v1/recipes` → 200 | S4 | `GetRecipesQuery(+Handler)` `ICacheable` | `RecipeRepository` IQueryable + authorization filter | `Recipes/ListTests.cs` | D8, D14 | ⬜ |
+| FR-RCP-001 | Danh sách công thức (paged/filter/sort) | M | `GET /api/v1/recipes` → 200 | S4 | `GetRecipesQuery(+Handler,+Validator)` `ICacheable` (cache key hash có phạm vi người xem) | `RecipeRepository.GetPagedRecipesAsync` + authorization filter (Guest Published · Author + Draft/Archived của mình · Admin tất cả) | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` SSR (`app/(public)/recipes/{page,RecipeFilters,RecipeResults,RecipesPagination}.tsx`, `lib/recipes.ts`, `components/recipes/RecipeCard.tsx`) — `__tests__/app/recipes/*.test.tsx`, `__tests__/lib/recipes.test.ts` | D4, D8, D14 | ✅ (E2E Playwright chưa có) |
 | FR-RCP-002 | Chi tiết công thức | M | `GET /api/v1/recipes/{slug}` → 200/403/404 | S4 | `GetRecipeBySlugQuery(+Handler)` `ICacheable` | Eager loading Steps/Ingredients/Images/Category/Author | `Recipes/DetailTests.cs` | D8 | ⬜ |
 | FR-RCP-003 | Tạo công thức | M | `POST /api/v1/recipes` → 201 | S5 | `CreateRecipeCommand(+Handler,+Validator)` | `Recipe.Create()`, `SlugHelper` | `Recipes/CreateTests.cs` | **D10, D18, D19** | ⬜ |
 | FR-RCP-004 | Cập nhật công thức | M | `PUT /api/v1/recipes/{id}` → 200 | S5 | `UpdateRecipeCommand(+Handler,+Validator)` | `RowVersion` concurrency, `RecipeAuthorizationHandler` | `Recipes/UpdateTests.cs` | **D4**, D13 | ⬜ |
@@ -121,10 +121,10 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để 
 
 | FR | Tên | Ưu tiên | Endpoint / Tham số | Slice | Hiện thực | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|---|
-| FR-SRCH-001 | Full-text search tiếng Việt | M | `GET /api/v1/recipes/search?q=` | S10 | `SearchRecipesQuery` + `RecipeRepository.SearchPublishedRecipesAsync` (`to_tsvector('simple', unaccent(...))` tính lúc query, prefix `:*`), migration `AddUnaccentExtension`. **Còn thiếu:** cột `SearchVector` + GIN index + trigger, xếp theo `ts_rank` | `IntegrationTests/Recipes/SearchRecipesTests.cs`, `UnitTests/Recipes/SearchRecipesTests.cs` | D4, D8 | 🟡 |
-| FR-SRCH-002 | Lọc | M | `?categoryId=&difficulty=&maxCookTime=&minServings=` | S4 | Tích hợp trong `GetRecipesQuery` (AND logic) | `Recipes/FilterTests.cs` | **D14** | ⬜ |
-| FR-SRCH-003 | Sắp xếp | M | `?sort=createdAt` / `-createdAt` / `title` / `-cookTime` | S4 | Tích hợp trong `GetRecipesQuery`, mặc định `-createdAt` | `Recipes/SortTests.cs` | — | ⬜ |
-| FR-SRCH-004 | Phân trang offset | M | `?page=1&pageSize=12` (max 50) | S4 | `PagedResult<T>` + COUNT trước SKIP/TAKE | `Recipes/PaginationTests.cs` | — | ⬜ |
+| FR-SRCH-001 | Full-text search tiếng Việt | M | `GET /api/v1/recipes/search?q=` | S10 | `SearchRecipesQuery` + `RecipeRepository.SearchPublishedRecipesAsync` (`to_tsvector('simple', unaccent(...))` tính lúc query, prefix `:*`), migration `AddUnaccentExtension`. **Còn thiếu:** cột `SearchVector` + GIN index + trigger, xếp theo `ts_rank` | `IntegrationTests/Recipes/SearchRecipesTests.cs`, `UnitTests/Recipes/SearchRecipesTests.cs` · FE: `/search` SSR (`app/(public)/search/{page,SearchForm,SearchResults,SearchPagination}.tsx`, `lib/recipes.ts`) — `__tests__/app/search/*.test.tsx`, `__tests__/lib/recipes.test.ts` (18 test) | D4, D8 | 🟡 |
+| FR-SRCH-002 | Lọc | M | `?categoryId=&difficulty=&maxCookTime=&minServings=` | S4 | Tích hợp trong `GetRecipesQuery` (AND logic), difficulty Easy/Medium/Hard/Expert | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` (`RecipeFilters`, `RecipesPagination`, `lib/recipes.ts`) — `__tests__/app/recipes/*.test.tsx` | **D14** | ✅ (E2E Playwright chưa có) |
+| FR-SRCH-003 | Sắp xếp | M | `?sort=createdAt` / `-createdAt` / `title` / `-cookTime` | S4 | Tích hợp trong `GetRecipesQuery`, mặc định `-createdAt`, sort lạ → 400 | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` (`RecipeFilters`, `RecipesPagination`, `lib/recipes.ts`) — `__tests__/app/recipes/*.test.tsx` | D4 | ✅ (E2E Playwright chưa có) |
+| FR-SRCH-004 | Phân trang offset | M | `?page=1&pageSize=12` (max 50) | S4 | `PagedResult<T>` + COUNT trước SKIP/TAKE, pageSize > 50 clamp | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` (`RecipeFilters`, `RecipesPagination`, `lib/recipes.ts`) — `__tests__/app/recipes/*.test.tsx` | D4 | ✅ (E2E Playwright chưa có) |
 
 **Điểm kiểm thử bắt buộc**
 
@@ -190,8 +190,8 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để 
 | FR | Tên | Endpoint / Cơ chế | Slice | Hiện thực | Test | TT |
 |---|---|---|---|---|---|---|
 | FR-OBS-001 | Health Check | `GET /health` · `/health/live` · `/health/ready` | S1 | `AspNetCore.HealthChecks.NpgSql` + `.Redis` + `.Aws.S3` (MinIO qua S3 API, không có gói `.Minio` riêng). `/health` tổng hợp cả 3; Live = process; Ready = chỉ DB + Redis (MinIO không gắn tag `ready`, đúng SRS) | `Observability/HealthTests.cs` (3 test: tất cả khỏe qua Testcontainers Postgres+MinIO) + `HealthReadyDegradedTests` trong cùng file (1 test lỗi: DB chết → 503) | ✅ |
-| FR-OBS-002 | Structured Logging | Serilog + `CorrelationIdMiddleware` | S1 | Mọi request log `CorrelationId` (X-Correlation-ID), method/path/status/elapsed/UserId. `LoggingBehavior` log mọi Command/Query. Cảnh báo > 500ms | `Observability/LoggingTests.cs` (CorrelationId: tự sinh, giữ nguyên khi client gửi, có cả trên 404) + `UnitTests/Observability/LoggingBehaviorTests.cs` (Information/Warning >500ms/Error+rethrow) | ✅ |
-| FR-OBS-003 | Tracing & Metrics | OpenTelemetry → OTLP | S11 | HTTP traces, EF Core traces, custom metrics (recipe created/published). `Activity.TraceId` gắn vào structured log | `Observability/TracingTests.cs` | ⬜ |
+| FR-OBS-002 | Structured Logging | Serilog + `CorrelationIdMiddleware` | S1 | Mọi request log `CorrelationId` (X-Correlation-ID), method/path/status/elapsed/UserId. `UserId` gắn bởi `Logging/UserIdEnricher` lúc ghi log (không push trong `CorrelationIdMiddleware` vì middleware đó chạy trước `UseAuthentication`). `LoggingBehavior` log mọi Command/Query. Cảnh báo > 500ms ở cả MediatR lẫn request log HTTP (`Logging/RequestLogLevel`). Sink: Console JSON + File rolling daily (compact JSON, `logs/`) + Seq (dev) | `Observability/LoggingTests.cs` (CorrelationId: tự sinh, giữ nguyên khi client gửi, có cả trên 404) + `Observability/StructuredLoggingTests.cs` (UserId có/không, đủ thuộc tính request log, mức log theo status/elapsed/exception, cấu hình sink, lỗi 4xx do exception log đúng status — request log phải đặt NGOÀI `GlobalExceptionMiddleware`) + `UnitTests/Observability/LoggingBehaviorTests.cs` (Information/Warning >500ms/Error+rethrow) | ✅ |
+| FR-OBS-003 | Tracing & Metrics | OpenTelemetry → OTLP | S11 | `Extensions/TelemetryExtensions.cs`: trace ASP.NET Core (bỏ `/health*`) + HttpClient + **Npgsql** (D37); metric `http.server.request.duration` (count/duration/error rate) + HttpClient + `CulinaryBlog.Recipes`. Export OTLP từng signal chỉ khi có endpoint — dev: trace → Seq `/ingest/otlp/v1/traces` HTTP/protobuf, metric không export (D36). `GlobalExceptionMiddleware` gắn `error.type` cho 5xx (D38). TraceId vào log do Serilog tự lấy `Activity.Current`. `Application/Common/Observability/RecipeMetrics.cs` (D39) — **chờ C gọi `RecordCreated`/`RecordPublished` trong handler FR-RCP-003/005** | `Observability/TracingTests.cs` (7 test: server span + route, span Npgsql cùng trace, TraceId trong log, `traceparent` từ client, `/health` không trace, `error.type` chỉ ở 5xx, span không lộ mật khẩu) + `UnitTests/Observability/RecipeMetricsTests.cs` + `ArchitectureTests` (Domain/Application không dùng OpenTelemetry). Kiểm tay: span Server + Npgsql hiện trong Seq cùng TraceId với log | 🟡 |
 
 ---
 
@@ -237,13 +237,13 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để 
 | Module | Tổng FR | ✅ | 🟡 | ⬜ |
 |---|---|---|---|---|
 | FR-AUTH | 7 | 4 | 0 | 3 |
-| FR-CAT | 5 | 4 | 0 | 1 |
-| FR-RCP | 10 | 1 | 0 | 9 |
-| FR-SRCH | 4 | 0 | 0 | 4 |
+| FR-CAT | 5 | 5 | 0 | 0 |
+| FR-RCP | 10 | 2 | 0 | 8 |
+| FR-SRCH | 4 | 3 | 1 | 0 |
 | FR-FILE | 2 | 2 | 0 | 0 |
 | FR-JOB | 3 | 0 | 0 | 3 |
-| FR-OBS | 3 | 2 | 0 | 1 |
-| **Tổng** | **34** | **13** | **0** | **21** |
+| FR-OBS | 3 | 2 | 1 | 0 |
+| **Tổng** | **34** | **18** | **2** | **14** |
 
 > Không còn FR nào bị chặn — cả 22 mâu thuẫn trong SRS đã chốt tại `decisions.md`.
 > Cột **Quyết định** ở mỗi bảng cho biết FR đó phải đọc mục D nào trước khi code.
