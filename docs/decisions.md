@@ -478,6 +478,10 @@ ReplacedByTokenHash, CreatedAt, CreatedByIp
 family** của user đó (truy ngược theo `ReplacedByTokenHash`), log `WARNING`, trả 401
 `AUTH_REFRESH_TOKEN_REVOKED`.
 
+> **Đã được D35-5 thay phạm vi revoke:** không truy chuỗi `ReplacedByTokenHash` nữa mà revoke
+> **mọi RT còn hiệu lực của user**. Phần còn lại của D20 (schema, hash, điều kiện còn hiệu lực)
+> giữ nguyên.
+
 **Vì:** schema 7.8 đúng hơn về bảo mật. Chương 3 viết theo bản nháp cũ.
 
 **Sửa SRS:** FR-AUTH-001 bước 10 và FR-AUTH-004 bước 4–5 — dùng đúng tên bảng và tên cột.
