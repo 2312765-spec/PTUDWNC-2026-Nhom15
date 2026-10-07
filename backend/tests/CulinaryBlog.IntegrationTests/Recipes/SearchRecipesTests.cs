@@ -22,14 +22,9 @@ namespace CulinaryBlog.IntegrationTests.Recipes;
 /// AddUnaccentExtension (thiếu extension → 500).
 /// Mỗi test dùng một token ngẫu nhiên trong Title để không đụng dữ liệu của test khác.
 /// </summary>
-
 public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixture<PostgresApiFactory>
 {
-    private static readonly System.Text.Json.JsonSerializerOptions _jsonOptions = new()
-{
-    PropertyNameCaseInsensitive = true
-};
-    private static readonly JsonSerializerOptions _sonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly HttpClient _client = factory.CreateClient();
 
@@ -137,7 +132,7 @@ public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixtu
             title, $"recipe-{Guid.NewGuid():N}", "mô tả", 10, 30, 2,
             RecipeDifficulty.Easy, category.Id, authorId, status: status);
         if (imageUrl is not null)
-            {recipe.AttachImage(imageUrl, isPrimary: true);}
+            recipe.AttachImage(imageUrl, isPrimary: true);
         db.Recipes.Add(recipe);
 
         await db.SaveChangesAsync();
