@@ -168,4 +168,17 @@ public sealed class IdentityService(UserManager<ApplicationUser> userManager) : 
 
         return new AuthenticatedUser(user.Id, user.Email!, user.DisplayName, user.AvatarUrl, user.Bio, [.. roles]);
     }
+
+    public async Task<AuthenticatedUser?> GetUserByIdAsync(string userId, CancellationToken ct = default)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null)
+        {
+            return null;
+        }
+
+        var roles = await userManager.GetRolesAsync(user);
+
+        return new AuthenticatedUser(user.Id, user.Email!, user.DisplayName, user.AvatarUrl, user.Bio, [.. roles]);
+    }
 }

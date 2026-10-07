@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import { googleLogin, login, logout, refresh, register } from '@/lib/auth/api';
+import { getMe, googleLogin, login, logout, refresh, register } from '@/lib/auth/api';
 
 describe('lib/auth/api — FR-AUTH-001', () => {
   it('FR-AUTH-001/D24: POST /auth/register với body D5 và trả nguyên AuthResponseDto', async () => {
@@ -76,5 +76,15 @@ describe('lib/auth/api — FR-AUTH-005', () => {
       { refreshToken: 'rt' },
       { headers: { Authorization: 'Bearer access-token' } },
     );
+  });
+});
+
+describe('lib/auth/api — FR-AUTH-006', () => {
+  it('FR-AUTH-006/D5: GET /auth/me và trả nguyên UserProfile', async () => {
+    const data = { id: 'u1', email: 'lan@example.com', displayName: 'Lan', avatarUrl: null, bio: null, roles: ['Author'] };
+    const get = jest.spyOn(apiClient, 'get').mockResolvedValue({ data });
+
+    await expect(getMe()).resolves.toBe(data);
+    expect(get).toHaveBeenCalledWith('/auth/me');
   });
 });

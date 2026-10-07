@@ -551,6 +551,7 @@ nếu không request `/recipes/search` sẽ khớp vào route slug. Kèm theo D1
 | `AUTH_INVALID_CREDENTIALS` | 401 | Auth | — |
 | `AUTH_TOKEN_EXPIRED` | 401 | Auth | — |
 | `AUTH_TOKEN_INVALID` | 401 | Auth | — |
+| `USER_NOT_FOUND` | 404 | Auth | D41 |
 | `AUTH_REFRESH_TOKEN_EXPIRED` | 401 | Auth | — |
 | `AUTH_REFRESH_TOKEN_REVOKED` | 401 | Auth | — |
 | `AUTH_GOOGLE_TOKEN_INVALID` | 400 | Auth | — |
@@ -1129,6 +1130,27 @@ refresh token. Bước 4 chỉ revoke khi token thuộc user hiện tại, khôn
 **Vì:** logout idempotent không được biến thành kênh dò trạng thái token hay công cụ đăng xuất người khác.
 
 **Sửa SRS:** FR-AUTH-005 — bỏ A2; bảng status thêm 400; ghi rõ token của user khác → 204 (không revoke).
+
+---
+
+## D41 — Xem hồ sơ (FR-AUTH-006): user bị xóa, user bị vô hiệu hóa
+
+> Phát hiện lúc lập kế hoạch FR-AUTH-006 (2026-10-07). Xem `docs/plans/FR-AUTH-006-xem-ho-so-ca-nhan.md`.
+
+**Nguồn mâu thuẫn / thiếu:** SRS FR-AUTH-006 A1 ghi user đã bị xóa → 404, nhưng D35 chốt `/refresh`
+trả 401 `AUTH_TOKEN_INVALID` cho cùng tình huống và bảng mã lỗi chưa có mã 404 cho user. SRS cũng không
+nói user `IsActive=false` còn access token gọi `/me`.
+
+**Chốt:**
+
+1. User đã bị xóa khỏi DB sau khi token được cấp → **404** `USER_NOT_FOUND` (giữ SRS A1). Khác `/refresh`
+   vì `/me` đã qua JWT hợp lệ, còn `/refresh` xác thực bằng chính refresh token.
+2. User `IsActive=false` còn access token → **200** (chỉ đọc; chặn đã làm ở login và refresh theo D11).
+3. Thêm `USER_NOT_FOUND` (404) vào bảng mã lỗi.
+
+**Vì:** `/me` chỉ đọc hồ sơ của chính chủ, không cấp thêm quyền nào.
+
+**Sửa SRS:** FR-AUTH-006 — thay `fullName/userName/emailConfirmed/createdAt` theo D5/D12; ghi mã lỗi 404.
 
 ---
 

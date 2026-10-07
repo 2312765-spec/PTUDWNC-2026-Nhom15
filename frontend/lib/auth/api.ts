@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import type { AuthResponse } from '@/lib/types';
+import type { AuthResponse, UserProfile } from '@/lib/types';
 
 /** D5 — wire contract của POST /auth/register. */
 export interface RegisterRequest {
@@ -94,4 +94,10 @@ export async function logout(body: LogoutRequest, accessToken: string): Promise<
     ...(baseURL ? { baseURL } : {}),
     headers: { Authorization: `Bearer ${accessToken}` },
   });
+}
+
+/** FR-AUTH-006, D5 — hồ sơ của user đang đăng nhập. Bearer do interceptor của apiClient gắn từ session. */
+export async function getMe(): Promise<UserProfile> {
+  const { data } = await apiClient.get<UserProfile>('/auth/me');
+  return data;
 }

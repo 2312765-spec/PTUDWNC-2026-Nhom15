@@ -48,6 +48,12 @@ public interface IIdentityService
     /// KHÔNG kiểm tra lockout do sai mật khẩu (D35-3).
     /// </summary>
     Task<AuthenticatedUser?> GetUserForRefreshAsync(string userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// FR-AUTH-006, D41 — đọc hồ sơ theo id. User đã bị xóa → <c>null</c>. Chỉ đọc: KHÔNG ném lỗi khi
+    /// <c>IsActive == false</c> (D11 chặn ở login/refresh), KHÔNG kiểm tra lockout.
+    /// </summary>
+    Task<AuthenticatedUser?> GetUserByIdAsync(string userId, CancellationToken ct = default);
 }
 
 /// <summary>Hồ sơ user sau khi tạo/đăng nhập thành công — Application không cần biết gì thêm về ApplicationUser.</summary>
