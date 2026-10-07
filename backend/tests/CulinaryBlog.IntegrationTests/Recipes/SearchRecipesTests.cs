@@ -22,9 +22,14 @@ namespace CulinaryBlog.IntegrationTests.Recipes;
 /// AddUnaccentExtension (thiếu extension → 500).
 /// Mỗi test dùng một token ngẫu nhiên trong Title để không đụng dữ liệu của test khác.
 /// </summary>
+
 public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixture<PostgresApiFactory>
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly System.Text.Json.JsonSerializerOptions _jsonOptions = new()
+{
+    PropertyNameCaseInsensitive = true
+};
+    private static readonly JsonSerializerOptions _sonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly HttpClient _client = factory.CreateClient();
 
@@ -71,7 +76,7 @@ public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixtu
         var response = await _client.GetAsync($"/api/v1/recipes/search?q={Uri.EscapeDataString(q)}");
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
         problem!.Type.Should().Be(ErrorCodes.ValidationError);
     }
 
@@ -81,7 +86,7 @@ public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixtu
         var response = await _client.GetAsync("/api/v1/recipes/search?q=pho&pageSize=100");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<PagedResult<RecipeSummaryDto>>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<PagedResult<RecipeSummaryDto>>(_jsonOptions);
         body!.PageSize.Should().Be(PagedResult<RecipeSummaryDto>.MaxPageSize);
     }
 
@@ -102,7 +107,7 @@ public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixtu
     {
         var response = await _client.GetAsync($"/api/v1/recipes/search?q={Uri.EscapeDataString(q)}");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<PagedResult<RecipeSummaryDto>>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<PagedResult<RecipeSummaryDto>>(_jsonOptions);
         body.Should().NotBeNull();
         return body!;
     }
@@ -113,7 +118,7 @@ public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixtu
             "/api/v1/auth/register",
             new { email = $"search-{Guid.NewGuid():N}@example.com", password = "Str0ng!Pass1", displayName = "Tác giả test" });
         response.EnsureSuccessStatusCode();
-        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(_jsonOptions);
         return body!.User.Id;
     }
 
@@ -132,7 +137,7 @@ public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixtu
             title, $"recipe-{Guid.NewGuid():N}", "mô tả", 10, 30, 2,
             RecipeDifficulty.Easy, category.Id, authorId, status: status);
         if (imageUrl is not null)
-            recipe.AttachImage(imageUrl, isPrimary: true);
+            {recipe.AttachImage(imageUrl, isPrimary: true);}
         db.Recipes.Add(recipe);
 
         await db.SaveChangesAsync();
