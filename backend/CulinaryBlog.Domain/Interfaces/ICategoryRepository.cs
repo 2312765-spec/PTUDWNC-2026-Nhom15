@@ -22,7 +22,7 @@ public interface ICategoryRepository
     Task<IReadOnlyList<Category>> 
     GetAllWithRecipesAsync(CancellationToken cancellationToken = default);
 
-
+    
     /// <summary>FR-CAT-004: Lấy danh mục theo ID.</summary>
     Task<Category?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 

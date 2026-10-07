@@ -10,7 +10,16 @@ namespace CulinaryBlog.Infrastructure.Persistence.Repositories;
 /// </summary>
 public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRepository
 {
-    public async Task<Recipe?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+    public async Task<Recipe?> GetBySlugDetailedAsync(string slug, CancellationToken cancellationToken = default)
+{
+    return await context.Recipes
+        .AsNoTracking()
+        .Include(r => r.Category)
+        .Include(r => r.Steps)
+        .Include(r => r.Ingredients)
+        .Include(r => r.Images)
+        .FirstOrDefaultAsync(r => r.Slug == slug && !r.IsDeleted, cancellationToken);
+}    public async Task<Recipe?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         await context.Recipes
             .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted, cancellationToken);
 
