@@ -1,4 +1,4 @@
-﻿using CulinaryBlog.Domain.Entities;
+using CulinaryBlog.Domain.Entities;
 
 namespace CulinaryBlog.Domain.Interfaces;
 
@@ -17,11 +17,7 @@ public interface ICategoryRepository
     /// FR-CAT-001: Lấy tất cả danh mục kèm các công thức đã xuất bản (Published).
     /// Sắp xếp theo Name tăng dần.
     /// </summary>
-
-
-    Task<IReadOnlyList<Category>> 
-    GetAllWithRecipesAsync(CancellationToken cancellationToken = default);
-
+    Task<IReadOnlyList<Category>> GetAllWithRecipesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>FR-CAT-004: Lấy danh mục theo ID.</summary>
     Task<Category?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
