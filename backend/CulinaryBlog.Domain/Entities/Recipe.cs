@@ -275,6 +275,15 @@ public class Recipe : BaseEntity, IAggregateRoot
     }
 
     /// <summary>FR-JOB-002/D44 — gán URL ảnh medium/thumbnail do job resize sinh ra.</summary>
-    public RecipeImage SetImageVariants(Guid imageId, string mediumUrl, string thumbnailUrl) =>
-        throw new NotImplementedException();
+    public RecipeImage SetImageVariants(Guid imageId, string mediumUrl, string thumbnailUrl)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(mediumUrl);
+        ArgumentException.ThrowIfNullOrWhiteSpace(thumbnailUrl);
+
+        var img = _images.FirstOrDefault(x => x.Id == imageId)
+            ?? throw new DomainException("Không tìm thấy ảnh để gán phiên bản resize.", "RECIPE_IMAGE_NOT_FOUND");
+
+        img.SetVariants(mediumUrl, thumbnailUrl);
+        return img;
+    }
 }

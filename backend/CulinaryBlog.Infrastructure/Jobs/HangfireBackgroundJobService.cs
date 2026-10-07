@@ -19,5 +19,5 @@ public sealed class HangfireBackgroundJobService(IBackgroundJobClient background
 
     /// <summary>FR-JOB-002/D44 — retry theo D42 khai báo trên <see cref="ResizeRecipeImageJob"/>.</summary>
     public void EnqueueGenerateImageVariants(Guid recipeId, Guid imageId) =>
-        throw new NotImplementedException();
+        backgroundJobClient.Enqueue<ResizeRecipeImageJob>(j => j.ExecuteAsync(recipeId, imageId, CancellationToken.None));
 }
