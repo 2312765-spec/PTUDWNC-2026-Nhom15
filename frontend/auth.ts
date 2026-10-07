@@ -3,6 +3,7 @@ import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
 import { jwtCallback, sessionCallback } from '@/lib/auth/callbacks';
 import { authorizeGoogle, authorizeLogin, authorizeRegister } from '@/lib/auth/credentials';
+import { revokeRefreshToken } from '@/lib/auth/logout';
 
 /**
  * Auth.js v5 — chủ sở hữu: A. Slice S2.
@@ -14,7 +15,7 @@ import { authorizeGoogle, authorizeLogin, authorizeRegister } from '@/lib/auth/c
  * FR-AUTH-004: callback jwt tự refresh khi accessToken sắp hết hạn — lib/auth/callbacks.ts,
  * chạy ở proxy.ts để cookie mới được ghi trước khi render.
  *
- * TODO(S2 — A): signOut gọi /auth/logout (FR-AUTH-005).
+ * FR-AUTH-005: events.signOut thu hồi refresh token ở backend (lib/auth/logout.ts, D40).
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {
@@ -61,5 +62,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     jwt: jwtCallback,
     session: sessionCallback,
+  },
+  events: {
+    async signOut(message) {
+      if ('token' in message && message.token) await revokeRefreshToken(message.token);
+    },
   },
 });

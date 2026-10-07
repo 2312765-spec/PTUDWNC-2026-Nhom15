@@ -1,6 +1,7 @@
 using CulinaryBlog.API.Extensions;
 using CulinaryBlog.Application.Auth.Commands.GoogleLogin;
 using CulinaryBlog.Application.Auth.Commands.Login;
+using CulinaryBlog.Application.Auth.Commands.Logout;
 using CulinaryBlog.Application.Auth.Commands.Refresh;
 using CulinaryBlog.Application.Auth.Commands.Register;
 using CulinaryBlog.Application.Auth.Dtos;
@@ -49,7 +50,11 @@ public static class AuthEndpoints
              .ProducesProblem(StatusCodes.Status403Forbidden)
              .AllowAnonymous();
 
-        group.MapPost("/logout", () => NotImplementedResults.Pending("FR-AUTH-005", "A"))
+        group.MapPost("/logout", LogoutAsync)
+             .WithSummary("Đăng xuất — thu hồi refresh token (idempotent, D40)")
+             .Produces(StatusCodes.Status204NoContent)
+             .ProducesValidationProblem()
+             .ProducesProblem(StatusCodes.Status401Unauthorized)
              .RequireAuthorization();
 
         // NFR-SEC-006: Endpoint này test gọi khi chưa có token phải trả về 401
@@ -125,7 +130,20 @@ public static class AuthEndpoints
 
         return TypedResults.Ok(result);
     }
+
+    private static async Task<IResult> LogoutAsync(
+        LogoutRequest request,
+        ISender sender,
+        CancellationToken ct)
+    {
+        await sender.Send(new LogoutCommand(request.RefreshToken), ct);
+
+        return TypedResults.NoContent();
+    }
 }
+
+/// <summary>FR-AUTH-005 — refresh token cần thu hồi, nằm trong body (không dùng cookie).</summary>
+public sealed record LogoutRequest(string RefreshToken);
 
 /// <summary>FR-AUTH-004 — refresh token trong body, không dùng cookie (SRS Chương 8, chống CSRF).</summary>
 public sealed record RefreshTokenRequest(string RefreshToken);

@@ -55,6 +55,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D37 | "EF Core traces" | **`Npgsql.OpenTelemetry`** (span theo câu SQL), không dùng gói EF Core beta |
 | D38 | Error rate | **5xx / exception** (`error.type`) — 4xx không tính lỗi server |
 | D39 | Metric recipe created/published | `RecipeMetrics` làm trước; **C gọi** trong handler FR-RCP-003/005 |
+| D40 | Logout (FR-AUTH-005) | Giữ `RequireAuthorization` · thiếu `refreshToken` → 400 · token user khác / đã revoke / hết hạn → **204 no-op** · không kích hoạt reuse detection |
 
 ---
 
@@ -1104,6 +1105,30 @@ FR-OBS-003, và `Application/Recipes/Commands/**` do C sở hữu.
 **Vì:** không sửa file của người khác, không chặn FR-OBS-003 chờ slice S5/S7.
 
 **Sửa SRS:** không cần.
+
+---
+
+## D40 — Đăng xuất (FR-AUTH-005): access token, token của user khác, token đã revoke
+
+> Phát hiện lúc lập kế hoạch FR-AUTH-005 (2026-10-07). Xem `docs/plans/FR-AUTH-005-dang-xuat-thu-hoi-token.md`.
+
+**Nguồn mâu thuẫn / thiếu:** SRS FR-AUTH-005 điều kiện tiên quyết và bảng status yêu cầu access token
+hợp lệ (401 nếu không), nhưng A2 lại cho logout khi "access token đã hết hạn" và trả 401 nếu thiếu
+refresh token. Bước 4 chỉ revoke khi token thuộc user hiện tại, không nói trường hợp ngược lại.
+
+**Chốt:**
+
+1. **Giữ `RequireAuthorization()`** (khớp điều kiện tiên quyết, bảng status, NFR-SEC-006). **Bỏ A2.**
+   Frontend tự refresh trước nếu access token sắp hết hạn rồi mới gọi logout.
+   Thiếu / rỗng `refreshToken` → **400** `VALIDATION_ERROR` (D4), không phải 401.
+2. **Token thuộc user khác** → 204, **không revoke**, log WARNING (giống A1, không lộ trạng thái token).
+3. **Token đã revoke hoặc hết hạn** → 204 no-op; **không** kích hoạt reuse detection (D35-5 chỉ dành
+   cho `/refresh`).
+4. **Race** → `TryRevokeAsync` (UPDATE có điều kiện `RevokedAt IS NULL`, D35-6); thua race vẫn 204.
+
+**Vì:** logout idempotent không được biến thành kênh dò trạng thái token hay công cụ đăng xuất người khác.
+
+**Sửa SRS:** FR-AUTH-005 — bỏ A2; bảng status thêm 400; ghi rõ token của user khác → 204 (không revoke).
 
 ---
 

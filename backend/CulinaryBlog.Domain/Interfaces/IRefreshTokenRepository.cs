@@ -14,9 +14,9 @@ public interface IRefreshTokenRepository
     /// <summary>
     /// FR-AUTH-004, D35-6 — revoke token (rotation) chỉ khi nó CHƯA bị revoke, ghi
     /// <c>ReplacedByTokenHash</c>. Thực thi ngay trên DB (không chờ SaveChanges).
-    /// Trả <c>false</c> nếu request khác đã revoke trước (thua race).
+    /// Trả <c>false</c> nếu request khác đã revoke trước (thua race). FR-AUTH-005: logout truyền <c>null</c> (không có token thay thế).
     /// </summary>
-    Task<bool> TryRevokeAsync(string tokenHash, string replacedByTokenHash, CancellationToken cancellationToken = default);
+    Task<bool> TryRevokeAsync(string tokenHash, string? replacedByTokenHash, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// FR-AUTH-004 A3, NFR-SEC-002, D35-5 — reuse detection: revoke mọi RT còn hiệu lực của user.

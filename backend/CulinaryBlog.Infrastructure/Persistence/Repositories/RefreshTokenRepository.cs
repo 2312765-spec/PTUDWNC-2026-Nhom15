@@ -28,7 +28,7 @@ public sealed class RefreshTokenRepository(CulinaryBlogDbContext dbContext) : IR
             .FirstOrDefaultAsync(r => r.TokenHash == tokenHash, cancellationToken);
     }
 
-    public async Task<bool> TryRevokeAsync(string tokenHash, string replacedByTokenHash, CancellationToken cancellationToken = default)
+    public async Task<bool> TryRevokeAsync(string tokenHash, string? replacedByTokenHash, CancellationToken cancellationToken = default)
     {
         // D35-6 — điều kiện RevokedAt == null nằm trong chính câu UPDATE, nên chỉ một trong hai
         // request đồng thời cập nhật được dòng này.
