@@ -273,4 +273,8 @@ public class Recipe : BaseEntity, IAggregateRoot
 
         return img;
     }
+
+    /// <summary>FR-JOB-002/D44 — gán URL ảnh medium/thumbnail do job resize sinh ra.</summary>
+    public RecipeImage SetImageVariants(Guid imageId, string mediumUrl, string thumbnailUrl) =>
+        throw new NotImplementedException();
 }

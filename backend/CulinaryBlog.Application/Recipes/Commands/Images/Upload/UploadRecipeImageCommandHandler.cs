@@ -3,7 +3,9 @@ using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Interfaces;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
+#pragma warning disable CS9113 // TODO(FR-JOB-002): stub test-first — gỡ khi hiện thực
 namespace CulinaryBlog.Application.Recipes.Commands.Images;
 
 /// <summary>
@@ -16,7 +18,8 @@ public sealed class UploadRecipeImageCommandHandler(
     IFileStorageService fileStorageService,
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
-    IBackgroundJobService backgroundJobService)
+    IBackgroundJobService backgroundJobService,
+    ILogger<UploadRecipeImageCommandHandler> logger)
     : IRequestHandler<UploadRecipeImageCommand, UploadRecipeImageResult>
 {
     public async Task<UploadRecipeImageResult> Handle(UploadRecipeImageCommand request, CancellationToken cancellationToken)

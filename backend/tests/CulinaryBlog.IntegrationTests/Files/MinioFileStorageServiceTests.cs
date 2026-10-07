@@ -77,6 +77,21 @@ public sealed class MinioFileStorageServiceTests : IAsyncLifetime
         responseStream.ToArray().Should().BeEquivalentTo(bytes);
     }
 
+    [Fact(DisplayName = "FR-JOB-002: DownloadAsync tải đúng nội dung object đã upload lên MinIO")]
+    public async Task DownloadAsync_UploadedObject_ReturnsSameBytes()
+    {
+        var bytes = JpegBytes();
+        using var content = new MemoryStream(bytes);
+        var url = await _sut.UploadAsync(content, "a.jpg", "image/jpeg", "recipes/test-recipe", CancellationToken.None);
+
+        await using var downloaded = await _sut.DownloadAsync(url, CancellationToken.None);
+
+        using var buffer = new MemoryStream();
+        await downloaded.CopyToAsync(buffer);
+        buffer.ToArray().Should().BeEquivalentTo(bytes);
+        downloaded.CanSeek.Should().BeTrue("ImageSharp cần stream đọc lại được từ đầu");
+    }
+
     [Fact(DisplayName = "FR-FILE-002: xóa object đã tồn tại thì object biến mất thật trên MinIO")]
     public async Task DeleteAsync_ExistingObject_RemovesFromMinio()
     {

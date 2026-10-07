@@ -56,6 +56,10 @@ public sealed class MinioFileStorageService(IAmazonS3 s3Client, IConfiguration c
         }
     }
 
+    /// <summary>FR-JOB-002 — tải object về bộ nhớ.</summary>
+    public Task<Stream> DownloadAsync(string fileUrl, CancellationToken ct = default) =>
+        throw new NotImplementedException();
+
     private string ExtractKey(string fileUrl)
     {
         var marker = $"/{BucketName}/";

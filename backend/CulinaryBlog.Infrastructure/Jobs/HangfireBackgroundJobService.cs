@@ -16,4 +16,8 @@ public sealed class HangfireBackgroundJobService(IBackgroundJobClient background
     /// <summary>FR-FILE-002: DeleteAsync đã idempotent (không throw nếu object không tồn tại) — an toàn để Hangfire retry.</summary>
     public void EnqueueDeleteImageFile(string fileUrl) =>
         backgroundJobClient.Enqueue<IFileStorageService>(s => s.DeleteAsync(fileUrl, CancellationToken.None));
+
+    /// <summary>FR-JOB-002/D44 — retry theo D42 khai báo trên <see cref="ResizeRecipeImageJob"/>.</summary>
+    public void EnqueueGenerateImageVariants(Guid recipeId, Guid imageId) =>
+        throw new NotImplementedException();
 }
