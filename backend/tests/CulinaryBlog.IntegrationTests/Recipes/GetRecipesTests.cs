@@ -26,7 +26,7 @@ namespace CulinaryBlog.IntegrationTests.Recipes;
 /// </summary>
 public sealed class GetRecipesTests(PostgresApiFactory factory) : IClassFixture<PostgresApiFactory>
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly HttpClient _client = factory.CreateClient();
 
@@ -134,7 +134,7 @@ public sealed class GetRecipesTests(PostgresApiFactory factory) : IClassFixture<
         var (_, authorId) = await RegisterAuthorAsync();
         var categoryId = await SeedCategoryAsync();
         for (var i = 0; i < 3; i++)
-            await SeedRecipeAsync(categoryId, authorId, RecipeStatus.Published);
+          {  await SeedRecipeAsync(categoryId, authorId, RecipeStatus.Published);}
 
         var page1 = await ListAsync($"categoryId={categoryId}&page=1&pageSize=2");
         var clamped = await ListAsync($"categoryId={categoryId}&pageSize=100");
@@ -165,7 +165,7 @@ public sealed class GetRecipesTests(PostgresApiFactory factory) : IClassFixture<
         var response = await _client.GetAsync($"/api/v1/recipes?{queryString}");
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
         problem!.Type.Should().Be(ErrorCodes.ValidationError);
     }
 
@@ -173,11 +173,11 @@ public sealed class GetRecipesTests(PostgresApiFactory factory) : IClassFixture<
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/recipes?{queryString}");
         if (token is not null)
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            {request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);}
 
         var response = await _client.SendAsync(request);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<PagedResult<RecipeSummaryDto>>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<PagedResult<RecipeSummaryDto>>(_jsonOptions);
         body.Should().NotBeNull();
         return body!;
     }
@@ -188,7 +188,7 @@ public sealed class GetRecipesTests(PostgresApiFactory factory) : IClassFixture<
             "/api/v1/auth/register",
             new { email = $"list-{Guid.NewGuid():N}@example.com", password = "Str0ng!Pass1", displayName = "Tác giả test" });
         response.EnsureSuccessStatusCode();
-        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(_jsonOptions);
         return (body!.AccessToken, body.User.Id);
     }
 
@@ -211,7 +211,7 @@ public sealed class GetRecipesTests(PostgresApiFactory factory) : IClassFixture<
 
         var loginResponse = await _client.PostAsJsonAsync("/api/v1/auth/login", new { email, password });
         loginResponse.EnsureSuccessStatusCode();
-        var body = await loginResponse.Content.ReadFromJsonAsync<AuthResponseDto>(JsonOptions);
+        var body = await loginResponse.Content.ReadFromJsonAsync<AuthResponseDto>(_jsonOptions);
         return body!.AccessToken;
     }
 

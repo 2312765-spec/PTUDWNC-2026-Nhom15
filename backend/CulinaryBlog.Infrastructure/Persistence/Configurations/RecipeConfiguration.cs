@@ -37,8 +37,8 @@ public sealed class RecipeConfiguration : IEntityTypeConfiguration<Recipe>
         builder.HasIndex(r => r.Difficulty);
 
         // D18 — legacy, nullable.
-        builder.Property(r => r.Instructions);
-
+        //builder.Property(r => r.Instructions);
+        
         // SRS 7.2.1 — owned, cột "Nutrition_*" nằm ngay trong bảng Recipes.
         builder.OwnsOne(r => r.Nutrition, n =>
         {

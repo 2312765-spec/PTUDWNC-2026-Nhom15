@@ -1,12 +1,7 @@
 using CulinaryBlog.IntegrationTests.Common;
-using CulinaryBlog.Infrastructure.Identity;
-using CulinaryBlog.Infrastructure.Persistence;
 using DotNet.Testcontainers.Containers;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 using Testcontainers.Redis;
 using Xunit;
@@ -27,7 +22,7 @@ namespace CulinaryBlog.IntegrationTests.Observability.Support;
 /// </summary>
 public sealed class HealthyApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private const string BucketName = "culinary-blog";
+    private const string _bucketName = "culinary-blog";
 
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
         .WithImage("postgres:16-alpine")
@@ -38,18 +33,11 @@ public sealed class HealthyApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
     private readonly RedisContainer _redis = new RedisBuilder().Build();
 
-    private readonly IContainer _s3Server = S3MockContainer.Build(BucketName);
+    private readonly IContainer _s3Server = S3MockContainer.Build(_bucketName);
 
     public async Task InitializeAsync()
     {
         await Task.WhenAll(_postgres.StartAsync(), _redis.StartAsync(), _s3Server.StartAsync());
-
-        // Truy cập Services buộc host build ngay bây giờ — containers phải start TRƯỚC dòng này
-        // (xem lý do chi tiết ở PostgresApiFactory).
-        using var scope = Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
-        await db.Database.MigrateAsync();
-        await IdentityRoleSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>());
     }
 
     async Task IAsyncLifetime.DisposeAsync()
@@ -76,6 +64,6 @@ public sealed class HealthyApiFactory : WebApplicationFactory<Program>, IAsyncLi
         builder.UseSetting("Minio:Endpoint", _s3Server.GetConnectionString());
         builder.UseSetting("Minio:AccessKey", S3MockContainer.AccessKey);
         builder.UseSetting("Minio:SecretKey", S3MockContainer.SecretKey);
-        builder.UseSetting("Minio:BucketName", BucketName);
+        builder.UseSetting("Minio:BucketName", _bucketName);
     }
 }

@@ -122,7 +122,13 @@ public sealed class ConcurrencyTests(PostgresApiFactory factory) : IClassFixture
         var authorId = await db.Users.Where(u => u.Email == email).Select(u => u.Id).SingleAsync();
 
         var unique = Guid.NewGuid().ToString("N")[..12];
-        var category = Category.Create($"Danh mục {unique}", $"danh-muc-{unique}");
+        var category = Category.Create(
+            name: $"Danh mục {unique}",
+            slug: $"danh-muc-{unique}",
+            description: "mô tả",
+            imageUrl: null,
+            orderIndex: 0
+        );
         db.Categories.Add(category);
 
         var recipe = Recipe.Create(

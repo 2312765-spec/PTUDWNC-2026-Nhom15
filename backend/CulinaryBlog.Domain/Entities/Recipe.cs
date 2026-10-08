@@ -11,7 +11,7 @@ public class Recipe : BaseEntity, IAggregateRoot
     public string Description { get; private set; } = string.Empty;
 
     /// <summary>SRS 7.2 (legacy) + D18 — hướng dẫn tổng quan dạng markdown, nullable. Chi tiết dùng Steps.</summary>
-    public string? Instructions { get; private set; }
+   // public string? Instructions { get; private set; }
 
     public int PrepTime { get; private set; }
     public int CookTime { get; private set; }
@@ -150,6 +150,7 @@ public class Recipe : BaseEntity, IAggregateRoot
             }
         }
     }
+    
 
     /// <summary>
     /// FR-RCP-008 / Quyết định D22, D23:

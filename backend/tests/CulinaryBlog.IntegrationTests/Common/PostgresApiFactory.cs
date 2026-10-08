@@ -42,17 +42,6 @@ public sealed class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncL
     public async Task InitializeAsync()
     {
         await Task.WhenAll(_postgres.StartAsync(), _redis.StartAsync());
-
-        // Truy cập Services buộc host build ngay bây giờ (ConfigureWebHost đọc _postgres.GetConnectionString(),
-        // nên container phải start TRƯỚC dòng này).
-        using var scope = Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
-        await db.Database.MigrateAsync();
-
-        // Bug CI (2026-09-22): thiếu bước này thì mọi POST /auth/register trả 500 —
-        // xem IdentityRoleSeeder. Program.cs chỉ seed role trong nhánh IsDevelopment(),
-        // factory này chạy ở "Testing" nên phải tự seed sau khi migrate.
-        await IdentityRoleSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>());
     }
 
     async Task IAsyncLifetime.DisposeAsync()

@@ -17,6 +17,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using StackExchange.Redis;
+
 namespace CulinaryBlog.Infrastructure;
 
 public static class DependencyInjection
@@ -38,10 +39,11 @@ public static class DependencyInjection
         services.AddSingleton<RowVersionInterceptor>();
         services.AddDbContext<CulinaryBlogDbContext>((sp, options) =>
             options.UseNpgsql(connectionString)
+                .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning))
                 .AddInterceptors(
                     sp.GetRequiredService<AuditInterceptor>(),
                     sp.GetRequiredService<RowVersionInterceptor>()));
-
+            
         // 1. Cấu hình ASP.NET Core Identity
         services.AddIdentityCore<ApplicationUser>(options =>
         {

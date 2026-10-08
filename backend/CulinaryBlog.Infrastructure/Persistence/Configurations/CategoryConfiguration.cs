@@ -15,7 +15,9 @@ public sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
         builder.Property(c => c.Slug).HasMaxLength(120).IsRequired();
         builder.Property(c => c.Description);
         builder.Property(c => c.ImageUrl).HasMaxLength(500);
-        builder.Property(c => c.OrderIndex).HasDefaultValue(0);
+        builder.Property(c => c.OrderIndex)
+       .IsRequired()
+       .ValueGeneratedNever();
 
         builder.HasIndex(c => c.Name).IsUnique();
         builder.HasIndex(c => c.Slug).IsUnique();

@@ -1,14 +1,10 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using CulinaryBlog.Infrastructure.Identity;
-using CulinaryBlog.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
@@ -49,12 +45,6 @@ public sealed class TracingApiFactory : WebApplicationFactory<Program>, IAsyncLi
     public async Task InitializeAsync()
     {
         await Task.WhenAll(_postgres.StartAsync(), _redis.StartAsync());
-
-        // Containers phải start TRƯỚC khi host build (xem PostgresApiFactory).
-        using var scope = Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
-        await db.Database.MigrateAsync();
-        await IdentityRoleSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>());
     }
 
     async Task IAsyncLifetime.DisposeAsync()

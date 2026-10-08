@@ -11,7 +11,7 @@ public class Category : BaseEntity, IAggregateRoot
     public string Slug { get; private set; } = string.Empty;
     public string? Description { get; private set; }
     public string? ImageUrl { get; private set; }
-    public int OrderIndex { get; private set; }
+    public int OrderIndex { get; private set; } = 0;
 
     private readonly List<Recipe> _recipes = [];
     public IReadOnlyCollection<Recipe> Recipes => _recipes.AsReadOnly();
@@ -22,6 +22,7 @@ public class Category : BaseEntity, IAggregateRoot
 
     private Category(string name, string slug, string? description, string? imageUrl, int orderIndex)
     {
+        Id = Guid.CreateVersion7();
         Name = name;
         Slug = slug;
         Description = description;

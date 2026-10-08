@@ -125,16 +125,22 @@ public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixtu
         var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
 
         var unique = Guid.NewGuid().ToString("N")[..12];
-        var category = Category.Create($"Danh mục search {unique}", $"danh-muc-search-{unique}", "desc", null, 0);
+        var category = Category.Create(
+            name: $"Danh mục search {unique}",
+            slug: $"danh-muc-search-{unique}",
+            description: "desc",
+            imageUrl: null,
+            orderIndex: 0
+        );
         db.Categories.Add(category);
 
         var recipe = Recipe.Create(
             title, $"recipe-{Guid.NewGuid():N}", "mô tả", 10, 30, 2,
             RecipeDifficulty.Easy, category.Id, authorId, status: status);
         if (imageUrl is not null)
-            recipe.AttachImage(imageUrl, isPrimary: true);
+           { recipe.AttachImage(imageUrl, isPrimary: true);
+           }
         db.Recipes.Add(recipe);
-
         await db.SaveChangesAsync();
         return recipe.Id;
     }

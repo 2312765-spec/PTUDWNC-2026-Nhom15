@@ -66,8 +66,8 @@ public static class RecipeEndpoints
         .WithSummary("Full-text search tiếng Việt (FR-SRCH-001)")
         .WithDescription("Tìm kiếm công thức nấu ăn bằng từ khóa tiếng Việt có dấu hoặc không dấu.")
         .Produces<PagedResult<RecipeSummaryDto>>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status400BadRequest);
-          
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+          .AllowAnonymous(); //dòng này để khách vãng lai (chưa đăng nhập) tìm kiếm thoải mái
         group.MapGet("/{slug}", (string slug) => NotImplementedResults.Pending("FR-RCP-002", "B"))
              .WithSummary("Chi tiết theo slug — Draft/Archived: chỉ owner hoặc Admin (403)");
 

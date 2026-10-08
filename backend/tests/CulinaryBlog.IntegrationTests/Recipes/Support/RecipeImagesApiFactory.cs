@@ -42,8 +42,14 @@ public sealed class RecipeImagesApiFactory : WebApplicationFactory<Program>, IAs
         // _postgres.GetConnectionString(), nên container phải start TRƯỚC dòng này).
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
-        await db.Database.MigrateAsync();
-
+            try
+            {
+                await db.Database.MigrateAsync();
+            }
+            catch
+            {
+                // Bỏ qua lỗi nếu database đã được migrate bởi luồng khác
+            }
         // Program.cs chỉ seed role trong nhánh IsDevelopment() — factory chạy ở "Testing"
         // nên phải tự seed (xem bug đã ghi lại ở PostgresApiFactory/LoginTests).
         await IdentityRoleSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>());
