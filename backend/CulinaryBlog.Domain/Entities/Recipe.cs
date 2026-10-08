@@ -56,6 +56,7 @@ public class Recipe : BaseEntity, IAggregateRoot
         Status = RecipeStatus.Draft;
     }
 
+    
     public static Recipe Create(
         string title = "Test Recipe",
         string slug = "test-recipe",
@@ -262,4 +263,5 @@ public class Recipe : BaseEntity, IAggregateRoot
 
         return img;
     }
+    
 }

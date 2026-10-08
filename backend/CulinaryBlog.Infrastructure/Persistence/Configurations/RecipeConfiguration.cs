@@ -2,6 +2,7 @@ using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using NpgsqlTypes;
 
 namespace CulinaryBlog.Infrastructure.Persistence.Configurations;
 
@@ -67,5 +68,15 @@ public sealed class RecipeConfiguration : IEntityTypeConfiguration<Recipe>
             .WithOne(i => i.Recipe)
             .HasForeignKey(i => i.RecipeId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // FR-SRCH-001: 
+        // 1. Khai báo Shadow Property SearchVector là computed/generated để EF Core không chèn dữ liệu thủ công
+        builder.Property<NpgsqlTsVector>("SearchVector")
+    .HasColumnType("tsvector")
+    .ValueGeneratedOnAddOrUpdate(); // RẤT QUAN TRỌNG: Ngăn EF Core ghi đè khi Insert/Update
+
+        // 2. Tạo GIN Index cho SearchVector đúng chuẩn PostgreSQL FTS
+        builder.HasIndex("SearchVector")
+    .HasMethod("GIN");      
     }
 }

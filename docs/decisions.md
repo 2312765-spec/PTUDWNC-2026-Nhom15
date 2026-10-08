@@ -48,7 +48,8 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D30 | Bug: mất ErrorCode của FluentValidation | `GlobalExceptionMiddleware` phải giữ ErrorCode riêng của từng rule |
 | D31 | Bug: thêm child entity vào aggregate đã track | EF Core hiểu nhầm thành UPDATE thay vì INSERT |
 | D32 | Bug: `CategoryRepository.GetBySlugAsync` thiếu Include | `category.Recipes` luôn rỗng — FR-CAT-002 không hoạt động |
-
+| D33 | Google OAuth: lỗi & mã HTTP | Gộp A1/A2 thành 400, thêm mã 502 (AUTH_GOOGLE_UNAVAILABLE) cho A3 |
+| D34 | PostgreSQL FTS: Text Search Config | Dùng `simple` + `unaccent` thay cho từ điển `vietnamese` |
 ---
 
 ## D1 — Xóa Recipe: soft delete
@@ -936,7 +937,32 @@ frontend phân biệt "thử lại sau" với "cần đăng nhập lại".
 **Sửa SRS:** FR-AUTH-003 — xoá luồng A2 (gộp vào A1), sửa A1 từ "401" thành "400".
 
 ---
+---
 
+## D34 — PostgreSQL Full-Text Search: dùng config 'simple' + 'unaccent' thay cho 'vietnamese'
+
+> Phát hiện lúc hiện thực FR-SRCH-001 (2026-10-08).
+
+**Nguồn mâu thuẫn / Bối cảnh:** SRS FR-SRCH-001 và yêu cầu tìm kiếm công thức bằng tiếng Việt ban đầu kỳ vọng sử dụng Text Search Configuration tiếng Việt (`vietnamese`). Tuy nhiên, PostgreSQL tiêu chuẩn (bản phân phối chính thức, Docker image `postgres:alpine`/`postgres:latest`, Testcontainers chạy CI/CD, và đa số dịch vụ Cloud Postgres) **không tích hợp sẵn từ điển tiếng Việt**. Để dùng được `vietnamese` phải cài đặt thủ công dictionary bên ngoài (Snowball/Hunspell) vào thư mục hệ thống của OS, điều này làm vỡ tính di động (portability) của dự án, khiến integration tests trên CI/CD và môi trường dev không thể chạy tự động.
+
+**Chốt:** 
+- Toàn bộ cơ chế PostgreSQL Full-Text Search (FTS) cho `FR-SRCH-001` sử dụng Text Search Configuration **`simple`** kết hợp extension **`unaccent`** chính thức của PostgreSQL.
+- Bảng `Recipes` bổ sung cột `SearchVector` kiểu `tsvector`. Dữ liệu được đồng bộ tự động qua Database Trigger sử dụng hàm:
+  `to_tsvector('simple', unaccent(coalesce("Title", ''))) || to_tsvector('simple', unaccent(coalesce("Description", '')))` (với trọng số Weight 'A' cho Title, 'B' cho Description).
+- Khi tìm kiếm từ khóa `q`, câu truy vấn được tiền xử lý qua `unaccent` và tạo query `plainto_tsquery('simple', unaccent(@q))`.
+- Đánh chỉ mục **GIN Index** trên cột `SearchVector` để đảm bảo thời gian phản hồi theo NFR-PERF (< 200ms).
+
+**Vì:**
+- Extension `unaccent` là extension chuẩn thuộc gói PostgreSQL Contrib, có sẵn 100% trên mọi bản phân phối PostgreSQL mà không cần cài thêm gói binary bên ngoài (`CREATE EXTENSION IF NOT EXISTS unaccent;`).
+- Phù hợp với hành vi thực tế của người dùng Việt: tìm kiếm không dấu (ví dụ: `"pho bo"`, `"thit kho"`) vẫn khớp chính xác dữ liệu có dấu (`"Phở bò"`, `"Thịt kho tàu"`) và ngược lại.
+- Đảm bảo tính tương thích và độc lập 100% trên mọi môi trường: Docker Compose, Testcontainers trong Integration Tests (`PostgresApiFactory`), và Production.
+
+**Hệ quả cụ thể:**
+- Migration `20261008064053_AddSearchVectorFTS` tạo extension `unaccent`, tạo cột `SearchVector`, thiết lập GIN index và Trigger cập nhật tự động.
+- `SearchRecipesQueryHandler` truy vấn trực tiếp qua `SearchVector @@ plainto_tsquery('simple', unaccent(@searchTerm))` kết hợp `ts_rank`.
+- Không phụ thuộc vào bất kỳ thư viện hay dictionary ngoài nào.
+
+**Sửa SRS:** FR-SRCH-001 — chuẩn hóa thuật toán tìm kiếm FTS sang sử dụng PostgreSQL FTS với config `simple` kết hợp hàm `unaccent`.
 ## Khi phát hiện mâu thuẫn mới lúc code
 
 1. Thêm mục mới vào cuối file này với mã `D23`, `D24`…

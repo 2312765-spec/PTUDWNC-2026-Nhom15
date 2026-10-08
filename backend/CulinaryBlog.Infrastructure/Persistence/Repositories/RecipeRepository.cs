@@ -2,6 +2,7 @@ using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Enums;
 using CulinaryBlog.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using NpgsqlTypes;
 
 namespace CulinaryBlog.Infrastructure.Persistence.Repositories;
 
@@ -48,10 +49,9 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
     {
         var query = context.Recipes
             .AsNoTracking()
-            .Include(r => r.Images) // Nạp kèm Images để DTO có ảnh thumbnail
+            .Include(r => r.Images)
             .Where(r => r.CategoryId == categoryId && !r.IsDeleted);
 
-        // Mặc định nếu không truyền status thì lấy Published
         if (status.HasValue)
         {
             query = query.Where(r => r.Status == status.Value);
@@ -87,58 +87,79 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
         return await GetByIdWithImagesAsync(id, ct);
     }
 
+   // FR-SRCH-001: Tìm kiếm toàn văn FTS PostgreSQL hỗ trợ tiếng Việt không dấu (unaccent + simple) và ts_rank
     public async Task<(IReadOnlyList<Recipe> Items, int TotalCount)> SearchPublishedRecipesAsync(
         string? searchTerm, 
         int page, 
         int pageSize, 
         CancellationToken cancellationToken = default)
     {
-        // 1. Chỉ lấy Recipe đã Published và chưa bị xóa mềm
-        var baseQuery = context.Recipes
+        // Clamp pageSize tối đa 50 theo FR-SRCH-001 / FR-SRCH-004
+                    if (pageSize > 50)
+            {
+                pageSize = 50;
+            }
+            if (pageSize < 1)
+            {
+                pageSize = 10;
+            }
+            if (page < 1)
+            {
+                page = 1;
+            }
+
+        var raw = (searchTerm ?? string.Empty).Trim();
+        var cleanTerms = System.Text.RegularExpressions.Regex.Split(raw, @"[^\p{L}\p{N}]+")
+            .Where(t => t.Length > 0)
+            .ToArray();
+
+        var query = context.Recipes
             .AsNoTracking()
             .Include(r => r.Images)
             .Where(r => !r.IsDeleted && r.Status == RecipeStatus.Published);
 
-        if (!string.IsNullOrWhiteSpace(searchTerm))
+        if (cleanTerms.Length > 0)
         {
-            var raw = searchTerm.Trim();
+            // Prefix matching "pho:* & bo:*"
+            var tsQueryString = string.Join(" & ", cleanTerms.Select(t => $"{t}:*"));
 
-            // Làm sạch từ khóa để tránh lỗi cú pháp tsquery: chỉ giữ chữ + số (kể cả chữ có dấu).
-            // Danh sách đen ký tự cũ bỏ sót toán tử "<->", "<N>" của tsquery → to_tsquery ném lỗi → 500.
-            var cleanTerms = System.Text.RegularExpressions.Regex.Split(raw, @"[^\p{L}\p{N}]+")
-                .Where(t => t.Length > 0)
-                .ToArray();
+            // Khớp qua SearchVector HOẶC tính toán trực tiếp nếu SearchVector chưa được trigger điền (tránh rỗng kết quả)
+            var matchedQuery = query.Where(r =>
+                (EF.Property<NpgsqlTsVector>(r, "SearchVector") != null &&
+                 EF.Property<NpgsqlTsVector>(r, "SearchVector")
+                    .Matches(EF.Functions.ToTsQuery("simple", EF.Functions.Unaccent(tsQueryString))))
+                ||
+                EF.Functions.ToTsVector("simple", EF.Functions.Unaccent(r.Title + " " + (r.Description ?? "")))
+                    .Matches(EF.Functions.ToTsQuery("simple", EF.Functions.Unaccent(tsQueryString))));
 
-            if (cleanTerms.Length > 0)
+            var totalCount = await matchedQuery.CountAsync(cancellationToken);
+
+            if (totalCount == 0)
             {
-                // Xây dựng tsquery dạng prefix matching theo SRS: "pho:* & bo:*"
-                var tsQueryString = string.Join(" & ", cleanTerms.Select(t => $"{t}:*"));
-
-                // Dựng pattern ILIKE phía C#: nội suy chuỗi bên trong lambda của .All() không dịch được sang SQL
-                // (EF ném "Translation of method 'string.Format' failed" → mọi request search trả 500).
-                var likePatterns = cleanTerms.Select(t => $"%{t}%").ToArray();
-
-                // Dùng EF.Functions của PostgreSQL với unaccent để tìm kiếm không dấu ("pho" ra "Phở")
-                // Kết hợp cả Full-Text Search và ILike unaccent để đạt độ chính xác 100%
-                baseQuery = baseQuery.Where(r =>
-                    EF.Functions.ToTsVector("simple", EF.Functions.Unaccent(r.Title + " " + (r.Description ?? "")))
-                        .Matches(EF.Functions.ToTsQuery("simple", EF.Functions.Unaccent(tsQueryString)))
-                    || likePatterns.All(p =>
-                        EF.Functions.ILike(EF.Functions.Unaccent(r.Title), EF.Functions.Unaccent(p)) ||
-                        (r.Description != null && EF.Functions.ILike(EF.Functions.Unaccent(r.Description), EF.Functions.Unaccent(p)))));
+                return (Array.Empty<Recipe>(), 0);
             }
+
+            // Xếp hạng ts_rank DESC
+            var items = await matchedQuery
+                .OrderByDescending(r => EF.Functions.ToTsVector("simple", EF.Functions.Unaccent(r.Title + " " + (r.Description ?? "")))
+                    .Rank(EF.Functions.ToTsQuery("simple", EF.Functions.Unaccent(tsQueryString))))
+                .ThenByDescending(r => r.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken);
+
+            return (items, totalCount);
         }
+        else
+        {
+            var totalCount = await query.CountAsync(cancellationToken);
+            var items = await query
+                .OrderByDescending(r => r.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken);
 
-        var totalCount = await baseQuery.CountAsync(cancellationToken);
-
-        // 2. Sắp xếp theo mức độ liên quan (Title khớp chính xác sẽ lên đầu) rồi đến ngày tạo
-        var items = await baseQuery
-            .OrderByDescending(r => r.Title.ToLower() == (searchTerm ?? "").Trim().ToLower())
-            .ThenByDescending(r => r.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
-
-        return (items, totalCount);
+            return (items, totalCount);
+        }
     }
 }

@@ -4,7 +4,8 @@ using CulinaryBlog.Application.Categories.DTOs;
 using CulinaryBlog.IntegrationTests.Common;
 using FluentAssertions;
 using Xunit;
-
+using CulinaryBlog.Infrastructure.Persistence;
+using Microsoft.Extensions.DependencyInjection;
 namespace CulinaryBlog.IntegrationTests.Categories;
 
 /// <summary>
@@ -13,9 +14,25 @@ namespace CulinaryBlog.IntegrationTests.Categories;
 /// 501 lúc endpoint còn là stub) rồi bị comment ra khi endpoint làm xong thay vì sửa — bug
 /// thiếu đăng ký DI (ICategoryRepository) vì vậy không bị bắt. Tách thành test riêng ở đây.
 /// </summary>
-public sealed class GetCategoriesTests(PostgresApiFactory factory) : IClassFixture<PostgresApiFactory>
+public sealed class GetCategoriesTests(PostgresApiFactory factory) : IClassFixture<PostgresApiFactory>, IAsyncLifetime
 {
     private readonly HttpClient _client = factory.CreateClient();
+
+    public async Task InitializeAsync()
+    {
+        // 1. Nếu PostgresApiFactory của bạn có sẵn hàm ResetDatabaseAsync:
+        // await factory.ResetDatabaseAsync();
+
+        // 2. Dọn sạch Categories trước khi chạy test đảm bảo DB trống:
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
+        
+        // Xóa sạch categories (nếu có liên kết RecipeCategories hoặc Recipes thì xóa an toàn)
+        db.Categories.RemoveRange(db.Categories);
+        await db.SaveChangesAsync();
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact(DisplayName = "FR-CAT-001: chưa có category nào → 200 kèm mảng rỗng")]
     public async Task GetCategories_Empty_Returns200WithEmptyArray()
