@@ -233,9 +233,6 @@ namespace CulinaryBlog.Infrastructure.Migrations
                     b.Property<Guid>("RecipeId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("RecipeId1")
-                        .HasColumnType("uuid");
-
                     b.Property<byte[]>("RowVersion")
                         .IsRequired()
                         .HasColumnType("bytea");
@@ -250,8 +247,6 @@ namespace CulinaryBlog.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RecipeId");
-
-                    b.HasIndex("RecipeId1");
 
                     b.ToTable("RecipeIngredients", (string)null);
                 });
@@ -279,9 +274,6 @@ namespace CulinaryBlog.Infrastructure.Migrations
                     b.Property<Guid>("RecipeId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("RecipeId1")
-                        .HasColumnType("uuid");
-
                     b.Property<byte[]>("RowVersion")
                         .IsRequired()
                         .HasColumnType("bytea");
@@ -301,8 +293,6 @@ namespace CulinaryBlog.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("RecipeId1");
 
                     b.HasIndex("RecipeId", "StepNumber")
                         .IsUnique();
@@ -584,9 +574,6 @@ namespace CulinaryBlog.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-<<<<<<< HEAD
-                    b.Navigation("Category");
-=======
                     b.OwnsOne("CulinaryBlog.Domain.Entities.RecipeNutrition", "Nutrition", b1 =>
                         {
                             b1.Property<Guid>("RecipeId")
@@ -634,7 +621,6 @@ namespace CulinaryBlog.Infrastructure.Migrations
 
                     b.Navigation("Nutrition")
                         .IsRequired();
->>>>>>> origin/main
                 });
 
             modelBuilder.Entity("CulinaryBlog.Domain.Entities.RecipeImage", b =>
@@ -656,13 +642,6 @@ namespace CulinaryBlog.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-<<<<<<< HEAD
-                    b.HasOne("CulinaryBlog.Domain.Entities.Recipe", "Recipe")
-                        .WithMany()
-                        .HasForeignKey("RecipeId1");
-
-=======
->>>>>>> origin/main
                     b.Navigation("Recipe");
                 });
 
@@ -673,16 +652,6 @@ namespace CulinaryBlog.Infrastructure.Migrations
                         .HasForeignKey("RecipeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-<<<<<<< HEAD
-=======
-
-                    b.Navigation("Recipe");
-                });
->>>>>>> origin/main
-
-                    b.HasOne("CulinaryBlog.Domain.Entities.Recipe", "Recipe")
-                        .WithMany()
-                        .HasForeignKey("RecipeId1");
 
                     b.Navigation("Recipe");
                 });
