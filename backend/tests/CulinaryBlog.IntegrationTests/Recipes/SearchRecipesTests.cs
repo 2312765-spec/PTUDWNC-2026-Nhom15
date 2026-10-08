@@ -24,7 +24,7 @@ namespace CulinaryBlog.IntegrationTests.Recipes;
 /// </summary>
 public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixture<PostgresApiFactory>
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly HttpClient _client = factory.CreateClient();
 
@@ -71,7 +71,7 @@ public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixtu
         var response = await _client.GetAsync($"/api/v1/recipes/search?q={Uri.EscapeDataString(q)}");
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
         problem!.Type.Should().Be(ErrorCodes.ValidationError);
     }
 
@@ -81,7 +81,7 @@ public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixtu
         var response = await _client.GetAsync("/api/v1/recipes/search?q=pho&pageSize=100");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<PagedResult<RecipeSummaryDto>>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<PagedResult<RecipeSummaryDto>>(_jsonOptions);
         body!.PageSize.Should().Be(PagedResult<RecipeSummaryDto>.MaxPageSize);
     }
 
@@ -102,7 +102,7 @@ public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixtu
     {
         var response = await _client.GetAsync($"/api/v1/recipes/search?q={Uri.EscapeDataString(q)}");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<PagedResult<RecipeSummaryDto>>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<PagedResult<RecipeSummaryDto>>(_jsonOptions);
         body.Should().NotBeNull();
         return body!;
     }
@@ -113,7 +113,7 @@ public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixtu
             "/api/v1/auth/register",
             new { email = $"search-{Guid.NewGuid():N}@example.com", password = "Str0ng!Pass1", displayName = "Tác giả test" });
         response.EnsureSuccessStatusCode();
-        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(_jsonOptions);
         return body!.User.Id;
     }
 

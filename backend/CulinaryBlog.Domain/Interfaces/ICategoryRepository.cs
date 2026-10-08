@@ -1,4 +1,4 @@
-﻿using CulinaryBlog.Domain.Entities;
+using CulinaryBlog.Domain.Entities;
 
 namespace CulinaryBlog.Domain.Interfaces;
 
@@ -10,52 +10,45 @@ namespace CulinaryBlog.Domain.Interfaces;
 /// </summary>
 public interface ICategoryRepository
 {
+    /// <summary>Lấy tất cả danh mục chưa xóa mềm.</summary>
+    Task<IReadOnlyList<Category>> GetAllAsync(CancellationToken cancellationToken = default);
+
     /// <summary>
     /// FR-CAT-001: Lấy tất cả danh mục kèm các công thức đã xuất bản (Published).
     /// Sắp xếp theo Name tăng dần.
     /// </summary>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Danh sách thực thể Category kèm Recipes</returns>
     Task<IReadOnlyList<Category>> GetAllWithRecipesAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// FR-CAT-002: Lấy danh mục theo Slug.
-    /// </summary>
-    Task<Category?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Kiểm tra tồn tại theo tên danh mục.
-    /// </summary>
-    Task<bool> ExistsByNameAsync(string name, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Kiểm tra tồn tại theo Slug.
-    /// </summary>
-    Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// FR-CAT-003: Thêm danh mục mới.
-    /// </summary>
-    Task AddAsync(Category category, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// FR-CAT-004: Lấy danh mục theo ID.
-    /// </summary>
+    /// <summary>FR-CAT-004: Lấy danh mục theo ID.</summary>
     Task<Category?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Đếm số công thức đã xuất bản trong danh mục.
-    /// </summary>
+    /// <summary>FR-CAT-002: Lấy danh mục theo Slug.</summary>
+    Task<Category?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default);
+
+    /// <summary>Kiểm tra tồn tại theo tên danh mục.</summary>
+    Task<bool> ExistsByNameAsync(string name, CancellationToken cancellationToken = default);
+
+    /// <summary>FR-CAT-004: Kiểm tra tồn tại danh mục KHÁC có cùng tên (khi cập nhật).</summary>
+    Task<bool> ExistsByNameAsync(string name, Guid excludeId, CancellationToken cancellationToken = default);
+
+    /// <summary>Kiểm tra tồn tại theo Slug.</summary>
+    Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken = default);
+
+    /// <summary>FR-CAT-005 / D2: danh mục còn recipe chưa xóa mềm không.</summary>
+    Task<bool> HasRecipesAsync(Guid categoryId, CancellationToken cancellationToken = default);
+
+    /// <summary>FR-CAT-005: Đếm mọi recipe chưa xóa mềm (kể cả Draft, Archived).</summary>
+    Task<int> GetTotalRecipeCountAsync(Guid categoryId, CancellationToken cancellationToken = default);
+
+    /// <summary>Đếm số công thức đã xuất bản trong danh mục.</summary>
     Task<int> GetPublishedRecipeCountAsync(Guid categoryId, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// FR-CAT-004: Cập nhật thông tin danh mục.
-    /// </summary>
+    /// <summary>FR-CAT-003: Thêm danh mục mới.</summary>
+    Task AddAsync(Category category, CancellationToken cancellationToken = default);
+
+    /// <summary>FR-CAT-004: Cập nhật thông tin danh mục.</summary>
     void Update(Category category);
 
-    /// <summary>
-    /// FR-CAT-005: Xóa mềm danh mục (Soft Delete).
-    /// </summary>
+    /// <summary>FR-CAT-005: Xóa mềm danh mục (Soft Delete).</summary>
     void Delete(Category category);
-    Task<int> GetTotalRecipeCountAsync(Guid categoryId, CancellationToken cancellationToken = default);
 }

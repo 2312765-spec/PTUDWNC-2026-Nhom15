@@ -48,8 +48,19 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D30 | Bug: mất ErrorCode của FluentValidation | `GlobalExceptionMiddleware` phải giữ ErrorCode riêng của từng rule |
 | D31 | Bug: thêm child entity vào aggregate đã track | EF Core hiểu nhầm thành UPDATE thay vì INSERT |
 | D32 | Bug: `CategoryRepository.GetBySlugAsync` thiếu Include | `category.Recipes` luôn rỗng — FR-CAT-002 không hoạt động |
+
 | D33 | Google OAuth: lỗi & mã HTTP | Gộp A1/A2 thành 400, thêm mã 502 (AUTH_GOOGLE_UNAVAILABLE) cho A3 |
 | D34 | PostgreSQL FTS: Text Search Config | Dùng `simple` + `unaccent` thay cho từ điển `vietnamese` |
+
+| D33 | Google OAuth lỗi | A1+A2 → 400 `AUTH_GOOGLE_TOKEN_INVALID`, A3 → 502 `AUTH_GOOGLE_UNAVAILABLE` |
+| D34 | `RowVersion` trên PostgreSQL | **Code tự sinh** qua `RowVersionInterceptor` — `[Timestamp]` chỉ tự chạy trên SQL Server |
+| D35 | Refresh token (FR-AUTH-004) | A1/A4 → 401 `AUTH_TOKEN_INVALID` · không check lockout · reuse → revoke **mọi** RT của user · race → 401 không revoke family |
+| D36 | Đích export OpenTelemetry | Dev: **trace → Seq** (OTLP HTTP), metric không export · Prod: cả hai → Collector |
+| D37 | "EF Core traces" | **`Npgsql.OpenTelemetry`** (span theo câu SQL), không dùng gói EF Core beta |
+| D38 | Error rate | **5xx / exception** (`error.type`) — 4xx không tính lỗi server |
+| D39 | Metric recipe created/published | `RecipeMetrics` làm trước; **C gọi** trong handler FR-RCP-003/005 |
+
+
 ---
 
 ## D1 — Xóa Recipe: soft delete
@@ -471,6 +482,10 @@ ReplacedByTokenHash, CreatedAt, CreatedByIp
 **Reuse detection:** nhận refresh token có `RevokedAt != null` → revoke **toàn bộ token
 family** của user đó (truy ngược theo `ReplacedByTokenHash`), log `WARNING`, trả 401
 `AUTH_REFRESH_TOKEN_REVOKED`.
+
+> **Đã được D35-5 thay phạm vi revoke:** không truy chuỗi `ReplacedByTokenHash` nữa mà revoke
+> **mọi RT còn hiệu lực của user**. Phần còn lại của D20 (schema, hash, điều kiện còn hiệu lực)
+> giữ nguyên.
 
 **Vì:** schema 7.8 đúng hơn về bảo mật. Chương 3 viết theo bản nháp cũ.
 
@@ -939,6 +954,7 @@ frontend phân biệt "thử lại sau" với "cần đăng nhập lại".
 ---
 ---
 
+
 ## D34 — PostgreSQL Full-Text Search: dùng config 'simple' + 'unaccent' thay cho 'vietnamese'
 
 > Phát hiện lúc hiện thực FR-SRCH-001 (2026-10-08).
@@ -963,6 +979,167 @@ frontend phân biệt "thử lại sau" với "cần đăng nhập lại".
 - Không phụ thuộc vào bất kỳ thư viện hay dictionary ngoài nào.
 
 **Sửa SRS:** FR-SRCH-001 — chuẩn hóa thuật toán tìm kiếm FTS sang sử dụng PostgreSQL FTS với config `simple` kết hợp hàm `unaccent`.
+=======
+## D34 — RowVersion trên PostgreSQL: code tự sinh, không dựa vào `[Timestamp]`
+
+> Phát hiện khi rà soát sau PR #25 (2026-09-30). Kế hoạch: `docs/plans/D34-rowversion-concurrency.md`.
+
+**Nguồn mâu thuẫn:** SRS 7.1 ghi `RowVersion` là "bytea (timestamp), NOT NULL, Concurrency Token —
+EF Core [Timestamp] annotation", và CONS-006 chốt PostgreSQL là DBMS duy nhất. `[Timestamp]` /
+`IsRowVersion()` dựa vào kiểu `rowversion` do **SQL Server** tự tăng sau mỗi lần ghi — PostgreSQL
+không có cơ chế tương đương cho cột `bytea`. Kết quả thực tế: `RowVersion` giữ giá trị rỗng mãi,
+EF sinh `UPDATE ... WHERE "RowVersion" = ''` luôn đúng, hai người cùng sửa thì người sau âm thầm
+ghi đè người trước — không bao giờ có 409 như D4 và FR-RCP-004 A2 yêu cầu.
+
+**Chốt:**
+
+- Giữ cột `RowVersion bytea` đúng SRS (không đổi schema, không migration).
+- `Infrastructure/Persistence/RowVersionInterceptor.cs`: trước mỗi `SaveChanges`, mọi `BaseEntity`
+  ở trạng thái `Added`/`Modified` — hoặc có owned entity (vd. `Recipe.Nutrition`) thay đổi —
+  nhận 16 byte ngẫu nhiên mới. EF vẫn dùng giá trị **gốc** trong mệnh đề WHERE nên nếu người khác
+  đã lưu trước → 0 dòng → `DbUpdateConcurrencyException` → **409 `RECIPE_CONCURRENCY_CONFLICT`** (D4).
+- Không dùng cột hệ thống `xmin` của PostgreSQL (cách Npgsql khuyến nghị): phải bỏ cột
+  `RowVersion`, lệch SRS 7.1 nhiều hơn mà lợi ích không đáng kể ở quy mô dự án.
+- Kèm theo: đăng ký `AuditInterceptor` (SRS 7.1 — `CreatedAt`/`UpdatedAt`) vốn đã viết nhưng chưa
+  từng được gắn vào DbContext.
+
+**Quy tắc cho FR-RCP-004 (và mọi Command sửa có `If-Match`):** interceptor chỉ chặn được hai request
+**chen nhau** giữa lúc đọc và lúc lưu. Để chặn client sửa trên bản đã cũ (đọc từ vài phút trước),
+handler PHẢI so `RowVersion` client gửi (header `If-Match`, base64) với `recipe.RowVersion` vừa load —
+khác → `ConflictException(ErrorCodes.RecipeConcurrencyConflict)` → 409. Response trả `RowVersion` mới
+(header `ETag`) cho lần sửa kế tiếp.
+
+**Vì:** giữ đúng mô hình dữ liệu SRS, cục bộ trong Infrastructure (Domain/Application không đổi),
+và có test trên PostgreSQL thật (`IntegrationTests/Common/ConcurrencyTests.cs`).
+
+**Sửa SRS:** mục 7.1 — `RowVersion`: bỏ "EF Core [Timestamp] annotation", thay bằng "giá trị do
+ứng dụng sinh mới mỗi lần ghi (xem D34)".
+
+---
+
+## D35 — Refresh token (FR-AUTH-004): mã lỗi, lockout, phạm vi "token family", race
+
+> Phát hiện lúc lập kế hoạch FR-AUTH-004 (2026-09-30). Xem `docs/plans/FR-AUTH-004-lam-moi-token.md`.
+
+**Nguồn mâu thuẫn / thiếu:** SRS FR-AUTH-004 chỉ ghi "401" cho A1–A4, không có error code.
+A4 gộp "bị xóa hoặc bị khóa" → 401, trong khi D11 đã chốt `IsActive = false` → 403. A3 ghi
+"**có thể** revoke toàn bộ" (tùy chọn), NFR-SEC-002 ghi **bắt buộc** revoke "token family" nhưng
+schema 7.8 không có cột family. Bảng 8.1 ghi response `{ accessToken, refreshToken, expiresIn }`
+khác `AuthResponseDto` ở Chương 3. Không chỗ nào nói về hai request refresh đồng thời.
+
+**Chốt:**
+
+1. **A1** (RT không có trong DB) và **A4 — user bị xóa** → 401 `AUTH_TOKEN_INVALID`.
+2. **A4 — `IsActive = false`** → 403 `AUTH_ACCOUNT_DISABLED` (giữ D11).
+3. **Lockout do sai mật khẩu (D17) KHÔNG kiểm tra khi refresh.** Người giữ RT hợp lệ đã chứng
+   minh danh tính; nếu kiểm tra, kẻ tấn công chỉ cần cố ý nhập sai 5 lần là đá được chủ tài
+   khoản ra khỏi mọi phiên. "Bị khóa" trong A4 hiểu là khóa bởi Admin — đã phủ bởi mục 2.
+4. **Thứ tự kiểm tra:** tồn tại → **revoked** → expired → user. Token vừa revoke vừa hết hạn
+   vẫn phải kích hoạt reuse detection.
+5. **Reuse detection** (NFR-SEC-002 thắng chữ "có thể" của A3): revoke **mọi RT còn hiệu lực
+   của user** (không truy chuỗi `ReplacedByTokenHash`) → log WARNING → 401
+   `AUTH_REFRESH_TOKEN_REVOKED`. Đơn giản, không cần cột `FamilyId`/migration, và an toàn hơn:
+   khi đã có dấu hiệu lộ token thì đăng xuất user trên mọi thiết bị.
+6. **Race** (hai request cùng một RT): revoke RT cũ bằng UPDATE có điều kiện
+   `RevokedAt IS NULL`. Request thua → 401 `AUTH_REFRESH_TOKEN_REVOKED` nhưng **không** revoke
+   family (thường là client mở 2 tab, không phải tấn công).
+7. **Response** = `AuthResponseDto` giống login (theo lập luận D24).
+
+**Sửa SRS:** FR-AUTH-004 — A1/A4 ghi rõ mã lỗi như trên, tách "bị khóa" thành 403 (D11); A3
+đổi "có thể" thành "phải revoke mọi RT còn hiệu lực của user"; bảng 8.1 dòng `/auth/refresh`
+đổi response thành `AuthResponseDto`.
+
+---
+
+## D36 — OpenTelemetry: đích export theo môi trường
+
+> FR-OBS-003 (2026-09-30). Kế hoạch: `docs/plans/FR-OBS-003-tracing-metrics.md`. D35 đã được giữ
+> cho FR-AUTH-004 (A).
+
+**Nguồn mâu thuẫn:** SRS 3.7 (FR-OBS-003) ghi "Traces được export đến Seq (development)" và mục
+tích hợp ghi "Development: Seq OTLP", nhưng cùng FR đó yêu cầu metrics (request count, duration,
+error rate) mà **Seq không ingest metrics** — chỉ nhận OTLP logs và traces. Bảng tích hợp 2.x còn
+ghi Collector nhận "OTLP / gRPC", trong khi Seq nhận OTLP qua **HTTP/protobuf**.
+
+**Chốt:**
+
+- Mỗi signal (trace, metric) có exporter OTLP riêng, **chỉ đăng ký khi có endpoint** cấu hình
+  (`OTEL_EXPORTER_OTLP_ENDPOINT` hoặc biến riêng từng signal). Không có endpoint → instrumentation
+  vẫn chạy (TraceId vẫn vào log) nhưng không gửi đi đâu. Môi trường `Testing` không export.
+- **Development:** trace → Seq `http://localhost:5341/ingest/otlp/v1/traces`, protocol
+  `http/protobuf`. Metric **không export** (xem tại chỗ bằng `dotnet-counters` nếu cần).
+- **Production:** trace + metric → OTel Collector qua `OTEL_EXPORTER_OTLP_ENDPOINT` (gRPC mặc định),
+  Collector chuyển tiếp tới Grafana Tempo/Jaeger và Prometheus/Grafana.
+
+**Vì:** giữ đúng ý SRS (dev xem trace trong Seq cạnh log, lọc theo TraceId) mà không gửi metric vào
+một đích trả lỗi liên tục.
+
+**Sửa SRS:** FR-OBS-003 — "Traces được export đến Seq (development)" thêm "; metrics chỉ export ở
+production (Seq không nhận metrics)". Bảng tích hợp — Seq nhận OTLP qua HTTP/protobuf.
+
+---
+
+## D37 — "EF Core database traces" dùng `Npgsql.OpenTelemetry`
+
+> FR-OBS-003 (2026-09-30).
+
+**Nguồn mâu thuẫn:** SRS 3.7 yêu cầu "EF Core database operation traces" nhưng không nêu gói.
+`OpenTelemetry.Instrumentation.EntityFrameworkCore` vẫn ở bản **beta**; NFR-MAINT yêu cầu phụ thuộc
+ổn định.
+
+**Chốt:** dùng **`Npgsql.OpenTelemetry`** (`TracerProviderBuilder.AddNpgsql()`), bản stable cùng
+phiên bản với driver Npgsql. Mỗi câu lệnh SQL mà EF Core gửi xuống là một span (`db.statement` đã
+tham số hóa — **không chứa giá trị tham số**, không lộ dữ liệu người dùng hay hash token).
+
+**Vì:** CONS-006 chốt PostgreSQL là DBMS duy nhất nên instrumentation ở tầng driver phủ đủ mọi truy
+vấn EF Core (và cả Hangfire.PostgreSql), không cần gói beta.
+
+**Sửa SRS:** FR-OBS-003 — "EF Core database operation traces" → "database operation traces
+(Npgsql instrumentation)".
+
+---
+
+## D38 — Định nghĩa "error rate"
+
+> FR-OBS-003 (2026-09-30).
+
+**Nguồn mâu thuẫn:** SRS 3.7 liệt kê metric "error rate" nhưng không định nghĩa lỗi là gì.
+
+**Chốt:** theo OpenTelemetry semantic convention của ASP.NET Core — request **lỗi** là request có
+thuộc tính `error.type` trên histogram `http.server.request.duration`: status **5xx** hoặc exception
+chưa xử lý. **4xx không tính là lỗi server** (400 validation, 401 token sai, 404…). API không tự
+tính tỉ lệ; backend quan sát (Grafana) tính từ histogram có sẵn của ASP.NET Core.
+
+**Vì:** 4xx là lỗi của client, đưa vào error rate sẽ làm cảnh báo kêu mỗi khi có người gõ sai mật khẩu.
+
+**Sửa SRS:** FR-OBS-003 — "error rate" thêm "(tỉ lệ response 5xx)".
+
+---
+
+## D39 — Metric nghiệp vụ recipe created/published: tách phần đo và phần gọi
+
+> FR-OBS-003 (2026-09-30).
+
+**Nguồn mâu thuẫn:** FR-OBS-003 (D, slice S11) yêu cầu metric "recipe created/published count",
+nhưng handler tạo và publish recipe thuộc FR-RCP-003/005 (C, slice S5/S7) — chưa tồn tại lúc làm
+FR-OBS-003, và `Application/Recipes/Commands/**` do C sở hữu.
+
+**Chốt:**
+
+- D tạo `Application/Common/Observability/RecipeMetrics.cs` (meter `CulinaryBlog.Recipes`, counter
+  `culinaryblog.recipes.created`, `culinaryblog.recipes.published`) — chỉ dùng
+  `System.Diagnostics.Metrics` (BCL), không reference OpenTelemetry trong Application (CONS-001).
+- C gọi `RecordCreated()` trong handler FR-RCP-003 và `RecordPublished()` trong handler FR-RCP-005,
+  **sau khi `SaveChangesAsync` thành công** (không đếm lần publish bị D3 chặn hay lỗi DB).
+- FR-OBS-003 để trạng thái 🟡 trong `traceability.md` cho tới khi hai lời gọi đó có mặt.
+
+**Vì:** không sửa file của người khác, không chặn FR-OBS-003 chờ slice S5/S7.
+
+**Sửa SRS:** không cần.
+
+---
+
+
 ## Khi phát hiện mâu thuẫn mới lúc code
 
 1. Thêm mục mới vào cuối file này với mã `D23`, `D24`…

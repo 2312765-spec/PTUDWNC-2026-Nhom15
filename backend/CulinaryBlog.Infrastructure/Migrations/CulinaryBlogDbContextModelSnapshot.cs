@@ -584,7 +584,57 @@ namespace CulinaryBlog.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+<<<<<<< HEAD
                     b.Navigation("Category");
+=======
+                    b.OwnsOne("CulinaryBlog.Domain.Entities.RecipeNutrition", "Nutrition", b1 =>
+                        {
+                            b1.Property<Guid>("RecipeId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<decimal?>("Calories")
+                                .HasPrecision(8, 2)
+                                .HasColumnType("numeric(8,2)")
+                                .HasColumnName("Nutrition_Calories");
+
+                            b1.Property<decimal?>("Carbohydrates")
+                                .HasPrecision(8, 2)
+                                .HasColumnType("numeric(8,2)")
+                                .HasColumnName("Nutrition_Carbohydrates");
+
+                            b1.Property<decimal?>("Fat")
+                                .HasPrecision(8, 2)
+                                .HasColumnType("numeric(8,2)")
+                                .HasColumnName("Nutrition_Fat");
+
+                            b1.Property<decimal?>("Fiber")
+                                .HasPrecision(8, 2)
+                                .HasColumnType("numeric(8,2)")
+                                .HasColumnName("Nutrition_Fiber");
+
+                            b1.Property<decimal?>("Protein")
+                                .HasPrecision(8, 2)
+                                .HasColumnType("numeric(8,2)")
+                                .HasColumnName("Nutrition_Protein");
+
+                            b1.Property<decimal?>("Sodium")
+                                .HasPrecision(8, 2)
+                                .HasColumnType("numeric(8,2)")
+                                .HasColumnName("Nutrition_Sodium");
+
+                            b1.HasKey("RecipeId");
+
+                            b1.ToTable("Recipes");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RecipeId");
+                        });
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Nutrition")
+                        .IsRequired();
+>>>>>>> origin/main
                 });
 
             modelBuilder.Entity("CulinaryBlog.Domain.Entities.RecipeImage", b =>
@@ -600,26 +650,35 @@ namespace CulinaryBlog.Infrastructure.Migrations
 
             modelBuilder.Entity("CulinaryBlog.Domain.Entities.RecipeIngredient", b =>
                 {
-                    b.HasOne("CulinaryBlog.Domain.Entities.Recipe", null)
+                    b.HasOne("CulinaryBlog.Domain.Entities.Recipe", "Recipe")
                         .WithMany("Ingredients")
                         .HasForeignKey("RecipeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+<<<<<<< HEAD
                     b.HasOne("CulinaryBlog.Domain.Entities.Recipe", "Recipe")
                         .WithMany()
                         .HasForeignKey("RecipeId1");
 
+=======
+>>>>>>> origin/main
                     b.Navigation("Recipe");
                 });
 
             modelBuilder.Entity("CulinaryBlog.Domain.Entities.RecipeStep", b =>
                 {
-                    b.HasOne("CulinaryBlog.Domain.Entities.Recipe", null)
+                    b.HasOne("CulinaryBlog.Domain.Entities.Recipe", "Recipe")
                         .WithMany("Steps")
                         .HasForeignKey("RecipeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+<<<<<<< HEAD
+=======
+
+                    b.Navigation("Recipe");
+                });
+>>>>>>> origin/main
 
                     b.HasOne("CulinaryBlog.Domain.Entities.Recipe", "Recipe")
                         .WithMany()

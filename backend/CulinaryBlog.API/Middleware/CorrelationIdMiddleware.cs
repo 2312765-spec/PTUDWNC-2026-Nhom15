@@ -24,10 +24,9 @@ public sealed class CorrelationIdMiddleware(RequestDelegate next)
 
         using (LogContext.PushProperty(ItemKey, correlationId))
         using (LogContext.PushProperty("RequestPath", context.Request.Path.Value))
-        using (LogContext.PushProperty("UserId", context.User.Identity?.IsAuthenticated == true
-                   ? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                   : null))
         {
+            // UserId KHÔNG push ở đây: middleware này chạy trước UseAuthentication nên context.User
+            // chưa có — UserIdEnricher gắn UserId lúc ghi log.
             await next(context);
         }
     }

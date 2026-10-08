@@ -40,6 +40,22 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
             .Include(r => r.Images)
             .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted, ct);
 
+    public async Task<string?> GetAuthorIdAsync(Guid id, CancellationToken ct = default) =>
+        await context.Recipes
+            .AsNoTracking()
+            .Where(r => r.Id == id)
+            .Select(r => r.AuthorId)
+            .FirstOrDefaultAsync(ct);
+
+    public async Task<Recipe?> GetByIdWithImagesForUpdateAsync(Guid id, CancellationToken ct = default)
+    {
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"""SELECT 1 FROM "Recipes" WHERE "Id" = {id} FOR UPDATE""", ct);
+
+        return await GetByIdWithImagesAsync(id, ct);
+    }
+
+    // FR-CAT-002: Lấy công thức theo danh mục (hỗ trợ cả Published và Draft theo quyền)
     public async Task<(IReadOnlyList<Recipe> Items, int TotalCount)> GetPagedByCategoryIdAsync(
         Guid categoryId, 
         RecipeStatus? status, 
@@ -52,6 +68,7 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
             .Include(r => r.Images)
             .Where(r => r.CategoryId == categoryId && !r.IsDeleted);
 
+        // Mặc định nếu không truyền status thì lấy Published — tránh lộ Draft khi người gọi quên truyền
         if (status.HasValue)
         {
             query = query.Where(r => r.Status == status.Value);
@@ -72,22 +89,7 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
         return (items, totalCount);
     }
 
-    public async Task<string?> GetAuthorIdAsync(Guid id, CancellationToken ct = default) =>
-        await context.Recipes
-            .AsNoTracking()
-            .Where(r => r.Id == id)
-            .Select(r => r.AuthorId)
-            .FirstOrDefaultAsync(ct);
-
-    public async Task<Recipe?> GetByIdWithImagesForUpdateAsync(Guid id, CancellationToken ct = default)
-    {
-        await context.Database.ExecuteSqlInterpolatedAsync(
-            $"""SELECT 1 FROM "Recipes" WHERE "Id" = {id} FOR UPDATE""", ct);
-
-        return await GetByIdWithImagesAsync(id, ct);
-    }
-
-   // FR-SRCH-001: Tìm kiếm toàn văn FTS PostgreSQL hỗ trợ tiếng Việt không dấu (unaccent + simple) và ts_rank
+    // FR-SRCH-001: Tìm kiếm toàn văn FTS tiếng Việt (unaccent + simple config)
     public async Task<(IReadOnlyList<Recipe> Items, int TotalCount)> SearchPublishedRecipesAsync(
         string? searchTerm, 
         int page, 
@@ -95,18 +97,9 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
         CancellationToken cancellationToken = default)
     {
         // Clamp pageSize tối đa 50 theo FR-SRCH-001 / FR-SRCH-004
-                    if (pageSize > 50)
-            {
-                pageSize = 50;
-            }
-            if (pageSize < 1)
-            {
-                pageSize = 10;
-            }
-            if (page < 1)
-            {
-                page = 1;
-            }
+        if (pageSize > 50) {pageSize = 50;}
+        if (pageSize < 1){ pageSize = 10;}
+        if (page < 1) {page = 1;}
 
         var raw = (searchTerm ?? string.Empty).Trim();
         var cleanTerms = System.Text.RegularExpressions.Regex.Split(raw, @"[^\p{L}\p{N}]+")
@@ -123,7 +116,7 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
             // Prefix matching "pho:* & bo:*"
             var tsQueryString = string.Join(" & ", cleanTerms.Select(t => $"{t}:*"));
 
-            // Khớp qua SearchVector HOẶC tính toán trực tiếp nếu SearchVector chưa được trigger điền (tránh rỗng kết quả)
+            // Tìm kiếm qua SearchVector hoặc tính toán trực tiếp nếu trigger chưa điền
             var matchedQuery = query.Where(r =>
                 (EF.Property<NpgsqlTsVector>(r, "SearchVector") != null &&
                  EF.Property<NpgsqlTsVector>(r, "SearchVector")
@@ -133,13 +126,12 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
                     .Matches(EF.Functions.ToTsQuery("simple", EF.Functions.Unaccent(tsQueryString))));
 
             var totalCount = await matchedQuery.CountAsync(cancellationToken);
-
             if (totalCount == 0)
             {
                 return (Array.Empty<Recipe>(), 0);
             }
 
-            // Xếp hạng ts_rank DESC
+            // Xếp hạng độ liên quan ts_rank DESC, sau đó đến thời gian tạo mới nhất
             var items = await matchedQuery
                 .OrderByDescending(r => EF.Functions.ToTsVector("simple", EF.Functions.Unaccent(r.Title + " " + (r.Description ?? "")))
                     .Rank(EF.Functions.ToTsQuery("simple", EF.Functions.Unaccent(tsQueryString))))
@@ -161,5 +153,76 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
 
             return (items, totalCount);
         }
+    }
+
+    // FR-RCP-001, FR-SRCH-002 (Lọc), FR-SRCH-003 (Sắp xếp), FR-SRCH-004 (Phân trang)
+    public async Task<(IReadOnlyList<Recipe> Items, int TotalCount)> GetPagedRecipesAsync(
+        Guid? categoryId,
+        RecipeDifficulty? difficulty,
+        int? maxCookTime,
+        int? minServings,
+        string? sort,
+        bool includeAllStatuses,
+        string? nonPublishedOwnerId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var query = context.Recipes
+            .AsNoTracking()
+            .Include(r => r.Images)
+            .Where(r => !r.IsDeleted);
+
+        // FR-RCP-001: Guest → Published · Author → + Draft/Archived của mình · Admin → tất cả
+        if (!includeAllStatuses)
+        {
+            query = string.IsNullOrEmpty(nonPublishedOwnerId)
+                ? query.Where(r => r.Status == RecipeStatus.Published)
+                : query.Where(r => r.Status == RecipeStatus.Published || r.AuthorId == nonPublishedOwnerId);
+        }
+
+        // FR-SRCH-002: Lọc công thức (AND logic)
+        if (categoryId.HasValue && categoryId.Value != Guid.Empty)
+        {
+            query = query.Where(r => r.CategoryId == categoryId.Value);
+        }
+
+        if (difficulty.HasValue)
+        {
+            query = query.Where(r => r.Difficulty == difficulty.Value);
+        }
+
+        if (maxCookTime.HasValue)
+        {
+            query = query.Where(r => r.CookTime <= maxCookTime.Value);
+        }
+
+        if (minServings.HasValue)
+        {
+            query = query.Where(r => r.Servings >= minServings.Value);
+        }
+
+        // FR-SRCH-003: Sắp xếp kết quả (mặc định -createdAt)
+        var s = (sort ?? "-createdat").Trim().ToLowerInvariant();
+        query = s switch
+        {
+            "createdat" => query.OrderBy(r => r.CreatedAt).ThenBy(r => r.Id),
+            "-createdat" => query.OrderByDescending(r => r.CreatedAt).ThenBy(r => r.Id),
+            "title" => query.OrderBy(r => r.Title).ThenBy(r => r.Id),
+            "-title" => query.OrderByDescending(r => r.Title).ThenBy(r => r.Id),
+            "cooktime" => query.OrderBy(r => r.CookTime).ThenBy(r => r.Id),
+            "-cooktime" => query.OrderByDescending(r => r.CookTime).ThenBy(r => r.Id),
+            _ => query.OrderByDescending(r => r.CreatedAt).ThenBy(r => r.Id)
+        };
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        // FR-SRCH-004: Phân trang SKIP / TAKE
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
     }
 }

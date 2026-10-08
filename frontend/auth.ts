@@ -1,6 +1,7 @@
 import NextAuth, { CredentialsSignin } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
+import { jwtCallback, sessionCallback } from '@/lib/auth/callbacks';
 import { authorizeGoogle, authorizeLogin, authorizeRegister } from '@/lib/auth/credentials';
 
 /**
@@ -8,10 +9,12 @@ import { authorizeGoogle, authorizeLogin, authorizeRegister } from '@/lib/auth/c
  *
  * Phiên dạng JWT (CONS-004 stateless): access/refresh token của backend nằm trong cookie
  * session httpOnly đã mã hóa bằng AUTH_SECRET, không bao giờ vào JS trình duyệt.
- * Session gửi xuống client chỉ có hồ sơ (D5) + accessToken.
+ * Session gửi xuống client chỉ có hồ sơ (D5) + accessToken (+ error khi phiên hỏng).
  *
- * TODO(S2 — A): tự refresh khi accessToken hết hạn
- * (FR-AUTH-004), signOut gọi /auth/logout (FR-AUTH-005).
+ * FR-AUTH-004: callback jwt tự refresh khi accessToken sắp hết hạn — lib/auth/callbacks.ts,
+ * chạy ở proxy.ts để cookie mới được ghi trước khi render.
+ *
+ * TODO(S2 — A): signOut gọi /auth/logout (FR-AUTH-005).
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {
@@ -56,19 +59,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    jwt({ token, user }) {
-      if (user?.profile) {
-        token.profile = user.profile;
-        token.accessToken = user.accessToken;
-        token.refreshToken = user.refreshToken;
-        token.expiresAt = user.expiresAt;
-      }
-      return token;
-    },
-    session({ session, token }) {
-      session.profile = token.profile;
-      session.accessToken = token.accessToken;
-      return session;
-    },
+    jwt: jwtCallback,
+    session: sessionCallback,
   },
 });

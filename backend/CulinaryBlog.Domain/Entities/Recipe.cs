@@ -9,6 +9,10 @@ public class Recipe : BaseEntity, IAggregateRoot
     public string Title { get; private set; } = string.Empty;
     public string Slug { get; private set; } = string.Empty;
     public string Description { get; private set; } = string.Empty;
+
+    /// <summary>SRS 7.2 (legacy) + D18 — hướng dẫn tổng quan dạng markdown, nullable. Chi tiết dùng Steps.</summary>
+    public string? Instructions { get; private set; }
+
     public int PrepTime { get; private set; }
     public int CookTime { get; private set; }
     public int Servings { get; private set; } = 4;
@@ -29,7 +33,8 @@ public class Recipe : BaseEntity, IAggregateRoot
     private readonly List<RecipeStep> _steps = [];
     public IReadOnlyCollection<RecipeStep> Steps => _steps.AsReadOnly();
 
-    public RecipeNutrition? Nutrition { get; private set; }
+    /// <summary>SRS 7.2.1 — owned, luôn có instance (các giá trị bên trong có thể null hết).</summary>
+    public RecipeNutrition Nutrition { get; private set; } = new();
 
     private Recipe() { }
 
@@ -187,28 +192,34 @@ public class Recipe : BaseEntity, IAggregateRoot
         });
     }
 
-    public void AddIngredient(string name, string amount, string? unit, string? preparation = null)
+    /// <summary>SRS 7.4 — nguyên liệu mới xếp cuối danh sách (OrderIndex = max + 1).</summary>
+    public RecipeIngredient AddIngredient(string name, decimal? quantity, string? unit, string? notes = null)
     {
-        _ingredients.Add(new RecipeIngredient
+        var ingredient = new RecipeIngredient
         {
             RecipeId = Id,
             Name = name,
-            Amount = amount,
+            Quantity = quantity,
             Unit = unit,
-            Preparation = preparation
-        });
+            Notes = notes,
+            OrderIndex = _ingredients.Count == 0 ? 0 : _ingredients.Max(i => i.OrderIndex) + 1,
+        };
+
+        _ingredients.Add(ingredient);
+        return ingredient;
     }
 
-    public void SetNutrition(int calories, int protein, int carbs, int fat)
+    /// <summary>SRS 7.2.1 — thay toàn bộ thông tin dinh dưỡng (giá trị trên 1 khẩu phần, null = không khai báo).</summary>
+    public void SetNutrition(
+        decimal? calories,
+        decimal? protein,
+        decimal? carbohydrates,
+        decimal? fat,
+        decimal? fiber = null,
+        decimal? sodium = null)
     {
-        Nutrition = new RecipeNutrition
-        {
-            RecipeId = Id,
-            Calories = calories,
-            Protein = protein,
-            Carbs = carbs,
-            Fat = fat
-        };
+        Nutrition = new RecipeNutrition(calories, protein, carbohydrates, fat, fiber, sodium);
+        UpdatedAt = DateTime.UtcNow;
     }
 
     /// <summary>

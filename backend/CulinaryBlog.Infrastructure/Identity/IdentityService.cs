@@ -95,7 +95,11 @@ public sealed class IdentityService(UserManager<ApplicationUser> userManager) : 
         CancellationToken ct = default)
     {
         var loginInfo = new UserLoginInfo("Google", providerKey, "Google");
-        var user = await userManager.FindByEmailAsync(email);
+
+        // Tìm theo Google ID (sub) trước — bất biến, còn email trên Google có thể đổi. Chỉ khi chưa
+        // liên kết mới tìm theo email (caller đã đảm bảo email_verified = true).
+        var user = await userManager.FindByLoginAsync(loginInfo.LoginProvider, loginInfo.ProviderKey)
+            ?? await userManager.FindByEmailAsync(email);
 
         if (user is not null)
         {
@@ -104,7 +108,7 @@ public sealed class IdentityService(UserManager<ApplicationUser> userManager) : 
             var existingLogins = await userManager.GetLoginsAsync(user);
             if (existingLogins.All(l => l.LoginProvider != loginInfo.LoginProvider))
             {
-                await userManager.AddLoginAsync(user, loginInfo);
+                EnsureSucceeded(await userManager.AddLoginAsync(user, loginInfo), "liên kết Google");
             }
 
             var existingRoles = await userManager.GetRolesAsync(user);
@@ -128,9 +132,40 @@ public sealed class IdentityService(UserManager<ApplicationUser> userManager) : 
             throw new BadRequestException(ErrorCodes.ValidationError, detail);
         }
 
-        await userManager.AddToRoleAsync(newUser, Roles.Author);
-        await userManager.AddLoginAsync(newUser, loginInfo);
+        EnsureSucceeded(await userManager.AddToRoleAsync(newUser, Roles.Author), "gán role Author");
+        EnsureSucceeded(await userManager.AddLoginAsync(newUser, loginInfo), "liên kết Google");
 
         return (new AuthenticatedUser(newUser.Id, newUser.Email!, newUser.DisplayName, newUser.AvatarUrl, newUser.Bio, [Roles.Author]), true);
+    }
+
+    // Lỗi Identity ở đây là lỗi hệ thống (không phải do input người dùng) → để middleware trả 500
+    // và log đầy đủ, thay vì bỏ qua rồi vẫn phát token cho user ở trạng thái dở dang.
+    private static void EnsureSucceeded(IdentityResult result, string operation)
+    {
+        if (!result.Succeeded)
+        {
+            var detail = string.Join(" ", result.Errors.Select(e => e.Code));
+            throw new InvalidOperationException($"Identity: {operation} thất bại ({detail}).");
+        }
+    }
+
+    public async Task<AuthenticatedUser?> GetUserForRefreshAsync(string userId, CancellationToken ct = default)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null)
+        {
+            return null;
+        }
+
+        if (!user.IsActive)
+        {
+            // D11 — kiểm tra ở cả login và refresh.
+            throw new ForbiddenException(ErrorCodes.AuthAccountDisabled, "Tài khoản đã bị vô hiệu hóa.");
+        }
+
+        // D35-3 — cố ý KHÔNG gọi IsLockedOutAsync: lockout chỉ chặn đoán mật khẩu ở login.
+        var roles = await userManager.GetRolesAsync(user);
+
+        return new AuthenticatedUser(user.Id, user.Email!, user.DisplayName, user.AvatarUrl, user.Bio, [.. roles]);
     }
 }

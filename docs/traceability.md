@@ -14,8 +14,8 @@
 > Tóm tắt: **A** = FR-AUTH + FR-JOB-001 · **B** = FR-CAT + FR-RCP-001/002 + FR-SRCH ·
 > **C** = FR-RCP-003/004/005/006/007/009/010 · **D** = FR-RCP-008 + FR-FILE + FR-JOB-002/003 + FR-OBS.
 
-**Tiến độ:** 11 / 34 FR (32%) — A 2/8 · B 4/11 (CAT-001→004) · C 0/7 ·
-D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
+**Tiến độ:** 18 / 34 FR (53%) — A 4/8 (AUTH-001→004) · B 9/11 (CAT-001→005, RCP-001, SRCH-002→004; SRCH-001 🟡) · C 0/7 ·
+D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002; FR-OBS-003 🟡 — FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
 
 ---
 
@@ -25,8 +25,8 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để 
 |---|---|---|---|---|---|---|---|---|---|
 | FR-AUTH-001 | Đăng ký tài khoản | M | `POST /api/v1/auth/register` → 201 | S2 | `RegisterCommand(+Handler,+Validator)` | `ApplicationUser` (Infrastructure, D23), `JwtService`, `RefreshToken` (Domain, D26) | `Auth/RegisterTests.cs`, `Auth/RegisterCommand{Validator,Handler}Tests.cs`, `Domain/RefreshTokenTests.cs` · FE: `/auth/register` + Auth.js v5 provider `register` (`auth.ts`, `lib/auth/credentials.ts`, `app/auth/register/actions.ts`) — `__tests__/lib/auth/{schemas,api,api.server,credentials}.test.ts`, `__tests__/app/auth/register/{RegisterForm,page,actions}.test.ts(x)` (44 test) | D5, D20, D23, D24, D25, D26, D29 | ✅ (E2E Playwright chưa có) |
 | FR-AUTH-002 | Đăng nhập email/password | M | `POST /api/v1/auth/login` → 200 | S2 | `LoginCommand(+Handler,+Validator)` | `IdentityService.ValidateCredentialsAsync` (lockout + IsActive) | `Auth/LoginTests.cs`, `Auth/LoginCommand{Validator,Handler}Tests.cs` · FE: `/auth/login` + Auth.js v5 provider `login` (`auth.ts`, `lib/auth/credentials.ts`, `lib/auth/callback-url.ts`, `app/auth/login/actions.ts`) — `__tests__/lib/auth/{schemas,api,api.server,credentials,callback-url}.test.ts`, `__tests__/app/auth/login/{LoginForm,page,actions}.test.ts(x)` (41 test) | D4, D5, D11, D17, D20, D24, D26 | ✅ (E2E Playwright chưa có) |
-| FR-AUTH-003 | Đăng nhập Google OAuth | S | `POST /api/v1/auth/google` → 200 | S9 | `GoogleLoginCommand(+Handler,+Validator)` | `IGoogleTokenValidator`/`GoogleTokenValidator`, `IdentityService.LoginOrRegisterWithGoogleAsync` · FE: nút "Tiếp tục với Google" trên `/auth/login` + `/auth/register`, Auth.js v5 provider `google` (`auth.ts`, `lib/auth/credentials.ts`, `app/auth/GoogleSignInButton.tsx`) | `Auth/GoogleLoginTests.cs` · `__tests__/lib/auth/{api,credentials}.test.ts`, `__tests__/app/auth/login/{LoginForm,page}.test.tsx`, `__tests__/app/auth/register/RegisterForm.test.tsx` (13 test) | **D9**, D5, D12, **D33** | ✅ (E2E Playwright chưa có) |
-| FR-AUTH-004 | Làm mới access token | M | `POST /api/v1/auth/refresh` → 200 | S2 | `RefreshTokenCommand(+Handler)` | `RefreshTokenRepository` (rotation + reuse detection) | `Auth/RefreshTokenTests.cs` | **D20**, D11 | ⬜ |
+| FR-AUTH-003 | Đăng nhập Google OAuth | S | `POST /api/v1/auth/google` → 200 | S9 | `GoogleLoginCommand(+Handler,+Validator)` | `IGoogleTokenValidator`/`GoogleTokenValidator`, `IdentityService.LoginOrRegisterWithGoogleAsync` · FE: nút "Tiếp tục với Google" trên `/auth/login` + `/auth/register`, Auth.js v5 provider `google` (`auth.ts`, `lib/auth/credentials.ts`, `app/auth/GoogleSignInButton.tsx`) | `Auth/GoogleLoginTests.cs` (gồm chặn `email_verified = false` chống chiếm tài khoản, tìm theo Google ID trước email) · `__tests__/lib/auth/{api,credentials}.test.ts`, `__tests__/app/auth/login/{LoginForm,page}.test.tsx`, `__tests__/app/auth/register/RegisterForm.test.tsx` (13 test) | **D9**, D5, D12, **D33** | ✅ (E2E Playwright chưa có) |
+| FR-AUTH-004 | Làm mới access token | M | `POST /api/v1/auth/refresh` → 200 | S2 | `RefreshTokenCommand(+Handler,+Validator)` (`Auth/Commands/Refresh/`), `IIdentityService.GetUserForRefreshAsync` | `RefreshTokenRepository.TryRevokeAsync` (rotation, UPDATE có điều kiện chống race) + `RevokeAllActiveForUserAsync` (reuse detection), `IdentityService` | `Auth/RefreshTokenTests.cs` (15 integration), `Auth/RefreshTokenCommand{Handler,Validator}Tests.cs` (13 unit) · Plan: `docs/plans/FR-AUTH-004-lam-moi-token.md` · FE: Auth.js tự refresh trong callback `jwt` (`lib/auth/{refresh,callbacks}.ts`, gộp refresh trùng theo RT để không kích hoạt reuse detection), chạy ở `proxy.ts` để ghi cookie trước render, `components/auth/SessionExpiryWatcher.tsx` đăng xuất khi RT bị từ chối → `/auth/login?error=SessionExpired` — `__tests__/lib/auth/{refresh,callbacks,api,api.server}.test.ts`, `__tests__/proxy.test.ts`, `__tests__/components/auth/SessionExpiryWatcher.test.tsx`, `__tests__/app/auth/login/{page,LoginForm}.test.tsx` (45 test) · Plan FE: `docs/plans/FR-AUTH-004-frontend-tu-refresh.md` | **D20**, D11, D24, D25, **D35** | ✅ (E2E Playwright chưa có) |
 | FR-AUTH-005 | Đăng xuất / revoke | M | `POST /api/v1/auth/logout` → 204 | S2 | `LogoutCommand(+Handler)` | `RefreshTokenRepository` | `Auth/LogoutTests.cs` | D20 | ⬜ |
 | FR-AUTH-006 | Xem hồ sơ cá nhân | S | `GET /api/v1/auth/me` → 200 | S2 | `GetCurrentUserQuery(+Handler)` | `ICurrentUser` | `Auth/ProfileTests.cs` | **D5**, D12 | ⬜ |
 | FR-AUTH-007 | Cập nhật hồ sơ | S | `PATCH /api/v1/auth/me` → 200 | S2 | `UpdateProfileCommand(+Handler,+Validator)` | `UserManager` | `Auth/ProfileTests.cs` | **D5** | ⬜ |
@@ -51,9 +51,9 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để 
 |---|---|---|---|---|---|---|---|---|---|
 | FR-CAT-001 | Xem danh sách danh mục | M | `GET /api/v1/categories` → 200 | S3 | `GetCategoriesQuery(+Handler)` `ICacheable` | `CategoryRepository.GetAllWithRecipesAsync()` | `Categories/GetCategoriesTests.cs` | **D8** | ✅ |
 | FR-CAT-002 | Chi tiết danh mục + recipes | M | `GET /api/v1/categories/{slug}` → 200/404 | S3 | `GetCategoryBySlugQuery(+Handler)` | `CategoryRepository.GetBySlugAsync()` (D32) | `Categories/GetCategoryBySlugTests.cs` | D8, **D32** | ✅ |
-| FR-CAT-003 | Tạo danh mục [Admin] | M | `POST /api/v1/categories` → 201 | S3 | `CreateCategoryCommand(+Handler,+Validator)` `ICacheInvalidator` | `Category.Create()`, `SlugHelper.Generate()` | `Categories/CreateCategoryTests.cs` | D10, D8 | ✅ |
-| FR-CAT-004 | Cập nhật danh mục [Admin] | M | `PUT /api/v1/categories/{id}` → 200 | S3 | `UpdateCategoryCommand(+Handler,+Validator)` `ICacheInvalidator` | `Category.Update()`, Slug **KHÔNG** đổi khi đổi Name | `Categories/UpdateCategoryTests.cs`, `Categories/UpdateCategoryCommand{Validator,Handler}Tests.cs` | D4, D8, D10 | ✅ |
-| FR-CAT-005 | Xóa danh mục [Admin] | S | `DELETE /api/v1/categories/{id}` → 204 | S3 | `DeleteCategoryCommand(+Handler)` | **Soft delete**, đếm recipe > 0 → 409 | `Categories/DeleteTests.cs` | **D2** | ⬜ |
+| FR-CAT-003 | Tạo danh mục [Admin] | M | `POST /api/v1/categories` → 201 | S3 | `CreateCategoryCommand(+Handler,+Validator)` `ICacheInvalidator` | `Category.Create()`, `SlugHelper.Generate()` · FE: `/dashboard/categories` + `CategoryFormDialog` | `Categories/CreateCategoryTests.cs` · `__tests__/app/dashboard/categories/page.test.tsx` | D10, D8 | ✅ |
+| FR-CAT-004 | Cập nhật danh mục [Admin] | M | `PUT /api/v1/categories/{id}` → 200 | S3 | `UpdateCategoryCommand(+Handler,+Validator)` `ICacheInvalidator` | `Category.Update()`, Slug **KHÔNG** đổi khi đổi Name · FE: `/dashboard/categories` + `CategoryFormDialog` | `Categories/UpdateCategoryTests.cs`, `Categories/UpdateCategoryCommand{Validator,Handler}Tests.cs` · `__tests__/app/dashboard/categories/page.test.tsx` | D4, D8, D10 | ✅ |
+| FR-CAT-005 | Xóa danh mục [Admin] | S | `DELETE /api/v1/categories/{id}` → 204 | S3 | `DeleteCategoryCommand(+Handler)` | **Soft delete**, đếm recipe > 0 → 409 · FE: `DeleteCategoryButton` (trên `/categories` và `/dashboard/categories`) | `Categories/DeleteCategoryTests.cs`, `Categories/DeleteCategoryCommandHandlerTests.cs` | **D2** | ✅ |
 
 **Điểm kiểm thử bắt buộc**
 
@@ -71,7 +71,7 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để 
 
 | FR | Tên | Ưu tiên | Endpoint | Slice | Application Layer | Infrastructure / Domain | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|---|---|
-| FR-RCP-001 | Danh sách công thức (paged/filter/sort) | M | `GET /api/v1/recipes` → 200 | S4 | `GetRecipesQuery(+Handler)` `ICacheable` | `RecipeRepository` IQueryable + authorization filter | `Recipes/ListTests.cs` | D8, D14 | ⬜ |
+| FR-RCP-001 | Danh sách công thức (paged/filter/sort) | M | `GET /api/v1/recipes` → 200 | S4 | `GetRecipesQuery(+Handler,+Validator)` `ICacheable` (cache key hash có phạm vi người xem) | `RecipeRepository.GetPagedRecipesAsync` + authorization filter (Guest Published · Author + Draft/Archived của mình · Admin tất cả) | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` SSR (`app/(public)/recipes/{page,RecipeFilters,RecipeResults,RecipesPagination}.tsx`, `lib/recipes.ts`, `components/recipes/RecipeCard.tsx`) — `__tests__/app/recipes/*.test.tsx`, `__tests__/lib/recipes.test.ts` | D4, D8, D14 | ✅ (E2E Playwright chưa có) |
 | FR-RCP-002 | Chi tiết công thức | M | `GET /api/v1/recipes/{slug}` → 200/403/404 | S4 | `GetRecipeBySlugQuery(+Handler)` `ICacheable` | Eager loading Steps/Ingredients/Images/Category/Author | `Recipes/DetailTests.cs` | D8 | ⬜ |
 | FR-RCP-003 | Tạo công thức | M | `POST /api/v1/recipes` → 201 | S5 | `CreateRecipeCommand(+Handler,+Validator)` | `Recipe.Create()`, `SlugHelper` | `Recipes/CreateTests.cs` | **D10, D18, D19** | ⬜ |
 | FR-RCP-004 | Cập nhật công thức | M | `PUT /api/v1/recipes/{id}` → 200 | S5 | `UpdateRecipeCommand(+Handler,+Validator)` | `RowVersion` concurrency, `RecipeAuthorizationHandler` | `Recipes/UpdateTests.cs` | **D4**, D13 | ⬜ |
@@ -121,10 +121,10 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để 
 
 | FR | Tên | Ưu tiên | Endpoint / Tham số | Slice | Hiện thực | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|---|
-| FR-SRCH-001 | Full-text search tiếng Việt | M | `GET /api/v1/recipes/search?q=` | S10 | `SearchRecipesQuery` + `RecipeRepository.SearchPublishedRecipesAsync` (`to_tsvector('simple', unaccent(...))` tính lúc query, prefix `:*`), migration `AddUnaccentExtension`. **Còn thiếu:** cột `SearchVector` + GIN index + trigger, xếp theo `ts_rank` | `IntegrationTests/Recipes/SearchRecipesTests.cs`, `UnitTests/Recipes/SearchRecipesTests.cs` | D4, D8 | 🟡 |
-| FR-SRCH-002 | Lọc | M | `?categoryId=&difficulty=&maxCookTime=&minServings=` | S4 | Tích hợp trong `GetRecipesQuery` (AND logic) | `Recipes/FilterTests.cs` | **D14** | ⬜ |
-| FR-SRCH-003 | Sắp xếp | M | `?sort=createdAt` / `-createdAt` / `title` / `-cookTime` | S4 | Tích hợp trong `GetRecipesQuery`, mặc định `-createdAt` | `Recipes/SortTests.cs` | — | ⬜ |
-| FR-SRCH-004 | Phân trang offset | M | `?page=1&pageSize=12` (max 50) | S4 | `PagedResult<T>` + COUNT trước SKIP/TAKE | `Recipes/PaginationTests.cs` | — | ⬜ |
+| FR-SRCH-001 | Full-text search tiếng Việt | M | `GET /api/v1/recipes/search?q=` | S10 | `SearchRecipesQuery` + `RecipeRepository.SearchPublishedRecipesAsync` (`to_tsvector('simple', unaccent(...))` tính lúc query, prefix `:*`), migration `AddUnaccentExtension`. **Còn thiếu:** cột `SearchVector` + GIN index + trigger, xếp theo `ts_rank` | `IntegrationTests/Recipes/SearchRecipesTests.cs`, `UnitTests/Recipes/SearchRecipesTests.cs` · FE: `/search` SSR (`app/(public)/search/{page,SearchForm,SearchResults,SearchPagination}.tsx`, `lib/recipes.ts`) — `__tests__/app/search/*.test.tsx`, `__tests__/lib/recipes.test.ts` (18 test) | D4, D8 | 🟡 |
+| FR-SRCH-002 | Lọc | M | `?categoryId=&difficulty=&maxCookTime=&minServings=` | S4 | Tích hợp trong `GetRecipesQuery` (AND logic), difficulty Easy/Medium/Hard/Expert | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` (`RecipeFilters`, `RecipesPagination`, `lib/recipes.ts`) — `__tests__/app/recipes/*.test.tsx` | **D14** | ✅ (E2E Playwright chưa có) |
+| FR-SRCH-003 | Sắp xếp | M | `?sort=createdAt` / `-createdAt` / `title` / `-cookTime` | S4 | Tích hợp trong `GetRecipesQuery`, mặc định `-createdAt`, sort lạ → 400 | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` (`RecipeFilters`, `RecipesPagination`, `lib/recipes.ts`) — `__tests__/app/recipes/*.test.tsx` | D4 | ✅ (E2E Playwright chưa có) |
+| FR-SRCH-004 | Phân trang offset | M | `?page=1&pageSize=12` (max 50) | S4 | `PagedResult<T>` + COUNT trước SKIP/TAKE, pageSize > 50 clamp | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` (`RecipeFilters`, `RecipesPagination`, `lib/recipes.ts`) — `__tests__/app/recipes/*.test.tsx` | D4 | ✅ (E2E Playwright chưa có) |
 
 **Điểm kiểm thử bắt buộc**
 
@@ -190,8 +190,8 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để 
 | FR | Tên | Endpoint / Cơ chế | Slice | Hiện thực | Test | TT |
 |---|---|---|---|---|---|---|
 | FR-OBS-001 | Health Check | `GET /health` · `/health/live` · `/health/ready` | S1 | `AspNetCore.HealthChecks.NpgSql` + `.Redis` + `.Aws.S3` (MinIO qua S3 API, không có gói `.Minio` riêng). `/health` tổng hợp cả 3; Live = process; Ready = chỉ DB + Redis (MinIO không gắn tag `ready`, đúng SRS) | `Observability/HealthTests.cs` (3 test: tất cả khỏe qua Testcontainers Postgres+MinIO) + `HealthReadyDegradedTests` trong cùng file (1 test lỗi: DB chết → 503) | ✅ |
-| FR-OBS-002 | Structured Logging | Serilog + `CorrelationIdMiddleware` | S1 | Mọi request log `CorrelationId` (X-Correlation-ID), method/path/status/elapsed/UserId. `LoggingBehavior` log mọi Command/Query. Cảnh báo > 500ms | `Observability/LoggingTests.cs` (CorrelationId: tự sinh, giữ nguyên khi client gửi, có cả trên 404) + `UnitTests/Observability/LoggingBehaviorTests.cs` (Information/Warning >500ms/Error+rethrow) | ✅ |
-| FR-OBS-003 | Tracing & Metrics | OpenTelemetry → OTLP | S11 | HTTP traces, EF Core traces, custom metrics (recipe created/published). `Activity.TraceId` gắn vào structured log | `Observability/TracingTests.cs` | ⬜ |
+| FR-OBS-002 | Structured Logging | Serilog + `CorrelationIdMiddleware` | S1 | Mọi request log `CorrelationId` (X-Correlation-ID), method/path/status/elapsed/UserId. `UserId` gắn bởi `Logging/UserIdEnricher` lúc ghi log (không push trong `CorrelationIdMiddleware` vì middleware đó chạy trước `UseAuthentication`). `LoggingBehavior` log mọi Command/Query. Cảnh báo > 500ms ở cả MediatR lẫn request log HTTP (`Logging/RequestLogLevel`). Sink: Console JSON + File rolling daily (compact JSON, `logs/`) + Seq (dev) | `Observability/LoggingTests.cs` (CorrelationId: tự sinh, giữ nguyên khi client gửi, có cả trên 404) + `Observability/StructuredLoggingTests.cs` (UserId có/không, đủ thuộc tính request log, mức log theo status/elapsed/exception, cấu hình sink, lỗi 4xx do exception log đúng status — request log phải đặt NGOÀI `GlobalExceptionMiddleware`) + `UnitTests/Observability/LoggingBehaviorTests.cs` (Information/Warning >500ms/Error+rethrow) | ✅ |
+| FR-OBS-003 | Tracing & Metrics | OpenTelemetry → OTLP | S11 | `Extensions/TelemetryExtensions.cs`: trace ASP.NET Core (bỏ `/health*`) + HttpClient + **Npgsql** (D37); metric `http.server.request.duration` (count/duration/error rate) + HttpClient + `CulinaryBlog.Recipes`. Export OTLP từng signal chỉ khi có endpoint — dev: trace → Seq `/ingest/otlp/v1/traces` HTTP/protobuf, metric không export (D36). `GlobalExceptionMiddleware` gắn `error.type` cho 5xx (D38). TraceId vào log do Serilog tự lấy `Activity.Current`. `Application/Common/Observability/RecipeMetrics.cs` (D39) — **chờ C gọi `RecordCreated`/`RecordPublished` trong handler FR-RCP-003/005** | `Observability/TracingTests.cs` (7 test: server span + route, span Npgsql cùng trace, TraceId trong log, `traceparent` từ client, `/health` không trace, `error.type` chỉ ở 5xx, span không lộ mật khẩu) + `UnitTests/Observability/RecipeMetricsTests.cs` + `ArchitectureTests` (Domain/Application không dùng OpenTelemetry). Kiểm tay: span Server + Npgsql hiện trong Seq cùng TraceId với log | 🟡 |
 
 ---
 
@@ -236,14 +236,14 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002 — FR-JOB-002 cố ý để 
 
 | Module | Tổng FR | ✅ | 🟡 | ⬜ |
 |---|---|---|---|---|
-| FR-AUTH | 7 | 2 | 0 | 5 |
-| FR-CAT | 5 | 4 | 0 | 1 |
-| FR-RCP | 10 | 1 | 0 | 9 |
-| FR-SRCH | 4 | 0 | 0 | 4 |
+| FR-AUTH | 7 | 4 | 0 | 3 |
+| FR-CAT | 5 | 5 | 0 | 0 |
+| FR-RCP | 10 | 2 | 0 | 8 |
+| FR-SRCH | 4 | 3 | 1 | 0 |
 | FR-FILE | 2 | 2 | 0 | 0 |
 | FR-JOB | 3 | 0 | 0 | 3 |
-| FR-OBS | 3 | 2 | 0 | 1 |
-| **Tổng** | **34** | **11** | **0** | **23** |
+| FR-OBS | 3 | 2 | 1 | 0 |
+| **Tổng** | **34** | **18** | **2** | **14** |
 
 > Không còn FR nào bị chặn — cả 22 mâu thuẫn trong SRS đã chốt tại `decisions.md`.
 > Cột **Quyết định** ở mỗi bảng cho biết FR đó phải đọc mục D nào trước khi code.
