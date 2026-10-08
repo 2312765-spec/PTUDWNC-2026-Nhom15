@@ -3,6 +3,8 @@
     <NoWarn>$(NoWarn);NU1901;NU1902;NU1903;NU1904</NoWarn>
   </PropertyGroup>
 
+
+
   <ItemGroup>
     <ProjectReference Include="..\CulinaryBlog.Application\CulinaryBlog.Application.csproj" />
   </ItemGroup>
