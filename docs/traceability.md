@@ -14,8 +14,8 @@
 > Tóm tắt: **A** = FR-AUTH + FR-JOB-001 · **B** = FR-CAT + FR-RCP-001/002 + FR-SRCH ·
 > **C** = FR-RCP-003/004/005/006/007/009/010 · **D** = FR-RCP-008 + FR-FILE + FR-JOB-002/003 + FR-OBS.
 
-**Tiến độ:** 18 / 34 FR (53%) — A 4/8 (AUTH-001→004) · B 9/11 (CAT-001→005, RCP-001, SRCH-002→004; SRCH-001 🟡) · C 0/7 ·
-D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002; FR-OBS-003 🟡 — FR-JOB-002 cố ý để lại, xem ghi chú ở mục FR-JOB)
+**Tiến độ:** 19 / 34 FR (56%) — A 4/8 (AUTH-001→004) · B 9/11 (CAT-001→005, RCP-001, SRCH-002→004; SRCH-001 🟡) · C 0/7 ·
+D 6/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002, FR-OBS-001/002; FR-OBS-003 🟡)
 
 ---
 
@@ -145,7 +145,7 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002; FR-OBS-003 🟡 — FR-JOB-0
 | FR | Tên | Gọi từ đâu | Slice | Hiện thực | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|
 | FR-FILE-001 | Upload file lên MinIO | FR-RCP-008 | S8 | `IFileStorageService.UploadAsync()` → `MinioFileStorageService` (AWSSDK.S3). Bucket `culinary-blog` (public-read), key `recipes/{recipeId}/{Guid}{ext}` (`ObjectKey`), max 5MB, magic bytes (`ImageSignature`) | `UnitTests/Images/{ImageSignatureTests,ObjectKeyTests}.cs` + `IntegrationTests/Files/MinioFileStorageServiceTests.cs` (S3 server thật qua Testcontainers — `adobe/s3mock`, xem ghi chú dưới bảng — xác nhận `PutObjectAsync` lưu đúng bytes/content-type). `ImagesTests.cs` (dùng `FakeFileStorageService`) xác nhận Command/Handler/Domain/endpoint | D16 | ✅ |
-| FR-FILE-002 | Xóa file khỏi MinIO | **Chỉ** từ `DELETE /recipes/{id}/images/{imageId}` | S8 | `IFileStorageService.DeleteAsync()`. Idempotent (bắt `AmazonS3Exception` 404). Enqueue qua `IBackgroundJobService.EnqueueDeleteImageFile()` — Hangfire retry 3× mặc định | `IntegrationTests/Files/MinioFileStorageServiceTests.cs` xác nhận `DeleteObjectAsync` thật (xóa object tồn tại + idempotent khi object không tồn tại). `ImagesTests.cs` xác nhận enqueue qua Fake — **job Hangfire chạy thật (worker thực thi `EnqueueDeleteImageFile`) chưa có test riêng**, thuộc phạm vi FR-JOB | **D1** | ✅ |
+| FR-FILE-002 | Xóa file khỏi MinIO | **Chỉ** từ `DELETE /recipes/{id}/images/{imageId}` | S8 | `IFileStorageService.DeleteAsync()`. Idempotent (bắt `AmazonS3Exception` 404). Enqueue qua `IBackgroundJobService.EnqueueDeleteImageFile()` — Hangfire retry 3× mặc định. Xóa ảnh enqueue cả original + medium + thumbnail (**D43**) | `IntegrationTests/Files/MinioFileStorageServiceTests.cs` xác nhận `DeleteObjectAsync` thật (xóa object tồn tại + idempotent khi object không tồn tại). `ImagesTests.cs` xác nhận enqueue qua Fake — **job Hangfire chạy thật (worker thực thi `EnqueueDeleteImageFile`) chưa có test riêng**, thuộc phạm vi FR-JOB | **D1** | ✅ |
 
 > **D1 thu hẹp phạm vi FR-FILE-002:** vì Recipe là soft delete, không có job xóa hàng loạt
 > file khi xóa recipe. FR-FILE-002 chỉ chạy khi Author xóa **một ảnh cụ thể**.
@@ -168,15 +168,15 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002; FR-OBS-003 🟡 — FR-JOB-0
 | FR | Job | Loại | Trigger | Slice | Hiện thực | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|---|
 | FR-JOB-001 | Welcome Email | Fire-and-forget | Sau FR-AUTH-001 | S9 | `WelcomeEmailJob`, `MailKitEmailService`. Retry 3× (1p/5p/30p) | `Jobs/WelcomeEmailTests.cs` | **D12** | ⬜ |
-| FR-JOB-002 | Image Resize / Thumbnail | Fire-and-forget | Sau FR-RCP-008 upload | S8 | **Cố ý CHƯA làm** — xem ghi chú dưới | `Jobs/ImageResizeTests.cs` | — | ⬜ |
+| FR-JOB-002 | Image Resize / Thumbnail | Fire-and-forget | Sau FR-RCP-008 upload (`EnqueueGenerateImageVariants` sau khi lưu DB) | S8 | `ResizeRecipeImageJob` [AutomaticRetry 3× 1p/5p/30p] → `GenerateRecipeImageVariantsCommand(+Handler, Validator)` → `ImageSharpImageResizer` (thumbnail crop 300×300, medium fit 800×600, WebP, không upscale, bỏ EXIF, giới hạn 40 MP; AVIF → bỏ qua) → `Recipe.SetImageVariants`. No-op khi recipe/ảnh đã xóa hoặc đã có thumbnail. Kế hoạch: `plans/FR-JOB-002-resize-anh.md` | `IntegrationTests/Jobs/ImageResizeTests.cs` (7) + `IntegrationTests/Files/ImageSharpImageResizerTests.cs` (8) + `UnitTests/Images/GenerateRecipeImageVariantsCommand{Handler,Validator}Tests.cs` (11) | **D40–D45** | ✅ |
 | FR-JOB-003 | Sitemap Generation | Recurring | Cron `0 2 * * *` (02:00 UTC) | S11 | `SitemapGenerationJob` → sitemap.xml (Published recipes + categories + trang tĩnh), ping Google. Retry 2× | `Jobs/SitemapTests.cs` | — | ⬜ |
 
-> **FR-JOB-002 cố ý để lại (2026-09-22):** roadmap gộp FR-JOB-002 vào S8 cùng FR-RCP-008, nhưng
-> chưa có test nào cho nó (khác FR-RCP-008/FR-FILE-001/002 đã có 14+ test tích hợp và unit
-> pass). Theo quy tắc "Test first" (CLAUDE.md mục 9), không code phần resize/thumbnail (cần
-> S3 client + ImageSharp + cập nhật DB ngoài luồng MediatR) khi chưa có test dẫn dắt, để tránh
-> giao logic ảnh xử lý bất đồng bộ chưa qua CI thật. Làm ở slice riêng, viết integration test
-> trước.
+> **FR-JOB-002 (2026-10-07):** ghi chú "cố ý để lại" ngày 2026-09-22 đã được xử lý — làm ở
+> slice riêng, test viết trước. Job đi qua MediatR (D44) thay vì "cập nhật DB ngoài luồng MediatR".
+> `mediumUrl`/`thumbnailUrl` **chưa** được trả ra API — việc đó thuộc FR-RCP-002 (chi tiết recipe).
+
+> **D45 (2026-10-07):** `AddHangfireServer()` trong `Program.cs` bị comment từ 2026-09-26 → mọi
+> job (FR-JOB-001, FR-FILE-002, FR-JOB-002) chỉ được enqueue mà không chạy. Đã bật lại.
 
 > **D12:** email chào mừng **không có link kích hoạt** — chỉ chào mừng + link về trang chủ
 > và `/dashboard`.
@@ -241,9 +241,9 @@ D 5/8 (FR-RCP-008, FR-FILE-001/002, FR-OBS-001/002; FR-OBS-003 🟡 — FR-JOB-0
 | FR-RCP | 10 | 2 | 0 | 8 |
 | FR-SRCH | 4 | 3 | 1 | 0 |
 | FR-FILE | 2 | 2 | 0 | 0 |
-| FR-JOB | 3 | 0 | 0 | 3 |
+| FR-JOB | 3 | 1 | 0 | 2 |
 | FR-OBS | 3 | 2 | 1 | 0 |
-| **Tổng** | **34** | **18** | **2** | **14** |
+| **Tổng** | **34** | **19** | **2** | **13** |
 
 > Không còn FR nào bị chặn — cả 22 mâu thuẫn trong SRS đã chốt tại `decisions.md`.
 > Cột **Quyết định** ở mỗi bảng cho biết FR đó phải đọc mục D nào trước khi code.

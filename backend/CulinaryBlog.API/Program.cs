@@ -44,10 +44,12 @@ builder.Services.AddAppTelemetry(builder.Configuration, builder.Environment);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
-// ---- Hangfire worker (FR-JOB-001) -----------------------------------------
+// ---- Hangfire worker (FR-JOB-001/002, FR-FILE-002 — D45) ------------------
+// Thiếu dòng này thì job chỉ được ghi vào schema "hangfire" mà không bao giờ chạy. Testing
+// không bật: test tự gọi job/command (xem RecordingBackgroundJobService).
 if (!builder.Environment.IsEnvironment("Testing"))
 {
-    //builder.Services.AddHangfireServer();
+    builder.Services.AddHangfireServer();
 }
 
 // ---- ICurrentUser (hợp đồng chung — chủ sở hữu: A) -----------------------

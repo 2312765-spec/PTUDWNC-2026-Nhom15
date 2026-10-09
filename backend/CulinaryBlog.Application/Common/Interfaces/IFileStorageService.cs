@@ -14,4 +14,7 @@ public interface IFileStorageService
 
     /// <summary>Idempotent — object không tồn tại thì không throw (FR-FILE-002).</summary>
     Task DeleteAsync(string fileUrl, CancellationToken ct = default);
+
+    /// <summary>FR-JOB-002 — tải ảnh gốc về để resize. Trả stream đã nằm trong bộ nhớ (file ≤ 5 MB, CONS-007).</summary>
+    Task<Stream> DownloadAsync(string fileUrl, CancellationToken ct = default);
 }

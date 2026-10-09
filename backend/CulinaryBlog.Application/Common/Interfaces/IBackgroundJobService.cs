@@ -11,4 +11,7 @@ public interface IBackgroundJobService
 
     /// <summary>FR-FILE-002 — xóa file MinIO bất đồng bộ khi xóa một ảnh cụ thể (D1: không dùng khi xóa cả recipe).</summary>
     void EnqueueDeleteImageFile(string fileUrl);
+
+    /// <summary>FR-RCP-008 → FR-JOB-002/D44: sinh ảnh medium/thumbnail sau khi upload thành công.</summary>
+    void EnqueueGenerateImageVariants(Guid recipeId, Guid imageId);
 }

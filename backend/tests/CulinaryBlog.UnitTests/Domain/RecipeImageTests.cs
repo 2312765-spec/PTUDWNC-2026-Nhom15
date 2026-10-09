@@ -147,4 +147,41 @@ public class RecipeImageTests
 
         again.IsPrimary.Should().BeTrue();
     }
+
+    [Fact(DisplayName = "FR-JOB-002/D44: SetImageVariants gán MediumUrl + ThumbnailUrl, giữ nguyên OriginalUrl")]
+    public void SetImageVariants_SetsUrls()
+    {
+        var recipe = NewRecipe();
+        var image = recipe.AttachImage("http://minio/a.jpg");
+
+        recipe.SetImageVariants(image.Id, "http://minio/m.webp", "http://minio/t.webp");
+
+        image.MediumUrl.Should().Be("http://minio/m.webp");
+        image.ThumbnailUrl.Should().Be("http://minio/t.webp");
+        image.OriginalUrl.Should().Be("http://minio/a.jpg");
+    }
+
+    [Fact(DisplayName = "FR-JOB-002: SetImageVariants cho ảnh không tồn tại → RECIPE_IMAGE_NOT_FOUND")]
+    public void SetImageVariants_UnknownImage_Throws()
+    {
+        var recipe = NewRecipe();
+
+        var act = () => recipe.SetImageVariants(Guid.NewGuid(), "http://minio/m.webp", "http://minio/t.webp");
+
+        act.Should().Throw<DomainException>().Which.ErrorCode.Should().Be("RECIPE_IMAGE_NOT_FOUND");
+    }
+
+    [Theory(DisplayName = "FR-JOB-002: SetImageVariants với URL rỗng → ArgumentException")]
+    [InlineData("", "http://minio/t.webp")]
+    [InlineData("http://minio/m.webp", " ")]
+    public void SetImageVariants_EmptyUrl_Throws(string mediumUrl, string thumbnailUrl)
+    {
+        var recipe = NewRecipe();
+        var image = recipe.AttachImage("http://minio/a.jpg");
+
+        var act = () => recipe.SetImageVariants(image.Id, mediumUrl, thumbnailUrl);
+
+        act.Should().Throw<ArgumentException>();
+        image.MediumUrl.Should().BeNull();
+    }
 }
