@@ -2,8 +2,17 @@ import { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { serializeJsonLd } from '@/lib/seo/jsonLd';
 
 export const revalidate = 300; // SRS 5.1: ISR 5 phút (300 giây)
+
+/**
+ * SRS 5.1 — ISR theo yêu cầu: không build sẵn slug nào, render lần đầu khi có request rồi cache theo
+ * `revalidate`. Thiếu hàm này Next coi route động là render mỗi request (ƒ) dù đã khai báo revalidate.
+ */
+export function generateStaticParams() {
+  return [];
+}
 
 interface RecipeDetailDto {
   id: string;
@@ -185,7 +194,7 @@ export default async function RecipeDetailPage({
       {/* Schema.org JSON-LD */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
 
       {/* Breadcrumb */}
