@@ -24,9 +24,9 @@ ENV ASPNETCORE_URLS=http://+:8080 \
     ASPNETCORE_ENVIRONMENT=Production
 EXPOSE 8080
 
-# Chạy bằng user không phải root
-RUN adduser --disabled-password --gecos "" --uid 1001 appuser
-USER appuser
+# Chạy bằng user không phải root. Image aspnet:10.0 (Ubuntu 24.04) không có `adduser` nhưng đã có
+# sẵn user `app` (UID trong biến APP_UID = 1654) dành cho việc này.
+USER $APP_UID
 
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "CulinaryBlog.API.dll"]
