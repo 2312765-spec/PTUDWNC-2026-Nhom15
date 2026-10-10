@@ -19,7 +19,7 @@ namespace CulinaryBlog.IntegrationTests.Categories;
 /// <summary>FR-CAT-003 — SRS mục 3.2/8.2 + docs/decisions.md D10 (auto-suffix slug).</summary>
 public sealed class CreateCategoryTests(PostgresApiFactory factory) : IClassFixture<PostgresApiFactory>
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly HttpClient _client = factory.CreateClient();
 
@@ -38,7 +38,7 @@ public sealed class CreateCategoryTests(PostgresApiFactory factory) : IClassFixt
         var response = await _client.SendAsync(request);
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
-        var body = await response.Content.ReadFromJsonAsync<CategoryDto>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<CategoryDto>(_jsonOptions);
         body!.Name.Should().Be(name);
         body.Slug.Should().NotBeNullOrWhiteSpace();
         body.RecipeCount.Should().Be(0);
@@ -83,7 +83,7 @@ public sealed class CreateCategoryTests(PostgresApiFactory factory) : IClassFixt
         var response = await _client.SendAsync(request);
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
         problem!.Type.Should().Be(ErrorCodes.CategoryNameExists);
     }
 
@@ -100,7 +100,7 @@ public sealed class CreateCategoryTests(PostgresApiFactory factory) : IClassFixt
         var response = await _client.SendAsync(request);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
         problem!.Type.Should().Be(ErrorCodes.ValidationError);
     }
 
@@ -113,7 +113,7 @@ public sealed class CreateCategoryTests(PostgresApiFactory factory) : IClassFixt
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         var response = await _client.SendAsync(request);
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<CategoryDto>(JsonOptions))!;
+        return (await response.Content.ReadFromJsonAsync<CategoryDto>(_jsonOptions))!;
     }
 
     private async Task<(string Token, string UserId)> RegisterAuthorAsync()
@@ -123,7 +123,7 @@ public sealed class CreateCategoryTests(PostgresApiFactory factory) : IClassFixt
             "/api/v1/auth/register",
             new { email, password = "Str0ng!Pass1", displayName = "Tác giả test" });
         response.EnsureSuccessStatusCode();
-        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(_jsonOptions);
         return (body!.AccessToken, body.User.Id);
     }
 
@@ -146,7 +146,38 @@ public sealed class CreateCategoryTests(PostgresApiFactory factory) : IClassFixt
 
         var loginResponse = await _client.PostAsJsonAsync("/api/v1/auth/login", new { email, password });
         loginResponse.EnsureSuccessStatusCode();
-        var body = await loginResponse.Content.ReadFromJsonAsync<AuthResponseDto>(JsonOptions);
+        var body = await loginResponse.Content.ReadFromJsonAsync<AuthResponseDto>(_jsonOptions);
         return body!.AccessToken;
+    }
+    
+    [Fact(DisplayName = "FR-CAT-003: Tạo danh mục mới phải xóa cache Redis (GET /categories thấy ngay danh mục mới)")]
+    public async Task CreateCategory_ShouldInvalidateCache_AndBeVisibleInGetCategoriesImmediately()
+    {
+        // 1. Dùng hàm RegisterAdminAsync có sẵn ngay trong file để lấy token Admin
+        var token = await RegisterAdminAsync();
+
+        // 2. Gọi GET lần 1 để nạp cache Redis
+        var firstGet = await _client.GetAsync("/api/v1/categories");
+        firstGet.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 3. Admin tạo danh mục mới
+        var newCategoryName = $"Món Test Cache {Guid.NewGuid():N}"[..25];
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/categories")
+        {
+            Content = JsonContent.Create(new { name = newCategoryName, description = "Kiểm tra cache invalidation" }),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var postResponse = await _client.SendAsync(request);
+        postResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        // 4. Gọi lại GET /api/v1/categories ngay lập tức
+        // Nhờ ICacheInvalidator theo D8, Redis đã bị xóa tag 'categories', danh mục mới phải xuất hiện ngay
+        var secondGet = await _client.GetAsync("/api/v1/categories");
+        secondGet.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var content = await secondGet.Content.ReadAsStringAsync();
+        content.Should().Contain(newCategoryName, 
+            "vì CreateCategoryCommand đã implement ICacheInvalidator theo D8 nên danh mục mới phải hiển thị ngay lập tức");
     }
 }

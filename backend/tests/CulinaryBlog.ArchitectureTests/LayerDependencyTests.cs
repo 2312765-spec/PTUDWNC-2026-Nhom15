@@ -19,7 +19,7 @@ namespace CulinaryBlog.ArchitectureTests;
 /// </summary>
 public class LayerDependencyTests
 {
-    private static readonly Architecture Architecture = new ArchLoader()
+    private static readonly Architecture _architecture = new ArchLoader()
         .LoadAssemblies(
             typeof(Domain.Common.BaseEntity).Assembly,
             typeof(Application.DependencyInjection).Assembly,
@@ -27,57 +27,57 @@ public class LayerDependencyTests
             typeof(Program).Assembly)
         .Build();
 
-    private static readonly IObjectProvider<IType> DomainLayer =
+    private static readonly IObjectProvider<IType> _domainLayer =
         Types().That().ResideInNamespace("CulinaryBlog.Domain", true).As("Domain");
 
-    private static readonly IObjectProvider<IType> ApplicationLayer =
+    private static readonly IObjectProvider<IType> _applicationLayer =
         Types().That().ResideInNamespace("CulinaryBlog.Application", true).As("Application");
 
-    private static readonly IObjectProvider<IType> InfrastructureLayer =
+    private static readonly IObjectProvider<IType> _infrastructureLayer =
         Types().That().ResideInNamespace("CulinaryBlog.Infrastructure", true).As("Infrastructure");
 
-    private static readonly IObjectProvider<IType> ApiLayer =
+    private static readonly IObjectProvider<IType> _apiLayer =
         Types().That().ResideInNamespace("CulinaryBlog.API", true).As("API");
 
     [Fact(DisplayName = "CONS-001: Domain không phụ thuộc Application")]
     public void Domain_ShouldNotDependOn_Application() =>
-        Types().That().Are(DomainLayer)
-            .Should().NotDependOnAny(ApplicationLayer)
-            .Check(Architecture);
+        Types().That().Are(_domainLayer)
+            .Should().NotDependOnAny(_applicationLayer)
+            .Check(_architecture);
 
     [Fact(DisplayName = "CONS-001: Domain không phụ thuộc Infrastructure")]
     public void Domain_ShouldNotDependOn_Infrastructure() =>
-        Types().That().Are(DomainLayer)
-            .Should().NotDependOnAny(InfrastructureLayer)
-            .Check(Architecture);
+        Types().That().Are(_domainLayer)
+            .Should().NotDependOnAny(_infrastructureLayer)
+            .Check(_architecture);
 
     [Fact(DisplayName = "CONS-001: Domain không phụ thuộc API")]
     public void Domain_ShouldNotDependOn_Api() =>
-        Types().That().Are(DomainLayer)
-            .Should().NotDependOnAny(ApiLayer)
-            .Check(Architecture);
+        Types().That().Are(_domainLayer)
+            .Should().NotDependOnAny(_apiLayer)
+            .Check(_architecture);
 
     [Fact(DisplayName = "CONS-001: Application KHÔNG được reference Infrastructure")]
     public void Application_ShouldNotDependOn_Infrastructure() =>
-        Types().That().Are(ApplicationLayer)
-            .Should().NotDependOnAny(InfrastructureLayer)
-            .Check(Architecture);
+        Types().That().Are(_applicationLayer)
+            .Should().NotDependOnAny(_infrastructureLayer)
+            .Check(_architecture);
 
     [Fact(DisplayName = "CONS-001: Application không phụ thuộc API")]
     public void Application_ShouldNotDependOn_Api() =>
-        Types().That().Are(ApplicationLayer)
-            .Should().NotDependOnAny(ApiLayer)
-            .Check(Architecture);
+        Types().That().Are(_applicationLayer)
+            .Should().NotDependOnAny(_apiLayer)
+            .Check(_architecture);
 
     [Fact(DisplayName = "CONS-001: Infrastructure không phụ thuộc API")]
     public void Infrastructure_ShouldNotDependOn_Api() =>
-        Types().That().Are(InfrastructureLayer)
-            .Should().NotDependOnAny(ApiLayer)
-            .Check(Architecture);
+        Types().That().Are(_infrastructureLayer)
+            .Should().NotDependOnAny(_apiLayer)
+            .Check(_architecture);
 
     [Fact(DisplayName = "CONS-006: Domain không dùng EF Core (không có ORM trong Domain)")]
     public void Domain_ShouldNotDependOn_EntityFramework() =>
-        Types().That().Are(DomainLayer)
+        Types().That().Are(_domainLayer)
             .Should().NotDependOnAny(Types().That().ResideInNamespace("Microsoft.EntityFrameworkCore", true))
-            .Check(Architecture);
+            .Check(_architecture);
 }
