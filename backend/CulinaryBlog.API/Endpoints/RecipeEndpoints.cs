@@ -2,6 +2,8 @@ using CulinaryBlog.API.Extensions;
 using CulinaryBlog.Application.Categories.DTOs;
 using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Application.Common.Models;
+using CulinaryBlog.Application.Recipes.DTOs;
+using CulinaryBlog.Application.Recipes.Queries.GetRecipeBySlug;
 using CulinaryBlog.Application.Recipes.Queries.GetRecipes;
 using CulinaryBlog.Application.Recipes.Queries.SearchRecipes;
 using CulinaryBlog.Domain.Common;
@@ -68,8 +70,23 @@ public static class RecipeEndpoints
         .Produces<PagedResult<RecipeSummaryDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest);
           
-        group.MapGet("/{slug}", (string slug) => NotImplementedResults.Pending("FR-RCP-002", "B"))
-             .WithSummary("Chi tiết theo slug — Draft/Archived: chỉ owner hoặc Admin (403)");
+        // FR-RCP-002: Xem chi tiết công thức nấu ăn theo slug
+        group.MapGet("/{slug}", async (
+            string slug,
+            ISender mediator,
+            CancellationToken ct) =>
+        {
+            var query = new GetRecipeBySlugQuery(slug);
+            var result = await mediator.Send(query, ct);
+            return TypedResults.Ok(result);
+        })
+        .WithName("GetRecipeBySlug")
+        .WithSummary("Chi tiết theo slug — Draft/Archived: chỉ owner hoặc Admin (403)")
+        .WithDescription("Trả về thông tin chi tiết công thức kèm steps, ingredients, images, nutrition, category, author.")
+        .Produces<RecipeDetailDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .AllowAnonymous();
 
         // ---- C: commands ----
         group.MapPost("/", () => NotImplementedResults.Pending("FR-RCP-003", "C"))
