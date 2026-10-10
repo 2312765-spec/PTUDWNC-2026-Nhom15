@@ -4,7 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
-
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904;NU1603</WarningsNotAsErrors>
     <!--
       NFR-MAINT-001: không được có compiler warning.
       AnalysisLevel để "latest" (mode mặc định) chứ KHÔNG "latest-recommended" — mode

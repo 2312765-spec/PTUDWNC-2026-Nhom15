@@ -1,6 +1,6 @@
 using CulinaryBlog.Application.Categories.DTOs;
 using MediatR;
-
+using CulinaryBlog.Application.Common.Interfaces;
 namespace CulinaryBlog.Application.Categories.Commands.CreateCategory;
 
 /// <summary>
@@ -10,4 +10,8 @@ namespace CulinaryBlog.Application.Categories.Commands.CreateCategory;
 public sealed record CreateCategoryCommand(
     string Name,
     string? Description = null
-) : IRequest<CategoryDto>;
+) : IRequest<CategoryDto>, ICacheInvalidator
+{
+    // D8: Bắt buộc xóa cả 2 tag "categories" và "recipes"
+    public IReadOnlyList<string> TagsToInvalidate => ["categories", "recipes"];
+}

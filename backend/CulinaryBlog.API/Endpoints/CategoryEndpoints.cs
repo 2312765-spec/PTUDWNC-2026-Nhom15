@@ -59,7 +59,7 @@ public static class CategoryEndpoints
 
         // FR-CAT-003: Tạo mới Danh mục (Admin)
         // Yêu cầu quyền Quản trị viên -> Chưa đăng nhập = 401, không phải Admin = 403
-        group.MapPost("/", async (CreateCategoryCommand command, ISender sender, CancellationToken cancellationToken) =>
+        group.MapPost("", async (CreateCategoryCommand command, ISender sender, CancellationToken cancellationToken) =>
         {
             var result = await sender.Send(command, cancellationToken);
             return TypedResults.Created($"/api/v1/categories/{result.Slug}", result);
