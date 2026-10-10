@@ -5,6 +5,7 @@ using CulinaryBlog.Application.Auth.Commands.Logout;
 using CulinaryBlog.Application.Auth.Commands.Refresh;
 using CulinaryBlog.Application.Auth.Commands.Register;
 using CulinaryBlog.Application.Auth.Dtos;
+using CulinaryBlog.Application.Auth.Queries.GetCurrentUser;
 using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -57,8 +58,11 @@ public static class AuthEndpoints
              .ProducesProblem(StatusCodes.Status401Unauthorized)
              .RequireAuthorization();
 
-        // NFR-SEC-006: Endpoint này test gọi khi chưa có token phải trả về 401
-        group.MapGet("/me", () => NotImplementedResults.Pending("FR-AUTH-006", "A"))
+        group.MapGet("/me", GetMeAsync)
+             .WithSummary("Xem hồ sơ của người dùng đang đăng nhập (D5)")
+             .Produces<UserProfileDto>(StatusCodes.Status200OK)
+             .ProducesProblem(StatusCodes.Status401Unauthorized)
+             .ProducesProblem(StatusCodes.Status404NotFound)
              .RequireAuthorization();
 
         group.MapPatch("/me", () => NotImplementedResults.Pending("FR-AUTH-007", "A"))
@@ -139,6 +143,13 @@ public static class AuthEndpoints
         await sender.Send(new LogoutCommand(request.RefreshToken), ct);
 
         return TypedResults.NoContent();
+    }
+
+    private static async Task<IResult> GetMeAsync(ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(new GetCurrentUserQuery(), ct);
+
+        return TypedResults.Ok(result);
     }
 }
 
