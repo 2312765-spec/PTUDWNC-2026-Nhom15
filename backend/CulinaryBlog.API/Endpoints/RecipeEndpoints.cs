@@ -2,14 +2,15 @@ using CulinaryBlog.API.Extensions;
 using CulinaryBlog.Application.Categories.DTOs;
 using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Application.Common.Models;
+using CulinaryBlog.Application.Recipes.DTOs;
+using CulinaryBlog.Application.Recipes.Queries.GetRecipeBySlug;
 using CulinaryBlog.Application.Recipes.Queries.GetRecipes;
 using CulinaryBlog.Application.Recipes.Queries.SearchRecipes;
 using CulinaryBlog.Domain.Common;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using CulinaryBlog.Application.Recipes.DTOs;
-using CulinaryBlog.Application.Recipes.Queries.GetRecipeBySlug;
+
 namespace CulinaryBlog.API.Endpoints;
 
 /// <summary>

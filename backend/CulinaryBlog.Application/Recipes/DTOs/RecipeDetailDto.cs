@@ -1,5 +1,9 @@
 namespace CulinaryBlog.Application.Recipes.DTOs;
 
+/// <summary>
+/// FR-RCP-002 — chi tiết công thức. Author theo D5 (displayName, avatarUrl — không fullName/userName).
+/// Status/Difficulty là giá trị số của enum.
+/// </summary>
 public sealed record RecipeDetailDto(
     Guid Id,
     string Title,
@@ -25,36 +29,36 @@ public sealed record RecipeDetailDto(
 public sealed record RecipeCategoryDto(Guid Id, string Name, string Slug);
 public sealed record RecipeAuthorDto(string Id, string DisplayName, string? AvatarUrl);
 public sealed record RecipeNutritionDto(
-    decimal? Calories, 
-    decimal? Protein, 
-    decimal? Carbohydrates, 
-    decimal? Fat, 
-    decimal? Fiber, 
+    decimal? Calories,
+    decimal? Protein,
+    decimal? Carbohydrates,
+    decimal? Fat,
+    decimal? Fiber,
     decimal? Sodium
 );
 
 public sealed record RecipeIngredientDto(
-    Guid Id, 
-    string Name, 
-    decimal? Quantity, 
-    string? Unit, 
-    string? Notes, 
+    Guid Id,
+    string Name,
+    decimal? Quantity,
+    string? Unit,
+    string? Notes,
     int OrderIndex
 );
 
 public sealed record RecipeStepDto(
-    Guid Id, 
-    int StepNumber, 
-    string Title, 
-    string Description, 
-    int? TimerMinutes, 
+    Guid Id,
+    int StepNumber,
+    string Title,
+    string Description,
+    int? TimerMinutes,
     string? ImageUrl
 );
 
 public sealed record RecipeImageDto(
-    Guid Id, 
-    string OriginalUrl, 
-    string? AltText, 
-    bool IsPrimary, 
+    Guid Id,
+    string OriginalUrl,
+    string? AltText,
+    bool IsPrimary,
     int OrderIndex
 );

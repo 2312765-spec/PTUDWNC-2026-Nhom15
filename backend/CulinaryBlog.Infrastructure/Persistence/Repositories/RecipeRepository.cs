@@ -10,21 +10,27 @@ namespace CulinaryBlog.Infrastructure.Persistence.Repositories;
 /// </summary>
 public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRepository
 {
-    public async Task<Recipe?> GetBySlugDetailedAsync(string slug, CancellationToken cancellationToken = default)
-{
-    return await context.Recipes
-        .AsNoTracking()
-        .Include(r => r.Category)
-        .Include(r => r.Steps)
-        .Include(r => r.Ingredients)
-        .Include(r => r.Images)
-        .FirstOrDefaultAsync(r => r.Slug == slug && !r.IsDeleted, cancellationToken);
-}    public async Task<Recipe?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+    public async Task<Recipe?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         await context.Recipes
             .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted, cancellationToken);
 
     public async Task<Recipe?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default) =>
         await context.Recipes
+            .FirstOrDefaultAsync(r => r.Slug == slug && !r.IsDeleted, cancellationToken);
+
+    /// <summary>
+    /// FR-RCP-002 — chi tiết theo slug kèm category, steps, ingredients, images (NFR-PERF-004: không
+    /// N+1). AsSplitQuery: ba collection trong một JOIN sẽ nhân số dòng (cartesian explosion).
+    /// Global Query Filter đã loại các con đã soft-delete.
+    /// </summary>
+    public async Task<Recipe?> GetBySlugDetailedAsync(string slug, CancellationToken cancellationToken = default) =>
+        await context.Recipes
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Include(r => r.Category)
+            .Include(r => r.Steps)
+            .Include(r => r.Ingredients)
+            .Include(r => r.Images)
             .FirstOrDefaultAsync(r => r.Slug == slug && !r.IsDeleted, cancellationToken);
 
     public async Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken = default) =>

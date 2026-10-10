@@ -1,44 +1,30 @@
 using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Application.Recipes.DTOs;
-using CulinaryBlog.Domain.Enums;
 using CulinaryBlog.Domain.Interfaces;
 using MediatR;
 
 namespace CulinaryBlog.Application.Recipes.Queries.GetRecipeBySlug;
 
-public sealed class GetRecipeBySlugQueryHandler(
+/// <summary>
+/// FR-RCP-002 — tải công thức kèm category, steps, ingredients, images (một query, không N+1) và
+/// hồ sơ tác giả (D5). Không tồn tại hoặc đã soft-delete (D1) → 404 RECIPE_NOT_FOUND.
+/// </summary>
+public sealed class GetRecipeDetailQueryHandler(
     IRecipeRepository recipeRepository,
-    ICurrentUser currentUser)
-    : IRequestHandler<GetRecipeBySlugQuery, RecipeDetailDto>
+    IIdentityService identityService)
+    : IRequestHandler<GetRecipeDetailQuery, RecipeDetailDto>
 {
-    public async Task<RecipeDetailDto> Handle(GetRecipeBySlugQuery request, CancellationToken cancellationToken)
+    /// <summary>Tác giả đã bị xóa khỏi hệ thống — công thức vẫn hiển thị được.</summary>
+    public const string DeletedAuthorDisplayName = "Tài khoản đã xóa";
+
+    public async Task<RecipeDetailDto> Handle(GetRecipeDetailQuery request, CancellationToken cancellationToken)
     {
-        // 1. Eager loading Recipe theo Slug
-        var recipe = await recipeRepository.GetBySlugDetailedAsync(request.Slug, cancellationToken);
+        var recipe = await recipeRepository.GetBySlugDetailedAsync(request.Slug, cancellationToken)
+            ?? throw new NotFoundException(ErrorCodes.RecipeNotFound, $"Không tìm thấy công thức với slug '{request.Slug}'.");
 
-        // 2. Không tìm thấy hoặc đã soft-delete -> 404
-        if (recipe is null || recipe.IsDeleted)
-        {
-            throw new NotFoundException(ErrorCodes.RecipeNotFound, $"Không tìm thấy công thức với slug '{request.Slug}'.");
-        }
+        var author = await identityService.GetUserByIdAsync(recipe.AuthorId, cancellationToken);
 
-        // 3. Phân quyền: Draft / Archived chỉ cho chủ sở hữu hoặc Admin xem
-        if (recipe.Status != RecipeStatus.Published)
-        {
-            if (!currentUser.IsAuthenticated)
-            {
-                throw new ForbiddenException(ErrorCodes.RecipeForbidden, "Bạn không có quyền xem công thức này.");
-            }
-
-            var isOwner = recipe.AuthorId == currentUser.UserId;
-            if (!isOwner && !currentUser.IsAdmin)
-            {
-                throw new ForbiddenException(ErrorCodes.RecipeForbidden, "Bạn không có quyền xem công thức này.");
-            }
-        }
-
-        // 4. Map sang RecipeDetailDto
         return new RecipeDetailDto(
             recipe.Id,
             recipe.Title,
@@ -56,21 +42,19 @@ public sealed class GetRecipeBySlugQueryHandler(
             new RecipeCategoryDto(
                 recipe.Category?.Id ?? recipe.CategoryId,
                 recipe.Category?.Name ?? string.Empty,
-                recipe.Category?.Slug ?? string.Empty
-            ),
+                recipe.Category?.Slug ?? string.Empty),
             new RecipeAuthorDto(
                 recipe.AuthorId,
-                "Tác giả",
-                null
-            ),
+                author?.DisplayName ?? DeletedAuthorDisplayName,
+                author?.AvatarUrl),
+            // Owned type: EF trả null khi mọi cột Nutrition_* đều null (công thức không khai báo dinh dưỡng).
             recipe.Nutrition is null ? null : new RecipeNutritionDto(
                 recipe.Nutrition.Calories,
                 recipe.Nutrition.Protein,
                 recipe.Nutrition.Carbohydrates,
                 recipe.Nutrition.Fat,
                 recipe.Nutrition.Fiber,
-                recipe.Nutrition.Sodium
-            ),
+                recipe.Nutrition.Sodium),
             recipe.Ingredients
                 .Where(i => !i.IsDeleted)
                 .OrderBy(i => i.OrderIndex)
@@ -85,7 +69,6 @@ public sealed class GetRecipeBySlugQueryHandler(
                 .Where(img => !img.IsDeleted)
                 .OrderBy(img => img.OrderIndex)
                 .Select(img => new RecipeImageDto(img.Id, img.OriginalUrl, img.AltText, img.IsPrimary, img.OrderIndex))
-                .ToList()
-        );
+                .ToList());
     }
 }
