@@ -302,3 +302,18 @@ describe('LoginForm — phiên hết hạn (FR-AUTH-004)', () => {
     expect(screen.queryByText('Phiên đăng nhập đã hết hạn')).not.toBeInTheDocument();
   });
 });
+
+describe('LoginForm — đã đăng xuất (FR-AUTH-005)', () => {
+  it('FR-AUTH-005/NFR-USE-004: showLoggedOut=true → toast thành công "Đã đăng xuất"', async () => {
+    renderWithProviders(<LoginForm showLoggedOut />);
+
+    const toast = await screen.findByRole('status');
+    expect(toast).toHaveTextContent('Đã đăng xuất');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('FR-AUTH-005: mặc định → không có toast đăng xuất', () => {
+    setup();
+    expect(screen.queryByText('Đã đăng xuất')).not.toBeInTheDocument();
+  });
+});

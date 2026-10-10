@@ -52,12 +52,15 @@ export function LoginForm({
   callbackUrl = '/dashboard',
   showGoogleError = false,
   showSessionExpired = false,
+  showLoggedOut = false,
 }: {
   callbackUrl?: string;
   /** FR-AUTH-003 — true khi Auth.js redirect về đây kèm ?error= sau khi profile() của Google ném lỗi. */
   showGoogleError?: boolean;
   /** FR-AUTH-004 — true khi SessionExpiryWatcher đưa về đây kèm ?error=SessionExpired. */
   showSessionExpired?: boolean;
+  /** FR-AUTH-005 — true khi LogoutButton đưa về đây kèm ?loggedOut=1. */
+  showLoggedOut?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -66,9 +69,16 @@ export function LoginForm({
   const [formError, setFormError] = useState<FormError | null>(null);
 
   useEffect(() => {
-    if (!showGoogleError && !showSessionExpired) return;
+    if (!showGoogleError && !showSessionExpired && !showLoggedOut) return;
     toast.show(
-      showSessionExpired
+      showLoggedOut
+        ? {
+            // NFR-USE-004 — xác nhận sau thao tác ghi (thu hồi phiên).
+            variant: 'success',
+            title: 'Đã đăng xuất',
+            description: 'Hẹn gặp lại bạn!',
+          }
+        : showSessionExpired
         ? {
             // Không phải lỗi của người dùng — thông tin, không dùng variant 'error'.
             variant: 'info',
@@ -88,7 +98,7 @@ export function LoginForm({
         : `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`;
     router.replace(target, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showGoogleError, showSessionExpired]);
+  }, [showGoogleError, showSessionExpired, showLoggedOut]);
 
   const {
     register,
