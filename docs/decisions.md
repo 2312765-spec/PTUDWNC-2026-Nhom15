@@ -55,6 +55,15 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D37 | "EF Core traces" | **`Npgsql.OpenTelemetry`** (span theo câu SQL), không dùng gói EF Core beta |
 | D38 | Error rate | **5xx / exception** (`error.type`) — 4xx không tính lỗi server |
 | D39 | Metric recipe created/published | `RecipeMetrics` làm trước; **C gọi** trong handler FR-RCP-003/005 |
+| D40 | Cách resize (FR-JOB-002) | Thumbnail **crop giữa** 300×300 · medium **fit** trong 800×600 · không upscale · bỏ EXIF |
+| D41 | Định dạng ảnh phái sinh | Luôn **WebP** · ảnh gốc **AVIF → bỏ qua** (ImageSharp không decode được) |
+| D42 | Retry FR-JOB-002 | 3 lần, chờ **1 / 5 / 30 phút** (giống FR-JOB-001) |
+| D43 | Xóa ảnh | Xóa cả **original + medium + thumbnail** trên MinIO |
+| D44 | Luồng job resize | Job → MediatR command `GenerateRecipeImageVariantsCommand` · idempotent |
+| D45 | Hangfire server | **Bật lại** `AddHangfireServer()` (trừ môi trường `Testing`) |
+| D46 | Thư viện resize ảnh | **SkiaSharp** thay ImageSharp (lỗ hổng 3.1.12 · 4.x cần license) — xem ADR-0004 |
+| D47 | Logout (FR-AUTH-005) | Giữ `RequireAuthorization` · thiếu `refreshToken` → 400 · token user khác / đã revoke / hết hạn → **204 no-op** · không kích hoạt reuse detection |
+| D48 | Xem hồ sơ (FR-AUTH-006) | User bị xóa sau khi cấp token → **404** `USER_NOT_FOUND` · user `IsActive=false` còn access token → **200** (chỉ đọc) |
 
 ---
 
@@ -550,6 +559,7 @@ nếu không request `/recipes/search` sẽ khớp vào route slug. Kèm theo D1
 | `AUTH_INVALID_CREDENTIALS` | 401 | Auth | — |
 | `AUTH_TOKEN_EXPIRED` | 401 | Auth | — |
 | `AUTH_TOKEN_INVALID` | 401 | Auth | — |
+| `USER_NOT_FOUND` | 404 | Auth | D48 |
 | `AUTH_REFRESH_TOKEN_EXPIRED` | 401 | Auth | — |
 | `AUTH_REFRESH_TOKEN_REVOKED` | 401 | Auth | — |
 | `AUTH_GOOGLE_TOKEN_INVALID` | 400 | Auth | — |
@@ -1104,6 +1114,200 @@ FR-OBS-003, và `Application/Recipes/Commands/**` do C sở hữu.
 **Vì:** không sửa file của người khác, không chặn FR-OBS-003 chờ slice S5/S7.
 
 **Sửa SRS:** không cần.
+
+---
+
+## D40 — FR-JOB-002: cách resize ảnh
+
+> Phát hiện lúc lập kế hoạch FR-JOB-002 (2026-10-07) — xem `docs/plans/FR-JOB-002-resize-anh.md`.
+
+**Nguồn:** FR-JOB-002 chỉ ghi "thumbnail (300x300px) và medium image (800x600px)". Ảnh gốc có tỉ
+lệ bất kỳ; SRS không nói crop hay fit, có upscale ảnh nhỏ không.
+
+**Chốt:**
+
+- **Thumbnail:** crop giữa ảnh, ra **đúng 300×300** (ô vuông cho card/lưới).
+- **Medium:** thu cho **lọt trong 800×600, giữ tỉ lệ, không crop** (ảnh gallery không được mất nội dung).
+- **Không upscale:** cạnh nguồn nhỏ hơn đích thì giữ nguyên kích thước nguồn (thumbnail vẫn crop vuông).
+- Xoay ảnh theo EXIF Orientation trước khi resize, rồi **bỏ toàn bộ metadata** (EXIF/GPS/ICC
+  không cần thiết) — ảnh chụp điện thoại thường mang tọa độ GPS.
+- Giới hạn kích thước decode (40 megapixel) để chống decompression bomb — file ≤ 5 MB (CONS-007)
+  vẫn có thể giải nén ra hàng GB.
+
+**Vì:** hành vi phổ biến nhất cho blog ảnh; không upscale vì phóng to chỉ làm file nặng hơn mà
+không nét hơn.
+
+**Sửa SRS:** FR-JOB-002 — bổ sung "thumbnail crop vuông, medium fit giữ tỉ lệ, không upscale".
+
+---
+
+## D41 — FR-JOB-002: định dạng ảnh phái sinh, AVIF bị bỏ qua
+
+> 2026-10-07.
+
+**Nguồn:** FR-JOB-002 không nói định dạng đầu ra. D28 cho phép upload AVIF, nhưng
+**SixLabors.ImageSharp 3.1.12** (thư viện đã có trong `Infrastructure.csproj`) **không có decoder
+AVIF** — đã kiểm tra: chỉ có Bmp, Gif, Jpeg, Pbm, Png, Qoi, Tga, Tiff, Webp.
+
+**Chốt:**
+
+- Ảnh medium và thumbnail luôn mã hóa **WebP**, quality 80 — một encoder duy nhất, nhẹ hơn JPEG/PNG,
+  mọi trình duyệt hiện hành đều hỗ trợ.
+- Ảnh gốc **AVIF → job kết thúc ngay (no-op)**, log Information. `MediumUrl`/`ThumbnailUrl` giữ
+  `null`, FE dùng `originalUrl` — đúng nhánh "nếu fail: ảnh gốc vẫn hiển thị" của FR-JOB-002.
+  Không retry (lỗi không tự hết sau khi chờ).
+
+**Vì:** thêm thư viện native (libvips/ImageMagick) chỉ để đọc AVIF làm nặng image Docker và CI,
+lợi ích nhỏ — AVIF vốn đã là định dạng nén tốt.
+
+**Sửa SRS:** FR-JOB-002 — "ảnh phái sinh định dạng WebP; ảnh gốc AVIF không sinh phiên bản phụ".
+
+---
+
+## D42 — FR-JOB-002: lịch retry
+
+> 2026-10-07.
+
+**Nguồn:** FR-JOB-002 ghi "Retry 3 lần" không có khoảng chờ; FR-JOB-001 có lịch 1 / 5 / 30 phút;
+NFR-REL chỉ nói "exponential backoff".
+
+**Chốt:** `[AutomaticRetry(Attempts = 3, DelaysInSeconds = [60, 300, 1800], OnAttemptsExceeded =
+AttemptsExceededAction.Fail)]`. Hết lượt → job ở trạng thái Failed (xem được ở `/hangfire`) + log Error.
+
+**Vì:** thống nhất một lịch retry cho mọi fire-and-forget job của dự án.
+
+**Sửa SRS:** FR-JOB-002 — bổ sung lịch retry 1 / 5 / 30 phút.
+
+---
+
+## D43 — Xóa ảnh: xóa cả file phái sinh
+
+> 2026-10-07.
+
+**Nguồn:** FR-FILE-002 và FR-RCP-008 bước 14 chỉ nói "xóa file trên MinIO" (số ít) — viết trước
+khi có FR-JOB-002 sinh thêm 2 file cho mỗi ảnh.
+
+**Chốt:** `DELETE /recipes/{id}/images/{imageId}` enqueue `FR-FILE-002` cho **từng URL khác null**
+trong `OriginalUrl`, `MediumUrl`, `ThumbnailUrl`. Vẫn **không** áp dụng khi xóa cả recipe (D1).
+
+Nếu job resize đang chạy dở mà ảnh bị xóa: job thấy ảnh không còn ở bước ghi DB → tự enqueue xóa
+2 file vừa upload (D44), không để lại file mồ côi.
+
+**Sửa SRS:** FR-FILE-002, FR-RCP-008 bước 14 — "xóa file gốc và các phiên bản resize".
+
+---
+
+## D44 — FR-JOB-002: luồng job đi qua MediatR, idempotent
+
+> 2026-10-07.
+
+**Nguồn:** ghi chú FR-JOB-002 trong `traceability.md` (2026-09-22) mô tả việc "cập nhật DB ngoài
+luồng MediatR" — đi ngoài pipeline thì không xóa cache (D8) và lệch CONS-002.
+
+**Chốt:**
+
+- Hangfire job (`Infrastructure/Jobs/ResizeRecipeImageJob`) chỉ làm một việc:
+  `sender.Send(new GenerateRecipeImageVariantsCommand(imageId))`. Logic nằm trong handler ở
+  Application; command implement `ICacheInvalidator` (tag `recipes`, `recipe:{slug}`).
+- Application không biết Hangfire: enqueue qua `IBackgroundJobService.EnqueueGenerateImageVariants`.
+  Upload chỉ enqueue **sau khi transaction ghi ảnh thành công**; enqueue lỗi → log warning, không
+  làm fail request (ảnh gốc vẫn dùng được).
+- File phái sinh lưu `recipes/{recipeId}/{guid}.webp` qua `ObjectKey` có sẵn (tên GUID, D16).
+- **Idempotent:** ảnh không còn / recipe đã soft delete / ảnh đã có `ThumbnailUrl` → no-op.
+  Lỗi sau khi đã upload file phái sinh → enqueue xóa 2 file đó rồi ném lại để Hangfire retry.
+- Không check ownership — lệnh hệ thống, không có endpoint gọi tới.
+
+**Sửa SRS:** không cần (chi tiết hiện thực).
+
+---
+
+## D45 — Bật lại Hangfire server
+
+> 2026-10-07. Ảnh hưởng FR-JOB-001 (A), FR-FILE-002, FR-JOB-002, FR-JOB-003.
+
+**Hiện trạng:** `builder.Services.AddHangfireServer()` trong `Program.cs` đang bị comment → job
+được ghi vào schema `hangfire` nhưng **không worker nào chạy**: welcome email không gửi, file
+MinIO của ảnh đã xóa không bị xóa.
+
+**Lịch sử (git):** `4b78dfb` (2026-09-26) xóa `AddHangfire(...)` khỏi `DependencyInjection.cs` và
+thay service thật bằng Mock — server không còn storage nên phải comment để host lên được.
+`1d5fad9` (2026-09-28) khôi phục `AddHangfire` nhưng không bật lại server, coi trạng thái tạm đó
+là thiết kế.
+
+**Chốt:** bỏ comment `AddHangfireServer()`, giữ điều kiện `!IsEnvironment("Testing")`.
+
+**Vì:** SRS mục 2.x ghi Hangfire chạy in-process; lo ngại "host không lên khi Postgres chưa sẵn
+sàng" không đáng kể — SRS ghi Postgres down là "toàn bộ hệ thống ngừng" (readiness fail, Nginx
+503), và NFR-REL-002 nói về Redis chứ không phải Postgres. `SmokeTests`/integration test chạy
+`Testing` nên không bị ảnh hưởng.
+
+**Lưu ý nhóm:** `Program.cs` là file dùng chung — báo A và Yen trước khi merge; bật server thì
+welcome email bắt đầu gửi thật.
+
+**Sửa SRS:** không cần.
+
+---
+
+## D46 — FR-JOB-002: thay ImageSharp bằng SkiaSharp
+
+> 2026-10-10. Phát hiện sau khi merge PR #37: CI đỏ ở bước `dotnet restore`.
+
+**Nguồn:** NuGetAudit báo `SixLabors.ImageSharp` 3.1.12 dính 5 advisory (GHSA-gwg2-r3hj-4w44,
+GHSA-j3p4-wp97-rph4, GHSA-j9gm-c75j-xc9q, GHSA-jjfr-hcj7-qf5w, GHSA-wmxv-xphr-5c9g — 3 high,
+2 moderate); `TreatWarningsAsErrors` biến NU1902/NU1903 thành lỗi. Cả 5 chỉ vá từ **4.1.2**, nhưng
+ImageSharp 4.x **bắt buộc license key Six Labors** — build Release (CI, Dockerfile) lỗi nếu thiếu.
+
+**Chốt:** dùng **SkiaSharp 3.119.4** (MIT) + `SkiaSharp.NativeAssets.Linux.NoDependencies` cho
+CI/Docker. `ImageSharpImageResizer` → `SkiaImageResizer`. D40 và D41 giữ nguyên hành vi: native
+Skia đóng gói sẵn **không có decoder AVIF** (đã kiểm tra binary win-x64 và linux-x64), nên ảnh gốc
+AVIF vẫn no-op như D41.
+
+**Vì:** không phải xin/giữ license key trong secret của CI và Docker; không suppress lỗ hổng thật
+(GHSA-gwg2 nằm ở đường parse ICC — ảnh JPEG upload chạm tới được). Lý do kỹ thuật chi tiết: ADR-0004.
+
+**Sửa SRS:** không cần.
+## D47 — Đăng xuất (FR-AUTH-005): access token, token của user khác, token đã revoke
+
+> Phát hiện lúc lập kế hoạch FR-AUTH-005 (2026-10-07). Xem `docs/plans/FR-AUTH-005-dang-xuat-thu-hoi-token.md`.
+
+**Nguồn mâu thuẫn / thiếu:** SRS FR-AUTH-005 điều kiện tiên quyết và bảng status yêu cầu access token
+hợp lệ (401 nếu không), nhưng A2 lại cho logout khi "access token đã hết hạn" và trả 401 nếu thiếu
+refresh token. Bước 4 chỉ revoke khi token thuộc user hiện tại, không nói trường hợp ngược lại.
+
+**Chốt:**
+
+1. **Giữ `RequireAuthorization()`** (khớp điều kiện tiên quyết, bảng status, NFR-SEC-006). **Bỏ A2.**
+   Frontend tự refresh trước nếu access token sắp hết hạn rồi mới gọi logout.
+   Thiếu / rỗng `refreshToken` → **400** `VALIDATION_ERROR` (D4), không phải 401.
+2. **Token thuộc user khác** → 204, **không revoke**, log WARNING (giống A1, không lộ trạng thái token).
+3. **Token đã revoke hoặc hết hạn** → 204 no-op; **không** kích hoạt reuse detection (D35-5 chỉ dành
+   cho `/refresh`).
+4. **Race** → `TryRevokeAsync` (UPDATE có điều kiện `RevokedAt IS NULL`, D35-6); thua race vẫn 204.
+
+**Vì:** logout idempotent không được biến thành kênh dò trạng thái token hay công cụ đăng xuất người khác.
+
+**Sửa SRS:** FR-AUTH-005 — bỏ A2; bảng status thêm 400; ghi rõ token của user khác → 204 (không revoke).
+
+---
+
+## D48 — Xem hồ sơ (FR-AUTH-006): user bị xóa, user bị vô hiệu hóa
+
+> Phát hiện lúc lập kế hoạch FR-AUTH-006 (2026-10-07). Xem `docs/plans/FR-AUTH-006-xem-ho-so-ca-nhan.md`.
+
+**Nguồn mâu thuẫn / thiếu:** SRS FR-AUTH-006 A1 ghi user đã bị xóa → 404, nhưng D35 chốt `/refresh`
+trả 401 `AUTH_TOKEN_INVALID` cho cùng tình huống và bảng mã lỗi chưa có mã 404 cho user. SRS cũng không
+nói user `IsActive=false` còn access token gọi `/me`.
+
+**Chốt:**
+
+1. User đã bị xóa khỏi DB sau khi token được cấp → **404** `USER_NOT_FOUND` (giữ SRS A1). Khác `/refresh`
+   vì `/me` đã qua JWT hợp lệ, còn `/refresh` xác thực bằng chính refresh token.
+2. User `IsActive=false` còn access token → **200** (chỉ đọc; chặn đã làm ở login và refresh theo D11).
+3. Thêm `USER_NOT_FOUND` (404) vào bảng mã lỗi.
+
+**Vì:** `/me` chỉ đọc hồ sơ của chính chủ, không cấp thêm quyền nào.
+
+**Sửa SRS:** FR-AUTH-006 — thay `fullName/userName/emailConfirmed/createdAt` theo D5/D12; ghi mã lỗi 404.
 
 ---
 

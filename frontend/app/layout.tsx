@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { SiteHeader } from '@/components/layout/SiteHeader';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Bỏ qua, tới nội dung chính
         </a>
         <Providers>
+          <SiteHeader />
           <main id="main">{children}</main>
         </Providers>
       </body>

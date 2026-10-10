@@ -40,4 +40,10 @@ public class RecipeImage : BaseEntity
     internal void UpdateOrderIndex(int orderIndex) => OrderIndex = orderIndex;
 
     internal void SetPrimary(bool isPrimary) => IsPrimary = isPrimary;
+
+    internal void SetVariants(string mediumUrl, string thumbnailUrl)
+    {
+        MediumUrl = mediumUrl;
+        ThumbnailUrl = thumbnailUrl;
+    }
 }

@@ -85,3 +85,12 @@ describe('/auth/login — FR-AUTH-004', () => {
     expect(screen.queryByText('Đăng nhập Google thất bại')).not.toBeInTheDocument();
   });
 });
+
+describe('/auth/login — FR-AUTH-005', () => {
+  it('FR-AUTH-005: ?loggedOut=1 (sau khi bấm Đăng xuất) → toast "Đã đăng xuất"', async () => {
+    mockAuth.mockResolvedValue(null);
+    renderWithProviders(await LoginPage(params({ loggedOut: '1' })));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng xuất');
+  });
+});

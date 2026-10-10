@@ -22,7 +22,11 @@ interface LoginPageProps {
    * khi provider Google (`profile()`) ném lỗi — luồng OAuth không có kênh trả ProblemDetails
    * chi tiết như authorize(), chỉ có mã lỗi chung (D9, xem lib/auth/credentials.ts).
    */
-  searchParams: Promise<{ callbackUrl?: string | string[]; error?: string | string[] }>;
+  searchParams: Promise<{
+    callbackUrl?: string | string[];
+    error?: string | string[];
+    loggedOut?: string | string[];
+  }>;
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -32,11 +36,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const sessionExpired = params.error === 'SessionExpired';
   const hasGoogleError = params.error !== undefined && !sessionExpired;
 
+  // FR-AUTH-005 — LogoutButton đưa về đây sau khi đăng xuất.
+  const loggedOut = params.loggedOut === '1';
+
   // Đã đăng nhập thì không cần ở lại trang này.
   if (await auth()) redirect(callbackUrl);
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-12">
+    <div className="flex min-h-[calc(100svh-4rem)] items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link
@@ -58,6 +65,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             callbackUrl={callbackUrl}
             showGoogleError={hasGoogleError}
             showSessionExpired={sessionExpired}
+            showLoggedOut={loggedOut}
           />
         </div>
 
