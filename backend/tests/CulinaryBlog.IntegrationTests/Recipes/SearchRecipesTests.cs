@@ -132,7 +132,7 @@ public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixtu
             title, $"recipe-{Guid.NewGuid():N}", "mô tả", 10, 30, 2,
             RecipeDifficulty.Easy, category.Id, authorId, status: status);
         if (imageUrl is not null)
-          { recipe.AttachImage(imageUrl, isPrimary: true);} 
+            recipe.AttachImage(imageUrl, isPrimary: true);
         db.Recipes.Add(recipe);
 
         await db.SaveChangesAsync();

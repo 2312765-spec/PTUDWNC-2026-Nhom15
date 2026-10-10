@@ -1,5 +1,8 @@
 using System.Net;
+using System.Net.Http.Headers;
+using CulinaryBlog.Application.Common.Interfaces;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace CulinaryBlog.IntegrationTests.Common;
@@ -43,13 +46,23 @@ public class SmokeTests(CulinaryBlogApiFactory factory) : IClassFixture<Culinary
     [InlineData("/api/v1/recipes/11111111-1111-1111-1111-111111111111/publish")] // FR-RCP-005 (C)
     public async Task PendingEndpoints_Return501(string url)
     {
-        // Gắn token bất kỳ (hoặc tạo request với Authorization) để vượt qua tầng 401 nếu endpoint require auth
+        // Các endpoint còn pending đều cần policy Author → gửi JWT thật (ký bằng khóa test) để
+        // request đi qua tầng xác thực và chạm tới handler 501.
+        var jwt = factory.Services.GetRequiredService<IJwtService>();
+        var (token, _) = jwt.GenerateAccessToken(Guid.NewGuid().ToString(), "smoke@test.local", ["Author"]);
         using var request = new HttpRequestMessage(HttpMethod.Patch, url);
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "mock-jwt-access-token");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await _client.SendAsync(request);
 
-        // Chấp nhận 501 (NotImplemented) theo đúng tinh thần pending endpoint
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.NotImplemented, HttpStatusCode.Unauthorized);
+        response.StatusCode.Should().Be(HttpStatusCode.NotImplemented);
+    }
+
+    [Fact(DisplayName = "NFR-SEC-006: endpoint cần quyền trả 401 khi chưa đăng nhập")]
+    public async Task ProtectedEndpoint_WithoutToken_Returns401()
+    {
+        var response = await _client.GetAsync("/api/v1/auth/me");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 }
