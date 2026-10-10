@@ -5,7 +5,7 @@ public sealed record ResizedImageSet(byte[] Medium, byte[] Thumbnail);
 
 /// <summary>
 /// FR-JOB-002 — sinh ảnh medium (fit 800×600) và thumbnail (crop 300×300) từ ảnh gốc (D40),
-/// đầu ra WebP (D41). Hiện thực ở Infrastructure (ImageSharp) — Application không biết thư viện ảnh.
+/// đầu ra WebP (D41). Hiện thực ở Infrastructure (SkiaSharp — D46) — Application không biết thư viện ảnh.
 /// </summary>
 public interface IImageResizer
 {

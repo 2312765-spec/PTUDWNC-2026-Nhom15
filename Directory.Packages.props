@@ -39,8 +39,11 @@
     <!-- Transitive qua MailKit. 4.8.0 dính GHSA-g7hc-96xr-gvvx (MimeKit) — vá ở 4.15.1.
          Pin tường minh vì CentralPackageTransitivePinningEnabled=true. -->
     <PackageVersion Include="MimeKit" Version="4.18.0" />
-    <!-- 3.1.6 dính GHSA-2cmq-823j-5qj8 (high) và GHSA-rxmq-m78w-7wmc — vá lần lượt ở 3.1.7 / 3.1.11. -->
-    <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <!-- FR-JOB-002 — thay SixLabors.ImageSharp (D46, ADR-0004): 3.1.12 dính 5 advisory chỉ vá ở 4.1.2,
+         mà ImageSharp 4.x bắt buộc license key mới build Release được.
+         NativeAssets.Linux.NoDependencies: native cho CI/Docker Linux, không cần fontconfig. -->
+    <PackageVersion Include="SkiaSharp" Version="3.119.4" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.4" />
     <PackageVersion Include="Hangfire.Core" Version="1.8.17" />
     <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.17" />
     <PackageVersion Include="Hangfire.PostgreSql" Version="1.20.10" />

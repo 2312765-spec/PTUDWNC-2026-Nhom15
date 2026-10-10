@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text;
 using System.Text.Json;
 using CulinaryBlog.Application.Auth.Dtos;
 using CulinaryBlog.Application.Common.Files;
@@ -9,12 +8,11 @@ using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Enums;
 using CulinaryBlog.Infrastructure.Jobs;
 using CulinaryBlog.Infrastructure.Persistence;
+using CulinaryBlog.IntegrationTests.Files;
 using CulinaryBlog.IntegrationTests.Recipes.Support;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using Xunit;
 
 namespace CulinaryBlog.IntegrationTests.Jobs;
@@ -38,7 +36,7 @@ public sealed class ImageResizeTests(RecipeImagesApiFactory factory) : IClassFix
         var (token, userId) = await RegisterAuthorAsync();
         var recipeId = await SeedRecipeAsync(userId);
 
-        var uploaded = await UploadAsync(recipeId, PngBytes(1200, 900), "image/png", token);
+        var uploaded = await UploadAsync(recipeId, TestImages.Png(1200, 900), "image/png", token);
 
         factory.BackgroundJobs.GenerateImageVariants.Should().Contain((recipeId, uploaded.ImageId));
     }
@@ -48,7 +46,7 @@ public sealed class ImageResizeTests(RecipeImagesApiFactory factory) : IClassFix
     {
         var (token, userId) = await RegisterAuthorAsync();
         var recipeId = await SeedRecipeAsync(userId);
-        var uploaded = await UploadAsync(recipeId, PngBytes(1200, 900), "image/png", token);
+        var uploaded = await UploadAsync(recipeId, TestImages.Png(1200, 900), "image/png", token);
 
         await RunJobAsync(recipeId, uploaded.ImageId);
 
@@ -62,10 +60,8 @@ public sealed class ImageResizeTests(RecipeImagesApiFactory factory) : IClassFix
         ImageSignature.Detect(medium)!.ContentType.Should().Be("image/webp");
         ImageSignature.Detect(thumbnail)!.ContentType.Should().Be("image/webp");
 
-        var mediumInfo = Image.Identify(medium);
-        (mediumInfo.Width, mediumInfo.Height).Should().Be((800, 600));
-        var thumbnailInfo = Image.Identify(thumbnail);
-        (thumbnailInfo.Width, thumbnailInfo.Height).Should().Be((300, 300));
+        TestImages.Size(medium).Should().Be((800, 600));
+        TestImages.Size(thumbnail).Should().Be((300, 300));
     }
 
     [Fact(DisplayName = "FR-JOB-002/D44: chạy job lần 2 → no-op (idempotent), không upload thêm file, URL giữ nguyên")]
@@ -73,7 +69,7 @@ public sealed class ImageResizeTests(RecipeImagesApiFactory factory) : IClassFix
     {
         var (token, userId) = await RegisterAuthorAsync();
         var recipeId = await SeedRecipeAsync(userId);
-        var uploaded = await UploadAsync(recipeId, PngBytes(640, 480), "image/png", token);
+        var uploaded = await UploadAsync(recipeId, TestImages.Png(640, 480), "image/png", token);
 
         await RunJobAsync(recipeId, uploaded.ImageId);
         var afterFirst = await GetImageAsync(uploaded.ImageId);
@@ -92,7 +88,7 @@ public sealed class ImageResizeTests(RecipeImagesApiFactory factory) : IClassFix
     {
         var (token, userId) = await RegisterAuthorAsync();
         var recipeId = await SeedRecipeAsync(userId);
-        var uploaded = await UploadAsync(recipeId, PngBytes(640, 480), "image/png", token);
+        var uploaded = await UploadAsync(recipeId, TestImages.Png(640, 480), "image/png", token);
 
         var delete = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/recipes/{recipeId}/images/{uploaded.ImageId}");
         delete.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -110,7 +106,7 @@ public sealed class ImageResizeTests(RecipeImagesApiFactory factory) : IClassFix
     {
         var (token, userId) = await RegisterAuthorAsync();
         var recipeId = await SeedRecipeAsync(userId);
-        var uploaded = await UploadAsync(recipeId, PngBytes(640, 480), "image/png", token);
+        var uploaded = await UploadAsync(recipeId, TestImages.Png(640, 480), "image/png", token);
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -128,12 +124,12 @@ public sealed class ImageResizeTests(RecipeImagesApiFactory factory) : IClassFix
         image.ThumbnailUrl.Should().BeNull();
     }
 
-    [Fact(DisplayName = "FR-JOB-002/D41: ảnh gốc AVIF → no-op (ImageSharp không decode được), URL giữ null, không ném lỗi")]
+    [Fact(DisplayName = "FR-JOB-002/D41: ảnh gốc AVIF → no-op (Skia không decode được), URL giữ null, không ném lỗi")]
     public async Task Job_AvifOriginal_IsNoOp()
     {
         var (token, userId) = await RegisterAuthorAsync();
         var recipeId = await SeedRecipeAsync(userId);
-        var uploaded = await UploadAsync(recipeId, AvifBytes(), "image/avif", token);
+        var uploaded = await UploadAsync(recipeId, TestImages.AvifHeaderOnly(), "image/avif", token);
         var uploadsBefore = UploadsInto(recipeId);
 
         var act = () => RunJobAsync(recipeId, uploaded.ImageId);
@@ -170,23 +166,6 @@ public sealed class ImageResizeTests(RecipeImagesApiFactory factory) : IClassFix
 
     private int UploadsInto(Guid recipeId) =>
         factory.FileStorage.Uploads.Count(u => u.Folder == $"recipes/{recipeId}");
-
-    private static byte[] PngBytes(int width, int height)
-    {
-        using var image = new Image<Rgba32>(width, height, new Rgba32(200, 120, 40));
-        using var stream = new MemoryStream();
-        image.SaveAsPng(stream);
-        return stream.ToArray();
-    }
-
-    /// <summary>Header AVIF hợp lệ (D28 nhận) nhưng ImageSharp 3.1 không có decoder AVIF (D41).</summary>
-    private static byte[] AvifBytes()
-    {
-        var bytes = new byte[64];
-        byte[] header = [0x00, 0x00, 0x00, 0x1C, .. Encoding.ASCII.GetBytes("ftypavif")];
-        header.CopyTo(bytes, 0);
-        return bytes;
-    }
 
     private async Task<UploadImageResponse> UploadAsync(Guid recipeId, byte[] bytes, string contentType, string token)
     {

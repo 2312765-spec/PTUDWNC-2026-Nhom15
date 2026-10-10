@@ -113,7 +113,7 @@ public static class DependencyInjection
         services.AddScoped<IBackgroundJobService, HangfireBackgroundJobService>();
 
         // 9. FR-JOB-002 — resize ảnh (D40–D44). Resizer không giữ trạng thái → singleton.
-        services.AddSingleton<IImageResizer>(new ImageSharpImageResizer());
+        services.AddSingleton<IImageResizer>(new SkiaImageResizer());
         services.AddScoped<ResizeRecipeImageJob>();
 
         return services;

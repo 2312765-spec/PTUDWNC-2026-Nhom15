@@ -89,7 +89,7 @@ public sealed class MinioFileStorageServiceTests : IAsyncLifetime
         using var buffer = new MemoryStream();
         await downloaded.CopyToAsync(buffer);
         buffer.ToArray().Should().BeEquivalentTo(bytes);
-        downloaded.CanSeek.Should().BeTrue("ImageSharp cần stream đọc lại được từ đầu");
+        downloaded.CanSeek.Should().BeTrue("resizer cần stream đọc lại được từ đầu");
     }
 
     [Fact(DisplayName = "FR-FILE-002: xóa object đã tồn tại thì object biến mất thật trên MinIO")]
