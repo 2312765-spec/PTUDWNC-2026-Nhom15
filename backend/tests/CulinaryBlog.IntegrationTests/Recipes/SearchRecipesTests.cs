@@ -11,6 +11,7 @@ using CulinaryBlog.Infrastructure.Persistence;
 using CulinaryBlog.IntegrationTests.Common;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -96,6 +97,66 @@ public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixtu
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
+    [Fact(DisplayName = "FR-SRCH-001/D49: gõ \"dau phu\" tìm được \"Đậu phụ\" (unaccent bỏ cả chữ đ)")]
+    public async Task Search_Unaccented_MatchesLetterD()
+    {
+        var token = NewToken();
+        var recipeId = await SeedRecipeAsync($"Đậu phụ sốt cà {token}", RecipeStatus.Published);
+
+        var body = await SearchAsync($"dau phu {token}");
+
+        body.Items.Should().ContainSingle(r => r.Id == recipeId);
+    }
+
+    [Fact(DisplayName = "FR-SRCH-001/D49: xếp theo ts_rank — khớp ở Title (trọng số A) đứng trên khớp ở Description (B)")]
+    public async Task Search_RanksTitleMatchAboveDescriptionMatch()
+    {
+        var token = NewToken();
+        var descriptionMatch = await SeedRecipeAsync($"Canh chua {NewToken()}", RecipeStatus.Published, description: $"nấu với {token}");
+        var titleMatch = await SeedRecipeAsync($"Gà nướng {token}", RecipeStatus.Published);
+
+        var body = await SearchAsync(token);
+
+        body.Items.Select(r => r.Id).Should().Equal(titleMatch, descriptionMatch);
+        body.Items.Should().OnlyContain(r => r.RelevanceScore > 0);
+        body.Items[0].RelevanceScore.Should().BeGreaterThan(body.Items[1].RelevanceScore!.Value);
+    }
+
+    [Fact(DisplayName = "FR-SRCH-001/D49: trigger cập nhật SearchVector khi Title đổi — từ mới tìm được, từ cũ hết")]
+    public async Task Search_AfterTitleChange_TriggerUpdatesSearchVector()
+    {
+        var oldToken = NewToken();
+        var newToken = NewToken();
+        var recipeId = await SeedRecipeAsync($"Bánh cuốn {oldToken}", RecipeStatus.Published);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
+            await db.Recipes.Where(r => r.Id == recipeId)
+                .ExecuteUpdateAsync(s => s.SetProperty(r => r.Title, $"Bánh cuốn {newToken}"));
+        }
+
+        (await SearchAsync(newToken)).Items.Should().ContainSingle(r => r.Id == recipeId);
+        (await SearchAsync(oldToken)).Items.Should().BeEmpty();
+    }
+
+    [Fact(DisplayName = "FR-SRCH-001/D49: schema có GIN index trên SearchVector và trigger cập nhật")]
+    public async Task Schema_HasGinIndexAndTrigger()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
+
+        var indexDef = await db.Database
+            .SqlQuery<string>($"SELECT indexdef AS \"Value\" FROM pg_indexes WHERE tablename = 'Recipes' AND indexname = 'IX_Recipes_SearchVector'")
+            .SingleOrDefaultAsync();
+        var triggerCount = await db.Database
+            .SqlQuery<int>($"SELECT COUNT(*)::int AS \"Value\" FROM pg_trigger WHERE tgname = 'trg_recipes_search_vector' AND NOT tgisinternal")
+            .SingleAsync();
+
+        indexDef.Should().NotBeNull().And.Contain("USING gin").And.Contain("\"SearchVector\"");
+        triggerCount.Should().Be(1);
+    }
+
     private static string NewToken() => $"tk{Guid.NewGuid():N}"[..14];
 
     private async Task<PagedResult<RecipeSummaryDto>> SearchAsync(string q)
@@ -117,7 +178,7 @@ public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixtu
         return body!.User.Id;
     }
 
-    private async Task<Guid> SeedRecipeAsync(string title, RecipeStatus status, string? imageUrl = null)
+    private async Task<Guid> SeedRecipeAsync(string title, RecipeStatus status, string? imageUrl = null, string description = "mô tả")
     {
         var authorId = await RegisterAuthorAsync();
 
@@ -129,7 +190,7 @@ public sealed class SearchRecipesTests(PostgresApiFactory factory) : IClassFixtu
         db.Categories.Add(category);
 
         var recipe = Recipe.Create(
-            title, $"recipe-{Guid.NewGuid():N}", "mô tả", 10, 30, 2,
+            title, $"recipe-{Guid.NewGuid():N}", description, 10, 30, 2,
             RecipeDifficulty.Easy, category.Id, authorId, status: status);
         if (imageUrl is not null)
             recipe.AttachImage(imageUrl, isPrimary: true);
