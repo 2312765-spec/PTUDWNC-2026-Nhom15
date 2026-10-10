@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using NpgsqlTypes;
 
 #nullable disable
 
@@ -119,6 +120,9 @@ namespace CulinaryBlog.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("bytea");
 
+                    b.Property<NpgsqlTsVector>("SearchVector")
+                        .HasColumnType("tsvector");
+
                     b.Property<int>("Servings")
                         .HasColumnType("integer");
 
@@ -145,6 +149,11 @@ namespace CulinaryBlog.Infrastructure.Migrations
                     b.HasIndex("CategoryId");
 
                     b.HasIndex("Difficulty");
+
+                    b.HasIndex("SearchVector")
+                        .HasDatabaseName("IX_Recipes_SearchVector");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("SearchVector"), "GIN");
 
                     b.HasIndex("Slug")
                         .IsUnique();

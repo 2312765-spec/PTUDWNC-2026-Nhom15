@@ -52,5 +52,9 @@ seqdata/
 .DS_Store
 Thumbs.db
 *.swp
+
 **/logs/*.json
 *.log
+
+
+

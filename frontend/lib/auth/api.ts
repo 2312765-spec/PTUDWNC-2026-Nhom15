@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import type { AuthResponse } from '@/lib/types';
+import type { AuthResponse, UserProfile } from '@/lib/types';
 
 /** D5 — wire contract của POST /auth/register. */
 export interface RegisterRequest {
@@ -57,5 +57,47 @@ export async function googleLogin(body: GoogleLoginRequest): Promise<AuthRespons
     body,
     baseURL ? { baseURL } : undefined,
   );
+  return data;
+}
+
+/** FR-AUTH-004 — wire contract của POST /auth/refresh: RT nằm trong body, không dùng cookie. */
+export interface RefreshRequest {
+  refreshToken: string;
+}
+
+/**
+ * FR-AUTH-004 — 200 trả AuthResponseDto với cặp token MỚI (D24, rotation). RT cũ bị thu hồi
+ * ngay; gửi lại RT cũ sẽ kích hoạt reuse detection (D35) — gọi qua refreshAccessToken().
+ */
+export async function refresh(body: RefreshRequest): Promise<AuthResponse> {
+  const baseURL = serverBaseUrl();
+  const { data } = await apiClient.post<AuthResponse>(
+    '/auth/refresh',
+    body,
+    baseURL ? { baseURL } : undefined,
+  );
+  return data;
+}
+
+/** FR-AUTH-005 — wire contract của POST /auth/logout: RT cần thu hồi nằm trong body. */
+export interface LogoutRequest {
+  refreshToken: string;
+}
+
+/**
+ * FR-AUTH-005 — 204 No Content. Endpoint yêu cầu access token hợp lệ (D47-1) và idempotent:
+ * token không tồn tại / của user khác / đã revoke vẫn trả 204.
+ */
+export async function logout(body: LogoutRequest, accessToken: string): Promise<void> {
+  const baseURL = serverBaseUrl();
+  await apiClient.post('/auth/logout', body, {
+    ...(baseURL ? { baseURL } : {}),
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+/** FR-AUTH-006, D5 — hồ sơ của user đang đăng nhập. Bearer do interceptor của apiClient gắn từ session. */
+export async function getMe(): Promise<UserProfile> {
+  const { data } = await apiClient.get<UserProfile>('/auth/me');
   return data;
 }

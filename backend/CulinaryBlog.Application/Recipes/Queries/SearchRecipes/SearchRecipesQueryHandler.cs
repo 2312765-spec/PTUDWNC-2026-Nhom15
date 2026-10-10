@@ -15,14 +15,17 @@ public sealed class SearchRecipesQueryHandler(
         var page = request.Page < 1 ? 1 : request.Page;
         var pageSize = Math.Clamp(request.PageSize, 1, PagedResult<RecipeSummaryDto>.MaxPageSize);
 
-        var (recipes, totalCount) = await recipeRepository.SearchPublishedRecipesAsync(
+        var (hits, totalCount) = await recipeRepository.SearchPublishedRecipesAsync(
             rawQuery,
             page,
             pageSize,
             cancellationToken);
 
-        var dtos = recipes.Select(r =>
+        // FR-SRCH-001/D49: repository đã xếp theo ts_rank — giữ nguyên thứ tự, trả kèm điểm.
+        var dtos = hits.Select(hit =>
         {
+            var r = hit.Recipe;
+
             // Lấy ảnh đại diện (Primary hoặc ảnh đầu tiên)
             var primaryImage = r.Images.FirstOrDefault(i => i.IsPrimary) ?? r.Images.OrderBy(i => i.OrderIndex).FirstOrDefault();
             
@@ -41,7 +44,8 @@ public sealed class SearchRecipesQueryHandler(
                 r.Difficulty.ToString(),
                 authorGuid,
                 null, // AuthorName (nullable theo ảnh 5)
-                r.CreatedAt
+                r.CreatedAt,
+                hit.Rank
             );
         }).ToList();
 

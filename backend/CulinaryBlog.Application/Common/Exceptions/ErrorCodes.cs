@@ -11,6 +11,7 @@ public static class ErrorCodes
     public const string AuthInvalidCredentials = "AUTH_INVALID_CREDENTIALS";         // 401
     public const string AuthTokenExpired = "AUTH_TOKEN_EXPIRED";                     // 401
     public const string AuthTokenInvalid = "AUTH_TOKEN_INVALID";                     // 401
+    public const string UserNotFound = "USER_NOT_FOUND";                             // 404 (D48)
     public const string AuthRefreshTokenExpired = "AUTH_REFRESH_TOKEN_EXPIRED";      // 401
     public const string AuthRefreshTokenRevoked = "AUTH_REFRESH_TOKEN_REVOKED";      // 401
     public const string AuthGoogleTokenInvalid = "AUTH_GOOGLE_TOKEN_INVALID";        // 400

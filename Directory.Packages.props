@@ -14,7 +14,8 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
-  
+    <!-- FR-OBS-003/D39: IMeterFactory cho RecipeMetrics (System.Diagnostics.Metrics, không OpenTelemetry). -->
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.Abstractions" Version="10.0.0" />
   </ItemGroup>
   <ItemGroup Label="Persistence">
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
@@ -38,8 +39,11 @@
     <!-- Transitive qua MailKit. 4.8.0 dính GHSA-g7hc-96xr-gvvx (MimeKit) — vá ở 4.15.1.
          Pin tường minh vì CentralPackageTransitivePinningEnabled=true. -->
     <PackageVersion Include="MimeKit" Version="4.18.0" />
-    <!-- 3.1.6 dính GHSA-2cmq-823j-5qj8 (high) và GHSA-rxmq-m78w-7wmc — vá lần lượt ở 3.1.7 / 3.1.11. -->
-    <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <!-- FR-JOB-002 — thay SixLabors.ImageSharp (D46, ADR-0004): 3.1.12 dính 5 advisory chỉ vá ở 4.1.2,
+         mà ImageSharp 4.x bắt buộc license key mới build Release được.
+         NativeAssets.Linux.NoDependencies: native cho CI/Docker Linux, không cần fontconfig. -->
+    <PackageVersion Include="SkiaSharp" Version="3.119.4" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.4" />
     <PackageVersion Include="Hangfire.Core" Version="1.8.17" />
     <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.17" />
     <PackageVersion Include="Hangfire.PostgreSql" Version="1.20.10" />
@@ -54,6 +58,8 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.18.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.18.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />
+    <!-- FR-OBS-003/D37: trace DB ở tầng driver (stable) — cùng version với Npgsql của EF provider. -->
+    <PackageVersion Include="Npgsql.OpenTelemetry" Version="10.0.0" />
     <!-- Transitive — pin để không rơi lại về bản cũ dính CVE. -->
     <PackageVersion Include="OpenTelemetry" Version="1.18.0" />
     <PackageVersion Include="OpenTelemetry.Api" Version="1.18.0" />
@@ -82,5 +88,8 @@
     <PackageVersion Include="SSH.NET" Version="2026.0.0" />
     <PackageVersion Include="TngTech.ArchUnitNET.xUnit" Version="0.11.4" />
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+    <!-- FR-OBS-003: bắt span/metric trong test (InMemory exporter) và đọc counter (MetricCollector). -->
+    <PackageVersion Include="OpenTelemetry.Exporter.InMemory" Version="1.18.0" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.Testing" Version="10.0.0" />
   </ItemGroup>
 </Project>

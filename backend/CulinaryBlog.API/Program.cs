@@ -1,6 +1,7 @@
 using System.Text;
 using CulinaryBlog.API.Endpoints;
 using CulinaryBlog.API.Extensions;
+using CulinaryBlog.API.Logging;
 using CulinaryBlog.API.Middleware;
 using CulinaryBlog.Application;
 using CulinaryBlog.Application.Common.Interfaces;
@@ -17,6 +18,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Scalar.AspNetCore;
 using Serilog;
+using Serilog.Core;
 using System.Security.Claims;
 // ---------------------------------------------------------------------------
 // Culinary Blog API — .NET 10 Minimal APIs (CONS-003: KHÔNG dùng MVC Controllers)
@@ -26,20 +28,28 @@ using System.Security.Claims;
 var builder = WebApplication.CreateBuilder(args);
 
 // ---- Serilog (CONS-010, FR-OBS-002) --------------------------------------
+// ReadFrom.Services lấy mọi ILogEventEnricher/ILogEventSink đăng ký trong DI.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<ILogEventEnricher, UserIdEnricher>();
 builder.Host.UseSerilog((context, services, config) => config
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)
     .Enrich.FromLogContext()
     .Enrich.WithMachineName());
 
+// ---- OpenTelemetry tracing + metrics (FR-OBS-003, D36–D39) ----------------
+builder.Services.AddAppTelemetry(builder.Configuration, builder.Environment);
+
 // ---- Tầng ứng dụng (KHÔNG DÙNG AddControllers theo CONS-003) ------------
 builder.Services.AddApplication();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
-// ---- Hangfire worker (FR-JOB-001) -----------------------------------------
+// ---- Hangfire worker (FR-JOB-001/002, FR-FILE-002 — D45) ------------------
+// Thiếu dòng này thì job chỉ được ghi vào schema "hangfire" mà không bao giờ chạy. Testing
+// không bật: test tự gọi job/command (xem RecordingBackgroundJobService).
 if (!builder.Environment.IsEnvironment("Testing"))
 {
-    //builder.Services.AddHangfireServer();
+    builder.Services.AddHangfireServer();
 }
 
 // ---- ICurrentUser (hợp đồng chung — chủ sở hữu: A) -----------------------
@@ -162,10 +172,12 @@ var app = builder.Build();
 // 1. CorrelationId
 app.UseMiddleware<CorrelationIdMiddleware>();
 
-// 2. RFC 7807 Global Exception Handling
-app.UseMiddleware<GlobalExceptionMiddleware>();
+// 2. Request log (FR-OBS-002) — PHẢI nằm NGOÀI GlobalExceptionMiddleware: đặt bên trong thì nó thấy
+//    exception đang bay qua (trước khi được đổi thành 400/404…) và log mọi lỗi nghiệp vụ thành 500/Error.
+app.UseSerilogRequestLogging(options => options.GetLevel = RequestLogLevel.Get);
 
-app.UseSerilogRequestLogging();
+// 3. RFC 7807 Global Exception Handling
+app.UseMiddleware<GlobalExceptionMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {

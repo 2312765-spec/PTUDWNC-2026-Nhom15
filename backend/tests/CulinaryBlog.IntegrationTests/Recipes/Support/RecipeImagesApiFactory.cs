@@ -34,6 +34,9 @@ public sealed class RecipeImagesApiFactory : WebApplicationFactory<Program>, IAs
 
     public FakeFileStorageService FileStorage { get; } = new();
 
+    /// <summary>FR-JOB-002 — thay Hangfire để kiểm tra việc enqueue (Testing không chạy server, D45).</summary>
+    public RecordingBackgroundJobService BackgroundJobs { get; } = new();
+
     public async Task InitializeAsync()
     {
         await Task.WhenAll(_postgres.StartAsync(), _redis.StartAsync());
@@ -72,6 +75,9 @@ public sealed class RecipeImagesApiFactory : WebApplicationFactory<Program>, IAs
         builder.UseSetting("Smtp:Port", "1");
 
         builder.ConfigureTestServices(services =>
-            services.AddScoped<IFileStorageService>(_ => FileStorage));
+        {
+            services.AddScoped<IFileStorageService>(_ => FileStorage);
+            services.AddScoped<IBackgroundJobService>(_ => BackgroundJobs);
+        });
     }
 }

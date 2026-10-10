@@ -48,7 +48,23 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D30 | Bug: mất ErrorCode của FluentValidation | `GlobalExceptionMiddleware` phải giữ ErrorCode riêng của từng rule |
 | D31 | Bug: thêm child entity vào aggregate đã track | EF Core hiểu nhầm thành UPDATE thay vì INSERT |
 | D32 | Bug: `CategoryRepository.GetBySlugAsync` thiếu Include | `category.Recipes` luôn rỗng — FR-CAT-002 không hoạt động |
+| D33 | Google OAuth lỗi | A1+A2 → 400 `AUTH_GOOGLE_TOKEN_INVALID`, A3 → 502 `AUTH_GOOGLE_UNAVAILABLE` |
 | D34 | `RowVersion` trên PostgreSQL | **Code tự sinh** qua `RowVersionInterceptor` — `[Timestamp]` chỉ tự chạy trên SQL Server |
+| D35 | Refresh token (FR-AUTH-004) | A1/A4 → 401 `AUTH_TOKEN_INVALID` · không check lockout · reuse → revoke **mọi** RT của user · race → 401 không revoke family |
+| D36 | Đích export OpenTelemetry | Dev: **trace → Seq** (OTLP HTTP), metric không export · Prod: cả hai → Collector |
+| D37 | "EF Core traces" | **`Npgsql.OpenTelemetry`** (span theo câu SQL), không dùng gói EF Core beta |
+| D38 | Error rate | **5xx / exception** (`error.type`) — 4xx không tính lỗi server |
+| D39 | Metric recipe created/published | `RecipeMetrics` làm trước; **C gọi** trong handler FR-RCP-003/005 |
+| D40 | Cách resize (FR-JOB-002) | Thumbnail **crop giữa** 300×300 · medium **fit** trong 800×600 · không upscale · bỏ EXIF |
+| D41 | Định dạng ảnh phái sinh | Luôn **WebP** · ảnh gốc **AVIF → bỏ qua** (ImageSharp không decode được) |
+| D42 | Retry FR-JOB-002 | 3 lần, chờ **1 / 5 / 30 phút** (giống FR-JOB-001) |
+| D43 | Xóa ảnh | Xóa cả **original + medium + thumbnail** trên MinIO |
+| D44 | Luồng job resize | Job → MediatR command `GenerateRecipeImageVariantsCommand` · idempotent |
+| D45 | Hangfire server | **Bật lại** `AddHangfireServer()` (trừ môi trường `Testing`) |
+| D46 | Thư viện resize ảnh | **SkiaSharp** thay ImageSharp (lỗ hổng 3.1.12 · 4.x cần license) — xem ADR-0004 |
+| D47 | Logout (FR-AUTH-005) | Giữ `RequireAuthorization` · thiếu `refreshToken` → 400 · token user khác / đã revoke / hết hạn → **204 no-op** · không kích hoạt reuse detection |
+| D48 | Xem hồ sơ (FR-AUTH-006) | User bị xóa sau khi cấp token → **404** `USER_NOT_FOUND` · user `IsActive=false` còn access token → **200** (chỉ đọc) |
+| D49 | Full-text search (FR-SRCH-001) | `simple` + `unaccent` (không có cấu hình `vietnamese`) · `SearchVector` do **trigger** cập nhật + GIN index · Title trọng số A, Description B · xếp `ts_rank` · bỏ khớp `ILIKE` giữa từ |
 
 ---
 
@@ -472,6 +488,10 @@ ReplacedByTokenHash, CreatedAt, CreatedByIp
 family** của user đó (truy ngược theo `ReplacedByTokenHash`), log `WARNING`, trả 401
 `AUTH_REFRESH_TOKEN_REVOKED`.
 
+> **Đã được D35-5 thay phạm vi revoke:** không truy chuỗi `ReplacedByTokenHash` nữa mà revoke
+> **mọi RT còn hiệu lực của user**. Phần còn lại của D20 (schema, hash, điều kiện còn hiệu lực)
+> giữ nguyên.
+
 **Vì:** schema 7.8 đúng hơn về bảo mật. Chương 3 viết theo bản nháp cũ.
 
 **Sửa SRS:** FR-AUTH-001 bước 10 và FR-AUTH-004 bước 4–5 — dùng đúng tên bảng và tên cột.
@@ -540,6 +560,7 @@ nếu không request `/recipes/search` sẽ khớp vào route slug. Kèm theo D1
 | `AUTH_INVALID_CREDENTIALS` | 401 | Auth | — |
 | `AUTH_TOKEN_EXPIRED` | 401 | Auth | — |
 | `AUTH_TOKEN_INVALID` | 401 | Auth | — |
+| `USER_NOT_FOUND` | 404 | Auth | D48 |
 | `AUTH_REFRESH_TOKEN_EXPIRED` | 401 | Auth | — |
 | `AUTH_REFRESH_TOKEN_REVOKED` | 401 | Auth | — |
 | `AUTH_GOOGLE_TOKEN_INVALID` | 400 | Auth | — |
@@ -972,6 +993,357 @@ và có test trên PostgreSQL thật (`IntegrationTests/Common/ConcurrencyTests.
 
 **Sửa SRS:** mục 7.1 — `RowVersion`: bỏ "EF Core [Timestamp] annotation", thay bằng "giá trị do
 ứng dụng sinh mới mỗi lần ghi (xem D34)".
+
+---
+
+## D35 — Refresh token (FR-AUTH-004): mã lỗi, lockout, phạm vi "token family", race
+
+> Phát hiện lúc lập kế hoạch FR-AUTH-004 (2026-09-30). Xem `docs/plans/FR-AUTH-004-lam-moi-token.md`.
+
+**Nguồn mâu thuẫn / thiếu:** SRS FR-AUTH-004 chỉ ghi "401" cho A1–A4, không có error code.
+A4 gộp "bị xóa hoặc bị khóa" → 401, trong khi D11 đã chốt `IsActive = false` → 403. A3 ghi
+"**có thể** revoke toàn bộ" (tùy chọn), NFR-SEC-002 ghi **bắt buộc** revoke "token family" nhưng
+schema 7.8 không có cột family. Bảng 8.1 ghi response `{ accessToken, refreshToken, expiresIn }`
+khác `AuthResponseDto` ở Chương 3. Không chỗ nào nói về hai request refresh đồng thời.
+
+**Chốt:**
+
+1. **A1** (RT không có trong DB) và **A4 — user bị xóa** → 401 `AUTH_TOKEN_INVALID`.
+2. **A4 — `IsActive = false`** → 403 `AUTH_ACCOUNT_DISABLED` (giữ D11).
+3. **Lockout do sai mật khẩu (D17) KHÔNG kiểm tra khi refresh.** Người giữ RT hợp lệ đã chứng
+   minh danh tính; nếu kiểm tra, kẻ tấn công chỉ cần cố ý nhập sai 5 lần là đá được chủ tài
+   khoản ra khỏi mọi phiên. "Bị khóa" trong A4 hiểu là khóa bởi Admin — đã phủ bởi mục 2.
+4. **Thứ tự kiểm tra:** tồn tại → **revoked** → expired → user. Token vừa revoke vừa hết hạn
+   vẫn phải kích hoạt reuse detection.
+5. **Reuse detection** (NFR-SEC-002 thắng chữ "có thể" của A3): revoke **mọi RT còn hiệu lực
+   của user** (không truy chuỗi `ReplacedByTokenHash`) → log WARNING → 401
+   `AUTH_REFRESH_TOKEN_REVOKED`. Đơn giản, không cần cột `FamilyId`/migration, và an toàn hơn:
+   khi đã có dấu hiệu lộ token thì đăng xuất user trên mọi thiết bị.
+6. **Race** (hai request cùng một RT): revoke RT cũ bằng UPDATE có điều kiện
+   `RevokedAt IS NULL`. Request thua → 401 `AUTH_REFRESH_TOKEN_REVOKED` nhưng **không** revoke
+   family (thường là client mở 2 tab, không phải tấn công).
+7. **Response** = `AuthResponseDto` giống login (theo lập luận D24).
+
+**Sửa SRS:** FR-AUTH-004 — A1/A4 ghi rõ mã lỗi như trên, tách "bị khóa" thành 403 (D11); A3
+đổi "có thể" thành "phải revoke mọi RT còn hiệu lực của user"; bảng 8.1 dòng `/auth/refresh`
+đổi response thành `AuthResponseDto`.
+
+---
+
+## D36 — OpenTelemetry: đích export theo môi trường
+
+> FR-OBS-003 (2026-09-30). Kế hoạch: `docs/plans/FR-OBS-003-tracing-metrics.md`. D35 đã được giữ
+> cho FR-AUTH-004 (A).
+
+**Nguồn mâu thuẫn:** SRS 3.7 (FR-OBS-003) ghi "Traces được export đến Seq (development)" và mục
+tích hợp ghi "Development: Seq OTLP", nhưng cùng FR đó yêu cầu metrics (request count, duration,
+error rate) mà **Seq không ingest metrics** — chỉ nhận OTLP logs và traces. Bảng tích hợp 2.x còn
+ghi Collector nhận "OTLP / gRPC", trong khi Seq nhận OTLP qua **HTTP/protobuf**.
+
+**Chốt:**
+
+- Mỗi signal (trace, metric) có exporter OTLP riêng, **chỉ đăng ký khi có endpoint** cấu hình
+  (`OTEL_EXPORTER_OTLP_ENDPOINT` hoặc biến riêng từng signal). Không có endpoint → instrumentation
+  vẫn chạy (TraceId vẫn vào log) nhưng không gửi đi đâu. Môi trường `Testing` không export.
+- **Development:** trace → Seq `http://localhost:5341/ingest/otlp/v1/traces`, protocol
+  `http/protobuf`. Metric **không export** (xem tại chỗ bằng `dotnet-counters` nếu cần).
+- **Production:** trace + metric → OTel Collector qua `OTEL_EXPORTER_OTLP_ENDPOINT` (gRPC mặc định),
+  Collector chuyển tiếp tới Grafana Tempo/Jaeger và Prometheus/Grafana.
+
+**Vì:** giữ đúng ý SRS (dev xem trace trong Seq cạnh log, lọc theo TraceId) mà không gửi metric vào
+một đích trả lỗi liên tục.
+
+**Sửa SRS:** FR-OBS-003 — "Traces được export đến Seq (development)" thêm "; metrics chỉ export ở
+production (Seq không nhận metrics)". Bảng tích hợp — Seq nhận OTLP qua HTTP/protobuf.
+
+---
+
+## D37 — "EF Core database traces" dùng `Npgsql.OpenTelemetry`
+
+> FR-OBS-003 (2026-09-30).
+
+**Nguồn mâu thuẫn:** SRS 3.7 yêu cầu "EF Core database operation traces" nhưng không nêu gói.
+`OpenTelemetry.Instrumentation.EntityFrameworkCore` vẫn ở bản **beta**; NFR-MAINT yêu cầu phụ thuộc
+ổn định.
+
+**Chốt:** dùng **`Npgsql.OpenTelemetry`** (`TracerProviderBuilder.AddNpgsql()`), bản stable cùng
+phiên bản với driver Npgsql. Mỗi câu lệnh SQL mà EF Core gửi xuống là một span (`db.statement` đã
+tham số hóa — **không chứa giá trị tham số**, không lộ dữ liệu người dùng hay hash token).
+
+**Vì:** CONS-006 chốt PostgreSQL là DBMS duy nhất nên instrumentation ở tầng driver phủ đủ mọi truy
+vấn EF Core (và cả Hangfire.PostgreSql), không cần gói beta.
+
+**Sửa SRS:** FR-OBS-003 — "EF Core database operation traces" → "database operation traces
+(Npgsql instrumentation)".
+
+---
+
+## D38 — Định nghĩa "error rate"
+
+> FR-OBS-003 (2026-09-30).
+
+**Nguồn mâu thuẫn:** SRS 3.7 liệt kê metric "error rate" nhưng không định nghĩa lỗi là gì.
+
+**Chốt:** theo OpenTelemetry semantic convention của ASP.NET Core — request **lỗi** là request có
+thuộc tính `error.type` trên histogram `http.server.request.duration`: status **5xx** hoặc exception
+chưa xử lý. **4xx không tính là lỗi server** (400 validation, 401 token sai, 404…). API không tự
+tính tỉ lệ; backend quan sát (Grafana) tính từ histogram có sẵn của ASP.NET Core.
+
+**Vì:** 4xx là lỗi của client, đưa vào error rate sẽ làm cảnh báo kêu mỗi khi có người gõ sai mật khẩu.
+
+**Sửa SRS:** FR-OBS-003 — "error rate" thêm "(tỉ lệ response 5xx)".
+
+---
+
+## D39 — Metric nghiệp vụ recipe created/published: tách phần đo và phần gọi
+
+> FR-OBS-003 (2026-09-30).
+
+**Nguồn mâu thuẫn:** FR-OBS-003 (D, slice S11) yêu cầu metric "recipe created/published count",
+nhưng handler tạo và publish recipe thuộc FR-RCP-003/005 (C, slice S5/S7) — chưa tồn tại lúc làm
+FR-OBS-003, và `Application/Recipes/Commands/**` do C sở hữu.
+
+**Chốt:**
+
+- D tạo `Application/Common/Observability/RecipeMetrics.cs` (meter `CulinaryBlog.Recipes`, counter
+  `culinaryblog.recipes.created`, `culinaryblog.recipes.published`) — chỉ dùng
+  `System.Diagnostics.Metrics` (BCL), không reference OpenTelemetry trong Application (CONS-001).
+- C gọi `RecordCreated()` trong handler FR-RCP-003 và `RecordPublished()` trong handler FR-RCP-005,
+  **sau khi `SaveChangesAsync` thành công** (không đếm lần publish bị D3 chặn hay lỗi DB).
+- FR-OBS-003 để trạng thái 🟡 trong `traceability.md` cho tới khi hai lời gọi đó có mặt.
+
+**Vì:** không sửa file của người khác, không chặn FR-OBS-003 chờ slice S5/S7.
+
+**Sửa SRS:** không cần.
+
+---
+
+## D40 — FR-JOB-002: cách resize ảnh
+
+> Phát hiện lúc lập kế hoạch FR-JOB-002 (2026-10-07) — xem `docs/plans/FR-JOB-002-resize-anh.md`.
+
+**Nguồn:** FR-JOB-002 chỉ ghi "thumbnail (300x300px) và medium image (800x600px)". Ảnh gốc có tỉ
+lệ bất kỳ; SRS không nói crop hay fit, có upscale ảnh nhỏ không.
+
+**Chốt:**
+
+- **Thumbnail:** crop giữa ảnh, ra **đúng 300×300** (ô vuông cho card/lưới).
+- **Medium:** thu cho **lọt trong 800×600, giữ tỉ lệ, không crop** (ảnh gallery không được mất nội dung).
+- **Không upscale:** cạnh nguồn nhỏ hơn đích thì giữ nguyên kích thước nguồn (thumbnail vẫn crop vuông).
+- Xoay ảnh theo EXIF Orientation trước khi resize, rồi **bỏ toàn bộ metadata** (EXIF/GPS/ICC
+  không cần thiết) — ảnh chụp điện thoại thường mang tọa độ GPS.
+- Giới hạn kích thước decode (40 megapixel) để chống decompression bomb — file ≤ 5 MB (CONS-007)
+  vẫn có thể giải nén ra hàng GB.
+
+**Vì:** hành vi phổ biến nhất cho blog ảnh; không upscale vì phóng to chỉ làm file nặng hơn mà
+không nét hơn.
+
+**Sửa SRS:** FR-JOB-002 — bổ sung "thumbnail crop vuông, medium fit giữ tỉ lệ, không upscale".
+
+---
+
+## D41 — FR-JOB-002: định dạng ảnh phái sinh, AVIF bị bỏ qua
+
+> 2026-10-07.
+
+**Nguồn:** FR-JOB-002 không nói định dạng đầu ra. D28 cho phép upload AVIF, nhưng
+**SixLabors.ImageSharp 3.1.12** (thư viện đã có trong `Infrastructure.csproj`) **không có decoder
+AVIF** — đã kiểm tra: chỉ có Bmp, Gif, Jpeg, Pbm, Png, Qoi, Tga, Tiff, Webp.
+
+**Chốt:**
+
+- Ảnh medium và thumbnail luôn mã hóa **WebP**, quality 80 — một encoder duy nhất, nhẹ hơn JPEG/PNG,
+  mọi trình duyệt hiện hành đều hỗ trợ.
+- Ảnh gốc **AVIF → job kết thúc ngay (no-op)**, log Information. `MediumUrl`/`ThumbnailUrl` giữ
+  `null`, FE dùng `originalUrl` — đúng nhánh "nếu fail: ảnh gốc vẫn hiển thị" của FR-JOB-002.
+  Không retry (lỗi không tự hết sau khi chờ).
+
+**Vì:** thêm thư viện native (libvips/ImageMagick) chỉ để đọc AVIF làm nặng image Docker và CI,
+lợi ích nhỏ — AVIF vốn đã là định dạng nén tốt.
+
+**Sửa SRS:** FR-JOB-002 — "ảnh phái sinh định dạng WebP; ảnh gốc AVIF không sinh phiên bản phụ".
+
+---
+
+## D42 — FR-JOB-002: lịch retry
+
+> 2026-10-07.
+
+**Nguồn:** FR-JOB-002 ghi "Retry 3 lần" không có khoảng chờ; FR-JOB-001 có lịch 1 / 5 / 30 phút;
+NFR-REL chỉ nói "exponential backoff".
+
+**Chốt:** `[AutomaticRetry(Attempts = 3, DelaysInSeconds = [60, 300, 1800], OnAttemptsExceeded =
+AttemptsExceededAction.Fail)]`. Hết lượt → job ở trạng thái Failed (xem được ở `/hangfire`) + log Error.
+
+**Vì:** thống nhất một lịch retry cho mọi fire-and-forget job của dự án.
+
+**Sửa SRS:** FR-JOB-002 — bổ sung lịch retry 1 / 5 / 30 phút.
+
+---
+
+## D43 — Xóa ảnh: xóa cả file phái sinh
+
+> 2026-10-07.
+
+**Nguồn:** FR-FILE-002 và FR-RCP-008 bước 14 chỉ nói "xóa file trên MinIO" (số ít) — viết trước
+khi có FR-JOB-002 sinh thêm 2 file cho mỗi ảnh.
+
+**Chốt:** `DELETE /recipes/{id}/images/{imageId}` enqueue `FR-FILE-002` cho **từng URL khác null**
+trong `OriginalUrl`, `MediumUrl`, `ThumbnailUrl`. Vẫn **không** áp dụng khi xóa cả recipe (D1).
+
+Nếu job resize đang chạy dở mà ảnh bị xóa: job thấy ảnh không còn ở bước ghi DB → tự enqueue xóa
+2 file vừa upload (D44), không để lại file mồ côi.
+
+**Sửa SRS:** FR-FILE-002, FR-RCP-008 bước 14 — "xóa file gốc và các phiên bản resize".
+
+---
+
+## D44 — FR-JOB-002: luồng job đi qua MediatR, idempotent
+
+> 2026-10-07.
+
+**Nguồn:** ghi chú FR-JOB-002 trong `traceability.md` (2026-09-22) mô tả việc "cập nhật DB ngoài
+luồng MediatR" — đi ngoài pipeline thì không xóa cache (D8) và lệch CONS-002.
+
+**Chốt:**
+
+- Hangfire job (`Infrastructure/Jobs/ResizeRecipeImageJob`) chỉ làm một việc:
+  `sender.Send(new GenerateRecipeImageVariantsCommand(imageId))`. Logic nằm trong handler ở
+  Application; command implement `ICacheInvalidator` (tag `recipes`, `recipe:{slug}`).
+- Application không biết Hangfire: enqueue qua `IBackgroundJobService.EnqueueGenerateImageVariants`.
+  Upload chỉ enqueue **sau khi transaction ghi ảnh thành công**; enqueue lỗi → log warning, không
+  làm fail request (ảnh gốc vẫn dùng được).
+- File phái sinh lưu `recipes/{recipeId}/{guid}.webp` qua `ObjectKey` có sẵn (tên GUID, D16).
+- **Idempotent:** ảnh không còn / recipe đã soft delete / ảnh đã có `ThumbnailUrl` → no-op.
+  Lỗi sau khi đã upload file phái sinh → enqueue xóa 2 file đó rồi ném lại để Hangfire retry.
+- Không check ownership — lệnh hệ thống, không có endpoint gọi tới.
+
+**Sửa SRS:** không cần (chi tiết hiện thực).
+
+---
+
+## D45 — Bật lại Hangfire server
+
+> 2026-10-07. Ảnh hưởng FR-JOB-001 (A), FR-FILE-002, FR-JOB-002, FR-JOB-003.
+
+**Hiện trạng:** `builder.Services.AddHangfireServer()` trong `Program.cs` đang bị comment → job
+được ghi vào schema `hangfire` nhưng **không worker nào chạy**: welcome email không gửi, file
+MinIO của ảnh đã xóa không bị xóa.
+
+**Lịch sử (git):** `4b78dfb` (2026-09-26) xóa `AddHangfire(...)` khỏi `DependencyInjection.cs` và
+thay service thật bằng Mock — server không còn storage nên phải comment để host lên được.
+`1d5fad9` (2026-09-28) khôi phục `AddHangfire` nhưng không bật lại server, coi trạng thái tạm đó
+là thiết kế.
+
+**Chốt:** bỏ comment `AddHangfireServer()`, giữ điều kiện `!IsEnvironment("Testing")`.
+
+**Vì:** SRS mục 2.x ghi Hangfire chạy in-process; lo ngại "host không lên khi Postgres chưa sẵn
+sàng" không đáng kể — SRS ghi Postgres down là "toàn bộ hệ thống ngừng" (readiness fail, Nginx
+503), và NFR-REL-002 nói về Redis chứ không phải Postgres. `SmokeTests`/integration test chạy
+`Testing` nên không bị ảnh hưởng.
+
+**Lưu ý nhóm:** `Program.cs` là file dùng chung — báo A và Yen trước khi merge; bật server thì
+welcome email bắt đầu gửi thật.
+
+**Sửa SRS:** không cần.
+
+---
+
+## D46 — FR-JOB-002: thay ImageSharp bằng SkiaSharp
+
+> 2026-10-10. Phát hiện sau khi merge PR #37: CI đỏ ở bước `dotnet restore`.
+
+**Nguồn:** NuGetAudit báo `SixLabors.ImageSharp` 3.1.12 dính 5 advisory (GHSA-gwg2-r3hj-4w44,
+GHSA-j3p4-wp97-rph4, GHSA-j9gm-c75j-xc9q, GHSA-jjfr-hcj7-qf5w, GHSA-wmxv-xphr-5c9g — 3 high,
+2 moderate); `TreatWarningsAsErrors` biến NU1902/NU1903 thành lỗi. Cả 5 chỉ vá từ **4.1.2**, nhưng
+ImageSharp 4.x **bắt buộc license key Six Labors** — build Release (CI, Dockerfile) lỗi nếu thiếu.
+
+**Chốt:** dùng **SkiaSharp 3.119.4** (MIT) + `SkiaSharp.NativeAssets.Linux.NoDependencies` cho
+CI/Docker. `ImageSharpImageResizer` → `SkiaImageResizer`. D40 và D41 giữ nguyên hành vi: native
+Skia đóng gói sẵn **không có decoder AVIF** (đã kiểm tra binary win-x64 và linux-x64), nên ảnh gốc
+AVIF vẫn no-op như D41.
+
+**Vì:** không phải xin/giữ license key trong secret của CI và Docker; không suppress lỗ hổng thật
+(GHSA-gwg2 nằm ở đường parse ICC — ảnh JPEG upload chạm tới được). Lý do kỹ thuật chi tiết: ADR-0004.
+
+**Sửa SRS:** không cần.
+## D47 — Đăng xuất (FR-AUTH-005): access token, token của user khác, token đã revoke
+
+> Phát hiện lúc lập kế hoạch FR-AUTH-005 (2026-10-07). Xem `docs/plans/FR-AUTH-005-dang-xuat-thu-hoi-token.md`.
+
+**Nguồn mâu thuẫn / thiếu:** SRS FR-AUTH-005 điều kiện tiên quyết và bảng status yêu cầu access token
+hợp lệ (401 nếu không), nhưng A2 lại cho logout khi "access token đã hết hạn" và trả 401 nếu thiếu
+refresh token. Bước 4 chỉ revoke khi token thuộc user hiện tại, không nói trường hợp ngược lại.
+
+**Chốt:**
+
+1. **Giữ `RequireAuthorization()`** (khớp điều kiện tiên quyết, bảng status, NFR-SEC-006). **Bỏ A2.**
+   Frontend tự refresh trước nếu access token sắp hết hạn rồi mới gọi logout.
+   Thiếu / rỗng `refreshToken` → **400** `VALIDATION_ERROR` (D4), không phải 401.
+2. **Token thuộc user khác** → 204, **không revoke**, log WARNING (giống A1, không lộ trạng thái token).
+3. **Token đã revoke hoặc hết hạn** → 204 no-op; **không** kích hoạt reuse detection (D35-5 chỉ dành
+   cho `/refresh`).
+4. **Race** → `TryRevokeAsync` (UPDATE có điều kiện `RevokedAt IS NULL`, D35-6); thua race vẫn 204.
+
+**Vì:** logout idempotent không được biến thành kênh dò trạng thái token hay công cụ đăng xuất người khác.
+
+**Sửa SRS:** FR-AUTH-005 — bỏ A2; bảng status thêm 400; ghi rõ token của user khác → 204 (không revoke).
+
+---
+
+## D48 — Xem hồ sơ (FR-AUTH-006): user bị xóa, user bị vô hiệu hóa
+
+> Phát hiện lúc lập kế hoạch FR-AUTH-006 (2026-10-07). Xem `docs/plans/FR-AUTH-006-xem-ho-so-ca-nhan.md`.
+
+**Nguồn mâu thuẫn / thiếu:** SRS FR-AUTH-006 A1 ghi user đã bị xóa → 404, nhưng D35 chốt `/refresh`
+trả 401 `AUTH_TOKEN_INVALID` cho cùng tình huống và bảng mã lỗi chưa có mã 404 cho user. SRS cũng không
+nói user `IsActive=false` còn access token gọi `/me`.
+
+**Chốt:**
+
+1. User đã bị xóa khỏi DB sau khi token được cấp → **404** `USER_NOT_FOUND` (giữ SRS A1). Khác `/refresh`
+   vì `/me` đã qua JWT hợp lệ, còn `/refresh` xác thực bằng chính refresh token.
+2. User `IsActive=false` còn access token → **200** (chỉ đọc; chặn đã làm ở login và refresh theo D11).
+3. Thêm `USER_NOT_FOUND` (404) vào bảng mã lỗi.
+
+**Vì:** `/me` chỉ đọc hồ sơ của chính chủ, không cấp thêm quyền nào.
+
+**Sửa SRS:** FR-AUTH-006 — thay `fullName/userName/emailConfirmed/createdAt` theo D5/D12; ghi mã lỗi 404.
+
+---
+
+## D49 — Full-text search (FR-SRCH-001): cấu hình, SearchVector, xếp hạng
+
+> 2026-10-10. Làm lại FR-SRCH-001 sau review PR #39.
+
+**Nguồn mâu thuẫn / thiếu:** SRS FR-SRCH-001 bước 4 dùng `ToTsQuery("vietnamese", …)`, nhưng PostgreSQL
+16 **không có** cấu hình text search `vietnamese` (chỉ có các ngôn ngữ đi kèm Snowball) → lỗi ngay khi
+chạy. SRS gọi `SearchVector` là "computed column" nhưng lại nói "được cập nhật bởi trigger"; cột sinh
+(`GENERATED ALWAYS`) không dùng được `unaccent()` vì hàm này không `IMMUTABLE`. SRS không nói Title và
+Description có quan trọng ngang nhau không.
+
+**Chốt:**
+
+1. Cấu hình **`simple` + `unaccent`** cho cả vector lẫn query: tách từ theo khoảng trắng, chữ thường,
+   bỏ dấu ("pho" tìm ra "phở", "dau" tìm ra "đậu"). Không stemming — tiếng Việt không biến hình từ.
+2. `Recipes."SearchVector"` (`tsvector`) do **trigger** `trg_recipes_search_vector` (BEFORE INSERT OR
+   UPDATE OF Title, Description) tính qua hàm `recipe_search_vector(title, description)`; migration
+   `AddRecipeSearchVector` điền sẵn cho dữ liệu cũ. **GIN index** `IX_Recipes_SearchVector`.
+3. Trọng số: **Title = A, Description = B** → khớp ở tiêu đề xếp trên khớp ở mô tả.
+4. Lọc `SearchVector @@ to_tsquery('simple', unaccent('từ1:* & từ2:*'))` (tiền tố, mọi từ đều phải có);
+   xếp `ts_rank` giảm dần, hòa điểm thì mới hơn trước. Trả `relevanceScore` trong `RecipeSummaryDto`
+   (tùy chọn — danh sách thường để `null`).
+5. **Bỏ** nhánh khớp `ILIKE '%từ%'` có trước đây: nó tìm cả chuỗi con giữa từ (ngoài SRS) và buộc quét
+   toàn bảng, vô hiệu hóa GIN index.
+6. Trong EF, `SearchVector` là **shadow property** (CONS-001: Domain không phụ thuộc `NpgsqlTsVector`),
+   EF không bao giờ ghi cột này.
+7. Không bật `pg_trgm`: FTS không dùng tới. Bật khi có tính năng cần (tìm gần đúng theo trigram).
+8. Query rỗng / < 2 ký tự → **400** (D4, không phải 422). Cache 1 phút (D8).
+
+**Vì:** dùng đúng cơ chế SRS mô tả (trigger + GIN + ts_rank) với cấu hình chạy được trên PostgreSQL thật.
+
+**Sửa SRS:** FR-SRCH-001 — `vietnamese` → `simple` + `unaccent`; "computed column" → "cột cập nhật bởi
+trigger"; ghi trọng số Title A / Description B; mã lỗi 422 → 400 (D4).
 
 ---
 
