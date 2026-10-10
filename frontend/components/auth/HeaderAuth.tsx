@@ -41,9 +41,13 @@ export function HeaderAuth() {
 
   return (
     <div className="flex items-center gap-3">
-      <span className="max-w-40 truncate text-sm font-medium text-ink" title={profile.displayName}>
+      <span className="max-w-24 truncate text-sm font-medium text-ink sm:max-w-40" title={profile.displayName}>
         {profile.displayName}
       </span>
+      {/* FR-AUTH-006 — trang xem hồ sơ cá nhân. */}
+      <Link href="/dashboard/profile" className="text-sm font-medium text-brand-700 hover:underline">
+        Hồ sơ
+      </Link>
       <LogoutButton />
     </div>
   );
