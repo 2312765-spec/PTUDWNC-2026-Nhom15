@@ -61,6 +61,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D43 | Xóa ảnh | Xóa cả **original + medium + thumbnail** trên MinIO |
 | D44 | Luồng job resize | Job → MediatR command `GenerateRecipeImageVariantsCommand` · idempotent |
 | D45 | Hangfire server | **Bật lại** `AddHangfireServer()` (trừ môi trường `Testing`) |
+| D46 | Thư viện resize ảnh | **SkiaSharp** thay ImageSharp (lỗ hổng 3.1.12 · 4.x cần license) — xem ADR-0004 |
 
 ---
 
@@ -1239,6 +1240,27 @@ sàng" không đáng kể — SRS ghi Postgres down là "toàn bộ hệ thống
 
 **Lưu ý nhóm:** `Program.cs` là file dùng chung — báo A và Yen trước khi merge; bật server thì
 welcome email bắt đầu gửi thật.
+
+**Sửa SRS:** không cần.
+
+---
+
+## D46 — FR-JOB-002: thay ImageSharp bằng SkiaSharp
+
+> 2026-10-10. Phát hiện sau khi merge PR #37: CI đỏ ở bước `dotnet restore`.
+
+**Nguồn:** NuGetAudit báo `SixLabors.ImageSharp` 3.1.12 dính 5 advisory (GHSA-gwg2-r3hj-4w44,
+GHSA-j3p4-wp97-rph4, GHSA-j9gm-c75j-xc9q, GHSA-jjfr-hcj7-qf5w, GHSA-wmxv-xphr-5c9g — 3 high,
+2 moderate); `TreatWarningsAsErrors` biến NU1902/NU1903 thành lỗi. Cả 5 chỉ vá từ **4.1.2**, nhưng
+ImageSharp 4.x **bắt buộc license key Six Labors** — build Release (CI, Dockerfile) lỗi nếu thiếu.
+
+**Chốt:** dùng **SkiaSharp 3.119.4** (MIT) + `SkiaSharp.NativeAssets.Linux.NoDependencies` cho
+CI/Docker. `ImageSharpImageResizer` → `SkiaImageResizer`. D40 và D41 giữ nguyên hành vi: native
+Skia đóng gói sẵn **không có decoder AVIF** (đã kiểm tra binary win-x64 và linux-x64), nên ảnh gốc
+AVIF vẫn no-op như D41.
+
+**Vì:** không phải xin/giữ license key trong secret của CI và Docker; không suppress lỗ hổng thật
+(GHSA-gwg2 nằm ở đường parse ICC — ảnh JPEG upload chạm tới được). Lý do kỹ thuật chi tiết: ADR-0004.
 
 **Sửa SRS:** không cần.
 

@@ -58,7 +58,7 @@ public sealed class MinioFileStorageService(IAmazonS3 s3Client, IConfiguration c
 
     /// <summary>
     /// FR-JOB-002 — tải object về bộ nhớ (file ≤ 5 MB theo CONS-007) để trả stream seek được:
-    /// ImageSharp đọc header rồi quay lại đầu stream, ResponseStream của S3 không làm được việc đó.
+    /// resizer cần đọc lại từ đầu, ResponseStream của S3 không làm được việc đó.
     /// </summary>
     public async Task<Stream> DownloadAsync(string fileUrl, CancellationToken ct = default)
     {
