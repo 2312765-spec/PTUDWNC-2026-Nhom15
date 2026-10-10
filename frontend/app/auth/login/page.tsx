@@ -43,7 +43,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   if (await auth()) redirect(callbackUrl);
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-12">
+    <div className="flex min-h-[calc(100svh-4rem)] items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link
