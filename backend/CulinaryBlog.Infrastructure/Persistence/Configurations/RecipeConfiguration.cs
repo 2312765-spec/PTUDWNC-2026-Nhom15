@@ -1,7 +1,9 @@
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using NpgsqlTypes;
 
 namespace CulinaryBlog.Infrastructure.Persistence.Configurations;
 
@@ -10,6 +12,12 @@ namespace CulinaryBlog.Infrastructure.Persistence.Configurations;
 /// </summary>
 public sealed class RecipeConfiguration : IEntityTypeConfiguration<Recipe>
 {
+    /// <summary>
+    /// FR-SRCH-001/D49 — shadow property (Domain không biết NpgsqlTsVector, CONS-001). Trigger
+    /// <c>trg_recipes_search_vector</c> ghi cột này; EF chỉ đọc khi truy vấn.
+    /// </summary>
+    public const string SearchVector = "SearchVector";
+
     public void Configure(EntityTypeBuilder<Recipe> builder)
     {
         builder.ToTable("Recipes", t =>
@@ -34,6 +42,12 @@ public sealed class RecipeConfiguration : IEntityTypeConfiguration<Recipe>
         builder.HasIndex(r => r.AuthorId);
         builder.HasIndex(r => r.Status);
         builder.HasIndex(r => r.Difficulty);
+
+        // FR-SRCH-001/D49 — tsvector do trigger cập nhật, GIN index cho tìm kiếm toàn văn.
+        var searchVector = builder.Property<NpgsqlTsVector>(SearchVector).HasColumnType("tsvector");
+        searchVector.Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Ignore);
+        searchVector.Metadata.SetAfterSaveBehavior(PropertySaveBehavior.Ignore);
+        builder.HasIndex(SearchVector).HasMethod("GIN").HasDatabaseName("IX_Recipes_SearchVector");
 
         // D18 — legacy, nullable.
         builder.Property(r => r.Instructions);

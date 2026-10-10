@@ -1,5 +1,9 @@
 using CulinaryBlog.Application.Recipes.Queries.SearchRecipes;
+using CulinaryBlog.Domain.Entities;
+using CulinaryBlog.Domain.Enums;
+using CulinaryBlog.Domain.Interfaces;
 using FluentAssertions;
+using NSubstitute;
 using Xunit;
 
 namespace CulinaryBlog.UnitTests.Recipes;
@@ -45,5 +49,22 @@ public sealed class SearchRecipesTests
 
         key.Should().MatchRegex("^recipes:search:[0-9a-f]{64}$");
         key.Should().Be(new SearchRecipesQuery("  phở bò ").CacheKey);
+    }
+
+    [Fact(DisplayName = "FR-SRCH-001/D49: giữ thứ tự ts_rank của repository và trả RelevanceScore")]
+    public async Task Handler_KeepsRankOrderAndMapsRelevanceScore()
+    {
+        var repository = Substitute.For<IRecipeRepository>();
+        var best = Recipe.Create(title: "Phở bò", slug: "pho-bo", status: RecipeStatus.Published);
+        var other = Recipe.Create(title: "Bún bò", slug: "bun-bo", status: RecipeStatus.Published);
+        IReadOnlyList<(Recipe Recipe, float Rank)> hits = [(best, 0.9f), (other, 0.2f)];
+        repository.SearchPublishedRecipesAsync("pho", 1, 10, Arg.Any<CancellationToken>()).Returns((hits, 2));
+
+        var result = await new SearchRecipesQueryHandler(repository)
+            .Handle(new SearchRecipesQuery("pho", 1, 10), CancellationToken.None);
+
+        result.Items.Select(r => r.Slug).Should().Equal("pho-bo", "bun-bo");
+        result.Items.Select(r => r.RelevanceScore).Should().Equal(0.9f, 0.2f);
+        result.TotalCount.Should().Be(2);
     }
 }

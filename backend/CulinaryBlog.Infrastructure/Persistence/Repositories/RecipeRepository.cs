@@ -1,7 +1,10 @@
+using System.Text.RegularExpressions;
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Enums;
 using CulinaryBlog.Domain.Interfaces;
+using CulinaryBlog.Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
+using NpgsqlTypes;
 
 namespace CulinaryBlog.Infrastructure.Persistence.Repositories;
 
@@ -103,49 +106,60 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
         return (items, totalCount);
     }
 
-    // FR-SRCH-001: Tìm kiếm toàn văn FTS tiếng Việt
-    public async Task<(IReadOnlyList<Recipe> Items, int TotalCount)> SearchPublishedRecipesAsync(
-        string? searchTerm, 
-        int page, 
-        int pageSize, 
+    /// <summary>
+    /// FR-SRCH-001/D49 — lọc bằng <c>SearchVector @@ to_tsquery</c> (dùng GIN index
+    /// IX_Recipes_SearchVector), xếp theo <c>ts_rank</c>. Từ khóa tách theo chữ/số (loại toán tử
+    /// tsquery như <c>&amp; | ! : * ( ) &lt;-&gt;</c> → không bao giờ lỗi cú pháp), mỗi từ thành
+    /// tiền tố <c>từ:*</c> nối bằng <c>&amp;</c>, rồi unaccent ở phía PostgreSQL — cùng hàm với trigger.
+    /// </summary>
+    public async Task<(IReadOnlyList<(Recipe Recipe, float Rank)> Items, int TotalCount)> SearchPublishedRecipesAsync(
+        string? searchTerm,
+        int page,
+        int pageSize,
         CancellationToken cancellationToken = default)
     {
-        var baseQuery = context.Recipes
-            .AsNoTracking()
-            .Include(r => r.Images)
-            .Where(r => !r.IsDeleted && r.Status == RecipeStatus.Published);
-
-        if (!string.IsNullOrWhiteSpace(searchTerm))
+        var terms = Regex.Split(searchTerm ?? string.Empty, @"[^\p{L}\p{N}]+")
+            .Where(t => t.Length > 0)
+            .ToArray();
+        if (terms.Length == 0)
         {
-            var raw = searchTerm.Trim();
-            var cleanTerms = System.Text.RegularExpressions.Regex.Split(raw, @"[^\p{L}\p{N}]+")
-                .Where(t => t.Length > 0)
-                .ToArray();
-
-            if (cleanTerms.Length > 0)
-            {
-                var tsQueryString = string.Join(" & ", cleanTerms.Select(t => $"{t}:*"));
-                var likePatterns = cleanTerms.Select(t => $"%{t}%").ToArray();
-
-                baseQuery = baseQuery.Where(r =>
-                    EF.Functions.ToTsVector("simple", EF.Functions.Unaccent(r.Title + " " + (r.Description ?? "")))
-                        .Matches(EF.Functions.ToTsQuery("simple", EF.Functions.Unaccent(tsQueryString)))
-                    || likePatterns.All(p =>
-                        EF.Functions.ILike(EF.Functions.Unaccent(r.Title), EF.Functions.Unaccent(p)) ||
-                        (r.Description != null && EF.Functions.ILike(EF.Functions.Unaccent(r.Description), EF.Functions.Unaccent(p)))));
-            }
+            return ([], 0);
         }
 
-        var totalCount = await baseQuery.CountAsync(cancellationToken);
+        var tsQuery = string.Join(" & ", terms.Select(t => $"{t}:*"));
 
-        var items = await baseQuery
-            .OrderByDescending(r => r.Title.ToLower() == (searchTerm ?? "").Trim().ToLower())
-            .ThenByDescending(r => r.CreatedAt)
+        var matches = context.Recipes
+            .AsNoTracking()
+            .Where(r => !r.IsDeleted && r.Status == RecipeStatus.Published)
+            .Where(r => EF.Property<NpgsqlTsVector>(r, RecipeConfiguration.SearchVector)
+                .Matches(EF.Functions.ToTsQuery("simple", EF.Functions.Unaccent(tsQuery))));
+
+        var totalCount = await matches.CountAsync(cancellationToken);
+
+        var ranked = await matches
+            .Select(r => new
+            {
+                r.Id,
+                Rank = EF.Property<NpgsqlTsVector>(r, RecipeConfiguration.SearchVector)
+                    .Rank(EF.Functions.ToTsQuery("simple", EF.Functions.Unaccent(tsQuery))),
+                r.CreatedAt,
+            })
+            .OrderByDescending(x => x.Rank)
+            .ThenByDescending(x => x.CreatedAt)
+            .ThenBy(x => x.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
-        return (items, totalCount);
+        // Nạp entity kèm ảnh cho đúng một trang (một query, không N+1), giữ thứ tự theo rank.
+        var ids = ranked.Select(x => x.Id).ToList();
+        var recipes = await context.Recipes
+            .AsNoTracking()
+            .Include(r => r.Images)
+            .Where(r => ids.Contains(r.Id))
+            .ToDictionaryAsync(r => r.Id, cancellationToken);
+
+        return (ranked.Select(x => (recipes[x.Id], x.Rank)).ToList(), totalCount);
     }
 
     // FR-RCP-001, FR-SRCH-002 (Lọc), FR-SRCH-003 (Sắp xếp), FR-SRCH-004 (Phân trang)

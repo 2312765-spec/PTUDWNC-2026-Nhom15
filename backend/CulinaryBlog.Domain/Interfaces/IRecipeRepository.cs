@@ -9,12 +9,13 @@ public interface IRecipeRepository
     Task<Recipe?> GetBySlugDetailedAsync(string slug, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Tìm kiếm toàn văn công thức (FR-SRCH-001).
+    /// FR-SRCH-001/D49 — tìm kiếm toàn văn trên công thức Published, xếp theo độ liên quan
+    /// (ts_rank) giảm dần. Mỗi kết quả kèm điểm Rank. Từ khóa không còn chữ/số nào → rỗng.
     /// </summary>
-    Task<(IReadOnlyList<Recipe> Items, int TotalCount)> SearchPublishedRecipesAsync(
-        string? searchTerm, 
-        int page, 
-        int pageSize, 
+    Task<(IReadOnlyList<(Recipe Recipe, float Rank)> Items, int TotalCount)> SearchPublishedRecipesAsync(
+        string? searchTerm,
+        int page,
+        int pageSize,
         CancellationToken cancellationToken = default);
     Task<Recipe?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<Recipe?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default);
