@@ -14,7 +14,7 @@
 > Tóm tắt: **A** = FR-AUTH + FR-JOB-001 · **B** = FR-CAT + FR-RCP-001/002 + FR-SRCH ·
 > **C** = FR-RCP-003/004/005/006/007/009/010 · **D** = FR-RCP-008 + FR-FILE + FR-JOB-002/003 + FR-OBS.
 
-**Tiến độ:** 20 / 34 FR (59%) — A 5/8 (AUTH-001→005; AUTH-006 🟡) · B 9/11 (CAT-001→005, RCP-001, SRCH-002→004; SRCH-001 🟡) · C 0/7 ·
+**Tiến độ:** 21 / 34 FR (62%) — A 5/8 (AUTH-001→005; AUTH-006 🟡) · B 10/11 (CAT-001→005, RCP-001→002, SRCH-002→004; SRCH-001 🟡) · C 0/7 ·
 D 6/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002, FR-OBS-001/002; FR-OBS-003 🟡)
 
 ---
@@ -72,7 +72,7 @@ D 6/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002, FR-OBS-001/002; FR-OBS-003 🟡)
 | FR | Tên | Ưu tiên | Endpoint | Slice | Application Layer | Infrastructure / Domain | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|---|---|
 | FR-RCP-001 | Danh sách công thức (paged/filter/sort) | M | `GET /api/v1/recipes` → 200 | S4 | `GetRecipesQuery(+Handler,+Validator)` `ICacheable` (cache key hash có phạm vi người xem) | `RecipeRepository.GetPagedRecipesAsync` + authorization filter (Guest Published · Author + Draft/Archived của mình · Admin tất cả) | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` SSR (`app/(public)/recipes/{page,RecipeFilters,RecipeResults,RecipesPagination}.tsx`, `lib/recipes.ts`, `components/recipes/RecipeCard.tsx`) — `__tests__/app/recipes/*.test.tsx`, `__tests__/lib/recipes.test.ts` | D4, D8, D14 | ✅ (E2E Playwright chưa có) |
-| FR-RCP-002 | Chi tiết công thức | M | `GET /api/v1/recipes/{slug}` → 200/403/404 | S4 | `GetRecipeBySlugQuery(+Handler)` `ICacheable` | Eager loading Steps/Ingredients/Images/Category/Author | `Recipes/DetailTests.cs` | D8 | ⬜ |
+| FR-RCP-002 | Chi tiết công thức | M | `GET /api/v1/recipes/{slug}` → 200/403/404 | S4 | `GetRecipeBySlugQuery(+Handler)` — KHÔNG cache, luôn kiểm quyền Draft/Archived (A2: chỉ tác giả/Admin, còn lại 403) → `GetRecipeDetailQuery(+Handler)` `ICacheable` (`recipe:{slug}`, 5 phút, tag `recipes`+`recipe:{slug}`, D8; author qua `IIdentityService`, D5) (`Recipes/Queries/GetRecipeBySlug/`) | `RecipeRepository.GetBySlugDetailedAsync` (Include Category/Steps/Ingredients/Images, `AsSplitQuery`) | `IntegrationTests/Recipes/DetailTests.cs` (6, gồm hồi quy cache: owner xem Draft rồi guest vẫn 403), `UnitTests/Recipes/GetRecipeBySlugTests.cs` (12) · FE: `/recipes/[slug]` ISR 300 (`generateStaticParams` rỗng), JSON-LD Recipe qua `lib/seo/jsonLd.ts` (escape `<` chống XSS), OG, `noindex` Draft/Archived — `__tests__/lib/seo/jsonLd.test.ts` | D1, D5, **D8** | ✅ |
 | FR-RCP-003 | Tạo công thức | M | `POST /api/v1/recipes` → 201 | S5 | `CreateRecipeCommand(+Handler,+Validator)` | `Recipe.Create()`, `SlugHelper` | `Recipes/CreateTests.cs` | **D10, D18, D19** | ⬜ |
 | FR-RCP-004 | Cập nhật công thức | M | `PUT /api/v1/recipes/{id}` → 200 | S5 | `UpdateRecipeCommand(+Handler,+Validator)` | `RowVersion` concurrency, `RecipeAuthorizationHandler` | `Recipes/UpdateTests.cs` | **D4**, D13 | ⬜ |
 | FR-RCP-005 | Publish / Unpublish | M | `PATCH /api/v1/recipes/{id}/publish` `/unpublish` → 200 | S7 | `PublishRecipeCommand(+Handler)` | `recipe.Publish()` ném `DomainException` | `Recipes/PublishTests.cs` | **D3** | ⬜ |
