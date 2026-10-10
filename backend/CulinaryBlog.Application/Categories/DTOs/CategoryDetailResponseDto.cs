@@ -15,7 +15,9 @@ public record RecipeSummaryDto(
     string Difficulty,
     Guid AuthorId,
     string? AuthorName,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    // FR-SRCH-001: điểm ts_rank — chỉ có ở kết quả tìm kiếm, danh sách thường để null.
+    double? RelevanceScore = null
 );
 
 public record CategoryDetailResponseDto(
