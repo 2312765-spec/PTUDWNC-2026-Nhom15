@@ -78,3 +78,20 @@ export async function refresh(body: RefreshRequest): Promise<AuthResponse> {
   );
   return data;
 }
+
+/** FR-AUTH-005 — wire contract của POST /auth/logout: RT cần thu hồi nằm trong body. */
+export interface LogoutRequest {
+  refreshToken: string;
+}
+
+/**
+ * FR-AUTH-005 — 204 No Content. Endpoint yêu cầu access token hợp lệ (D47-1) và idempotent:
+ * token không tồn tại / của user khác / đã revoke vẫn trả 204.
+ */
+export async function logout(body: LogoutRequest, accessToken: string): Promise<void> {
+  const baseURL = serverBaseUrl();
+  await apiClient.post('/auth/logout', body, {
+    ...(baseURL ? { baseURL } : {}),
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
