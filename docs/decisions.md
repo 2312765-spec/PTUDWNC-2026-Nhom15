@@ -64,6 +64,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D46 | Thư viện resize ảnh | **SkiaSharp** thay ImageSharp (lỗ hổng 3.1.12 · 4.x cần license) — xem ADR-0004 |
 | D47 | Logout (FR-AUTH-005) | Giữ `RequireAuthorization` · thiếu `refreshToken` → 400 · token user khác / đã revoke / hết hạn → **204 no-op** · không kích hoạt reuse detection |
 | D48 | Xem hồ sơ (FR-AUTH-006) | User bị xóa sau khi cấp token → **404** `USER_NOT_FOUND` · user `IsActive=false` còn access token → **200** (chỉ đọc) |
+| D49 | Full-text search (FR-SRCH-001) | `simple` + `unaccent` (không có cấu hình `vietnamese`) · `SearchVector` do **trigger** cập nhật + GIN index · Title trọng số A, Description B · xếp `ts_rank` · bỏ khớp `ILIKE` giữa từ |
 
 ---
 
@@ -1308,6 +1309,41 @@ nói user `IsActive=false` còn access token gọi `/me`.
 **Vì:** `/me` chỉ đọc hồ sơ của chính chủ, không cấp thêm quyền nào.
 
 **Sửa SRS:** FR-AUTH-006 — thay `fullName/userName/emailConfirmed/createdAt` theo D5/D12; ghi mã lỗi 404.
+
+---
+
+## D49 — Full-text search (FR-SRCH-001): cấu hình, SearchVector, xếp hạng
+
+> 2026-10-10. Làm lại FR-SRCH-001 sau review PR #39.
+
+**Nguồn mâu thuẫn / thiếu:** SRS FR-SRCH-001 bước 4 dùng `ToTsQuery("vietnamese", …)`, nhưng PostgreSQL
+16 **không có** cấu hình text search `vietnamese` (chỉ có các ngôn ngữ đi kèm Snowball) → lỗi ngay khi
+chạy. SRS gọi `SearchVector` là "computed column" nhưng lại nói "được cập nhật bởi trigger"; cột sinh
+(`GENERATED ALWAYS`) không dùng được `unaccent()` vì hàm này không `IMMUTABLE`. SRS không nói Title và
+Description có quan trọng ngang nhau không.
+
+**Chốt:**
+
+1. Cấu hình **`simple` + `unaccent`** cho cả vector lẫn query: tách từ theo khoảng trắng, chữ thường,
+   bỏ dấu ("pho" tìm ra "phở", "dau" tìm ra "đậu"). Không stemming — tiếng Việt không biến hình từ.
+2. `Recipes."SearchVector"` (`tsvector`) do **trigger** `trg_recipes_search_vector` (BEFORE INSERT OR
+   UPDATE OF Title, Description) tính qua hàm `recipe_search_vector(title, description)`; migration
+   `AddRecipeSearchVector` điền sẵn cho dữ liệu cũ. **GIN index** `IX_Recipes_SearchVector`.
+3. Trọng số: **Title = A, Description = B** → khớp ở tiêu đề xếp trên khớp ở mô tả.
+4. Lọc `SearchVector @@ to_tsquery('simple', unaccent('từ1:* & từ2:*'))` (tiền tố, mọi từ đều phải có);
+   xếp `ts_rank` giảm dần, hòa điểm thì mới hơn trước. Trả `relevanceScore` trong `RecipeSummaryDto`
+   (tùy chọn — danh sách thường để `null`).
+5. **Bỏ** nhánh khớp `ILIKE '%từ%'` có trước đây: nó tìm cả chuỗi con giữa từ (ngoài SRS) và buộc quét
+   toàn bảng, vô hiệu hóa GIN index.
+6. Trong EF, `SearchVector` là **shadow property** (CONS-001: Domain không phụ thuộc `NpgsqlTsVector`),
+   EF không bao giờ ghi cột này.
+7. Không bật `pg_trgm`: FTS không dùng tới. Bật khi có tính năng cần (tìm gần đúng theo trigram).
+8. Query rỗng / < 2 ký tự → **400** (D4, không phải 422). Cache 1 phút (D8).
+
+**Vì:** dùng đúng cơ chế SRS mô tả (trigger + GIN + ts_rank) với cấu hình chạy được trên PostgreSQL thật.
+
+**Sửa SRS:** FR-SRCH-001 — `vietnamese` → `simple` + `unaccent`; "computed column" → "cột cập nhật bởi
+trigger"; ghi trọng số Title A / Description B; mã lỗi 422 → 400 (D4).
 
 ---
 
