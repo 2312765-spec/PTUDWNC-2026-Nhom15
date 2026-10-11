@@ -129,8 +129,8 @@ API             → Application, Infrastructure, Domain
 │   ├── app/                    App Router routes
 │   ├── components/
 │   ├── lib/                    api client, auth, utils
-│   └── __tests__/              Jest + Testing Library
-├── e2e/                        Playwright
+│   ├── __tests__/              Jest + Testing Library
+│   └── e2e/                    Playwright (cấu hình: frontend/playwright.config.ts)
 ├── docker-compose.yml          dev
 ├── docker-compose.prod.yml
 └── nginx/
@@ -166,7 +166,7 @@ dotnet ef database update \
 # Frontend
 cd frontend && npm run dev      # http://localhost:3000
 npm run lint && npm run build
-npx playwright test             # E2E
+npm run test:e2e                # E2E Playwright — cần backend chạy sẵn
 ```
 
 **Cổng:** API 5000 · Web 3000 · Postgres 5432 · Redis 6379 · MinIO 9000/9001 ·
