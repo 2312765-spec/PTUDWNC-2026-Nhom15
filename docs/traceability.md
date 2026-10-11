@@ -209,7 +209,7 @@ D 6/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002, FR-OBS-001/002; FR-OBS-003 🟡)
 | SEC | NFR-SEC-003 | `/auth/*` 10 req/p/IP · API chung 100 · upload 5 · 429 + Retry-After (D15) | ASP.NET Rate Limiting middleware | ⬜ |
 | SEC | NFR-SEC-004 | FluentValidation trước xử lý; magic bytes; check size trước khi read stream; filename GUID | Security test | ⬜ |
 | SEC | NFR-SEC-005 | HTTPS TLS 1.2+, HSTS, CORS allowlist (không `*`), cookie SameSite=Strict | Nginx + appsettings | ⬜ |
-| SEC | NFR-SEC-006 | Authorization ở Application Layer; chỉ 2 policy `AuthorPolicy`/`AdminPolicy` (D12); audit log mọi write | ArchUnit + code review | ⬜ |
+| SEC | NFR-SEC-006 | Authorization ở Application Layer; chỉ 2 policy `AuthorPolicy`/`AdminPolicy` (D12); audit log mọi write | ArchUnit + code review | ✅ |
 | SEC | NFR-SEC-007 | Không secret trong Git; pre-commit hook trufflehog/gitleaks | CI | ⬜ |
 | USE | NFR-USE-001 | Breakpoint 320/768/1200px, Tailwind utility-first | Chrome DevTools + BrowserStack | ⬜ |
 | USE | NFR-USE-002 | WCAG 2.1 AA, contrast ≥ 4.5:1, keyboard nav đầy đủ | axe + NVDA/VoiceOver | ⬜ |
