@@ -1,154 +1,126 @@
-/* eslint-disable @next/next/no-img-element */
 import Link from 'next/link';
+import RecipeCard from '@/components/recipes/RecipeCard';
+import { Button, Input } from '@/components/ui';
 import { getCategories } from '@/lib/categories';
-import { getRecipes } from '@/lib/recipes';
+import { getLatestRecipes, SEARCH_MIN_LENGTH } from '@/lib/recipes';
+import type { CategoryDto, RecipeSummaryDto } from '@/lib/types';
 
 /**
- * Trang chủ — chủ sở hữu: B. FR-RCP-001.
- * SRS mục 5.1: ISR revalidate = 3600.
+ * Trang chủ — chủ sở hữu: B. FR-RCP-001 (công thức mới nhất) + FR-CAT-001 (danh mục) +
+ * lối vào FR-SRCH-001. SRS mục 5.1: ISR revalidate = 3600 — mọi fetch ở đây phải dùng
+ * `revalidate`, không `no-store`.
  */
 export const revalidate = 3600;
 
+const LATEST_RECIPES = 6;
+const FEATURED_CATEGORIES = 6;
+
+/** Lỗi từng phần không làm sập trang (NFR-USE-003) — `null` nghĩa là tải lỗi, khác danh sách rỗng. */
+async function orNull<T>(promise: Promise<T>): Promise<T | null> {
+  try {
+    return await promise;
+  } catch {
+    return null;
+  }
+}
+
 export default async function HomePage() {
-  // Lấy dữ liệu danh mục và công thức mới nhất (chuẩn theo getRecipes({}, 6))
-  const [categoriesData, recipesData] = await Promise.all([
-    getCategories().catch(() => ({ items: [] })),
-    getRecipes({}, 6).catch(() => ({ items: [] })),
+  const [categories, recipes] = await Promise.all([
+    orNull<CategoryDto[]>(getCategories()),
+    orNull(getLatestRecipes(LATEST_RECIPES)).then((r): RecipeSummaryDto[] | null => r?.items ?? null),
   ]);
 
-  const categories = Array.isArray(categoriesData) ? categoriesData : (categoriesData?.items ?? []);
-  const recipes = Array.isArray(recipesData) ? recipesData : (recipesData?.items ?? []);
-
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* 1. Hero Section & Quick Search (FR-SRCH-001) */}
-      <section className="bg-gradient-to-b from-orange-50/60 to-slate-50 py-16 md:py-24 border-b border-slate-100">
-        <div className="max-w-5xl mx-auto px-4 text-center">
-          <span className="inline-block px-3 py-1 mb-4 text-xs font-semibold uppercase tracking-wider text-orange-600 bg-orange-100/80 rounded-full">
-            Khám phá Ẩm thực Bốn phương
-          </span>
-          <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight">
-            Nấu ngon mỗi ngày cùng <span className="text-orange-600">Culinary Blog</span>
+    <div>
+      {/* Hero + tìm kiếm nhanh (FR-SRCH-001). Form GET thuần: chạy cả khi chưa có JS. */}
+      <section className="border-b border-border bg-brand-50 py-16 md:py-24">
+        <div className="mx-auto max-w-5xl px-4 text-center">
+          <h1 className="text-4xl font-extrabold tracking-tight text-ink md:text-5xl">
+            Nấu ngon mỗi ngày cùng <span className="text-brand-700">Culinary Blog</span>
           </h1>
-          <p className="mt-4 text-base md:text-lg text-slate-600 max-w-2xl mx-auto">
-            Hàng ngàn công thức nấu ăn chuẩn vị từ các đầu bếp gia đình và chuyên nghiệp.
+          <p className="mx-auto mt-4 max-w-2xl text-base text-ink-muted md:text-lg">
+            Công thức nấu ăn từ các đầu bếp gia đình và chuyên nghiệp.
           </p>
 
-          <form action="/search" method="GET" className="mt-8 max-w-xl mx-auto flex gap-2">
-            <input
-              type="text"
-              name="q"
-              placeholder="Tìm món ăn, nguyên liệu, tác giả..."
-              className="flex-1 px-4 py-3 rounded-xl border border-slate-200 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-slate-800 placeholder:text-slate-400"
-            />
-            <button
-              type="submit"
-              className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-xl shadow-sm transition-colors"
-            >
-              Tìm kiếm
-            </button>
+          <form role="search" action="/search" method="GET" className="mx-auto mt-8 flex max-w-xl items-start gap-2">
+            <div className="flex-1">
+              <Input
+                type="search"
+                name="q"
+                aria-label="Tìm công thức"
+                placeholder={`Tìm theo tên hoặc mô tả món ăn… (tối thiểu ${SEARCH_MIN_LENGTH} ký tự)`}
+                minLength={SEARCH_MIN_LENGTH}
+                required
+              />
+            </div>
+            <Button type="submit">Tìm kiếm</Button>
           </form>
         </div>
       </section>
 
-      <main className="max-w-6xl mx-auto px-4 py-12 space-y-16">
-        {/* 2. Danh mục món ăn nổi bật (FR-CAT-001) */}
-        <section>
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">Danh mục món ăn</h2>
-              <p className="text-sm text-slate-500 mt-1">Khám phá theo từng phân loại hương vị</p>
-            </div>
-            <Link href="/categories" className="text-sm font-semibold text-orange-600 hover:text-orange-700">
+      <div className="mx-auto max-w-6xl space-y-16 px-4 py-12">
+        {/* Danh mục (FR-CAT-001) */}
+        <section aria-labelledby="home-categories">
+          <div className="mb-6 flex items-center justify-between">
+            <h2 id="home-categories" className="text-2xl font-bold text-ink">
+              Danh mục món ăn
+            </h2>
+            <Link href="/categories" className="text-sm font-semibold text-brand-700 hover:underline">
               Xem tất cả →
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {categories.slice(0, 6).map((cat: any) => (
-              <Link
-                key={cat.id || cat.slug}
-                href={`/categories/${cat.slug}`}
-                className="group p-4 bg-white rounded-xl border border-slate-200/80 hover:border-orange-300 hover:shadow-md transition-all text-center flex flex-col items-center justify-center min-h-[100px]"
-              >
-                <span className="font-semibold text-slate-800 group-hover:text-orange-600 text-sm">
-                  {cat.name}
-                </span>
-                {cat.recipeCount !== undefined && (
-                  <span className="text-xs text-slate-400 mt-1">{cat.recipeCount} công thức</span>
-                )}
-              </Link>
-            ))}
-          </div>
+          {categories === null ? (
+            <p role="alert" className="rounded-lg border border-border bg-surface p-6 text-center text-sm text-red-700">
+              Không tải được danh mục. Vui lòng thử lại sau.
+            </p>
+          ) : (
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {categories.slice(0, FEATURED_CATEGORIES).map((cat) => (
+                <li key={cat.id}>
+                  <Link
+                    href={`/categories/${cat.slug}`}
+                    className="flex min-h-24 flex-col items-center justify-center rounded-lg border border-border bg-surface p-4 text-center transition hover:shadow-md focus-visible:outline-2 focus-visible:outline-brand-600"
+                  >
+                    <span className="text-sm font-semibold text-ink">{cat.name}</span>
+                    <span className="mt-1 text-xs text-ink-muted">{cat.recipeCount} công thức</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
-        {/* 3. Công thức mới nhất (FR-RCP-001) */}
-        <section>
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">Công thức mới nhất</h2>
-              <p className="text-sm text-slate-500 mt-1">Cập nhật liên tục mỗi ngày</p>
-            </div>
-            <Link href="/recipes" className="text-sm font-semibold text-orange-600 hover:text-orange-700">
+        {/* Công thức mới nhất (FR-RCP-001) */}
+        <section aria-labelledby="home-latest">
+          <div className="mb-6 flex items-center justify-between">
+            <h2 id="home-latest" className="text-2xl font-bold text-ink">
+              Công thức mới nhất
+            </h2>
+            <Link href="/recipes" className="text-sm font-semibold text-brand-700 hover:underline">
               Khám phá thêm →
             </Link>
           </div>
 
-          {recipes.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-200">
-              <p className="text-slate-500">Chưa có công thức nào được đăng tải.</p>
-            </div>
+          {recipes === null ? (
+            <p role="alert" className="rounded-lg border border-border bg-surface p-6 text-center text-sm text-red-700">
+              Không tải được công thức. Vui lòng thử lại sau.
+            </p>
+          ) : recipes.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border bg-surface p-12 text-center text-ink-muted">
+              Chưa có công thức nào được đăng tải.
+            </p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {recipes.map((recipe: any) => {
-                const img = recipe.coverImageUrl || recipe.thumbnailUrl || recipe.imageUrl;
-                return (
-                  <Link
-                    key={recipe.id || recipe.slug}
-                    href={`/recipes/${recipe.slug}`}
-                    className="group bg-white rounded-xl border border-slate-200/80 overflow-hidden hover:shadow-lg transition-all flex flex-col"
-                  >
-                    <div className="aspect-video bg-slate-100 relative overflow-hidden">
-                      {img ? (
-                        <img
-                          src={img}
-                          alt={recipe.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-400 font-medium text-sm">
-                          🍲 Không có ảnh
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-between">
-                      <div>
-                        {recipe.categoryName && (
-                          <span className="text-xs font-semibold text-orange-600 uppercase">
-                            {recipe.categoryName}
-                          </span>
-                        )}
-                        <h3 className="font-bold text-slate-900 group-hover:text-orange-600 mt-1 line-clamp-2">
-                          {recipe.title}
-                        </h3>
-                        {recipe.description && (
-                          <p className="text-sm text-slate-500 mt-1 line-clamp-2">
-                            {recipe.description}
-                          </p>
-                        )}
-                      </div>
-                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-                        <span>⏱ {recipe.cookTimeMinutes || recipe.cookingTimeMinutes || 30} phút</span>
-                        <span>{recipe.authorName || 'Đầu bếp'}</span>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
+            <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {recipes.map((recipe) => (
+                <li key={recipe.id}>
+                  <RecipeCard recipe={recipe} />
+                </li>
+              ))}
+            </ul>
           )}
         </section>
-      </main>
+      </div>
     </div>
   );
 }
