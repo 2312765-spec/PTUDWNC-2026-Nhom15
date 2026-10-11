@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { Skeleton } from '@/components/ui';
 import { SEARCH_MIN_LENGTH } from '@/lib/recipes';
-import SearchForm from './SearchForm';
+import SearchForm from '@/components/search/SearchForm';
 import SearchResults from './SearchResults';
 
 /** FR-SRCH-001 — SRS 5.1: `/search` SSR (mỗi request render lại theo `?q=`). */
