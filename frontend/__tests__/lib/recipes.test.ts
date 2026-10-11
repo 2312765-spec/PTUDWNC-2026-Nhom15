@@ -1,5 +1,5 @@
 import { ApiError } from '@/lib/categories';
-import { getRecipes, searchRecipes, toRecipeListQuery } from '@/lib/recipes';
+import { getLatestRecipes, getRecipes, searchRecipes, toRecipeListQuery } from '@/lib/recipes';
 
 const mockFetch = jest.fn();
 
@@ -85,5 +85,28 @@ describe('lib/recipes — FR-RCP-001 / FR-SRCH-002/003/004', () => {
     mockFetch.mockResolvedValue(jsonResponse(400, { type: 'VALIDATION_ERROR' }));
 
     await expect(getRecipes({ sort: 'servings' })).rejects.toEqual(new ApiError(400, 'VALIDATION_ERROR'));
+  });
+});
+
+describe('lib/recipes — trang chủ (FR-RCP-001)', () => {
+  it('SRS 5.1: getLatestRecipes gọi /recipes mới nhất với pageSize, ISR revalidate 3600 (không no-store)', async () => {
+    const paged = { items: [], totalCount: 0, page: 1, pageSize: 6, totalPages: 0 };
+    mockFetch.mockResolvedValue(jsonResponse(200, paged));
+
+    await expect(getLatestRecipes(6)).resolves.toEqual(paged);
+
+    const [url, init] = mockFetch.mock.calls[0];
+    const parsed = new URL(url);
+    expect(parsed.pathname).toMatch(/\/recipes$/);
+    expect(parsed.searchParams.get('pageSize')).toBe('6');
+    // Sort mặc định của backend là -createdAt (mới nhất) → không gửi, giữ cache key ổn định.
+    expect(parsed.searchParams.has('sort')).toBe(false);
+    expect(init).toEqual({ next: { revalidate: 3600 } });
+  });
+
+  it('NFR-USE-003: getLatestRecipes lỗi API → ApiError', async () => {
+    mockFetch.mockResolvedValue(jsonResponse(500, { type: 'INTERNAL_ERROR' }));
+
+    await expect(getLatestRecipes(6)).rejects.toEqual(new ApiError(500, 'INTERNAL_ERROR'));
   });
 });
