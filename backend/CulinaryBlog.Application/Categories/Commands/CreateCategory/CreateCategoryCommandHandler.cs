@@ -17,6 +17,7 @@ public sealed class CreateCategoryCommandHandler : IRequestHandler<CreateCategor
     private readonly IUnitOfWork _unitOfWork;
     private readonly ISlugHelper _slugHelper;
     private readonly ICurrentUser _currentUser;
+    
     public CreateCategoryCommandHandler(
         ICategoryRepository categoryRepository,
         IUnitOfWork unitOfWork,

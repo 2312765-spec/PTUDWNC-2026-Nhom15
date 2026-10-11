@@ -15,9 +15,12 @@ public class CreateCategoryCommandHandlerTests
     private readonly ICategoryRepository _categoryRepository = Substitute.For<ICategoryRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly ISlugHelper _slugHelper = Substitute.For<ISlugHelper>();
-
-    private CreateCategoryCommandHandler CreateHandler() => new(_categoryRepository, _unitOfWork, _slugHelper);
-
+    private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
+    private CreateCategoryCommandHandler CreateHandler()
+{
+    _currentUser.IsAdmin.Returns(true); // 👈 Cấp quyền Admin cho test
+    return new(_categoryRepository, _unitOfWork, _slugHelper, _currentUser);
+}
     [Fact(DisplayName = "FR-CAT-003: tạo thành công → gọi AddAsync + SaveChanges, trả CategoryDto")]
     public async Task Handle_Success_AddsCategoryAndSaves()
     {

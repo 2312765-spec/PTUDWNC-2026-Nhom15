@@ -4,18 +4,26 @@ using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Interfaces;
 using FluentAssertions;
 using Xunit;
+using CulinaryBlog.Application.Common.Interfaces;
+using NSubstitute;
+
 
 namespace CulinaryBlog.UnitTests.Categories;
 
 public sealed class DeleteCategoryCommandHandlerTests
 {
+    private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
+    public DeleteCategoryCommandHandlerTests()
+    {
+        _currentUser.IsAdmin.Returns(true);
+    }
+    
     [Fact(DisplayName = "FR-CAT-005: Xóa danh mục không tồn tại → ném NotFoundException")]
     public async Task Handle_CategoryNotFound_ThrowsNotFoundException()
-    {
+    {   
         var repo = new TestCategoryRepository { Category = null };
         var uow = new TestUnitOfWork();
-        var handler = new DeleteCategoryCommandHandler(repo, uow);
-
+        var handler = new DeleteCategoryCommandHandler(repo, uow, _currentUser);
         var act = async () => await handler.Handle(new DeleteCategoryCommand(Guid.NewGuid()), CancellationToken.None);
 
         await act.Should().ThrowAsync<NotFoundException>();
@@ -28,7 +36,7 @@ public sealed class DeleteCategoryCommandHandlerTests
         var cat = Category.Create("Món bánh", "mon-banh", "Mô tả");
         var repo = new TestCategoryRepository { Category = cat, RecipeCount = 5 };
         var uow = new TestUnitOfWork();
-        var handler = new DeleteCategoryCommandHandler(repo, uow);
+        var handler = new DeleteCategoryCommandHandler(repo, uow,_currentUser);
 
         var act = async () => await handler.Handle(new DeleteCategoryCommand(cat.Id), CancellationToken.None);
 
@@ -41,7 +49,7 @@ public sealed class DeleteCategoryCommandHandlerTests
         var cat = Category.Create("Món xào", "mon-xao", "Mô tả");
         var repo = new TestCategoryRepository { Category = cat, RecipeCount = 0 };
         var uow = new TestUnitOfWork();
-        var handler = new DeleteCategoryCommandHandler(repo, uow);
+        var handler = new DeleteCategoryCommandHandler(repo, uow,_currentUser);
 
         await handler.Handle(new DeleteCategoryCommand(cat.Id), CancellationToken.None);
 
