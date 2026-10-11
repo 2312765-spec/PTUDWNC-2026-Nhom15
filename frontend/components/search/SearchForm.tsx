@@ -7,7 +7,11 @@ import { SEARCH_MIN_LENGTH } from '@/lib/recipes';
 
 /**
  * FR-SRCH-001 — chỉ phần nhập liệu là client. Submit đổi URL `?q=` để trang SSR tải kết quả,
- * nhờ vậy link kết quả chia sẻ được và nút Back hoạt động.
+ * nhờ vậy link kết quả chia sẻ được và nút Back hoạt động. Dùng chung cho `/search` và trang chủ.
+ *
+ * `action="/search"` + `method="get"`: khi JS chưa tải xong, trình duyệt tự gửi `?q=` tới `/search`
+ * (trang đó tự trim và bỏ qua q < 2 ký tự). Khi đã có JS, onSubmit chặn lại để validate tiếng Việt
+ * và chuyển trang mềm bằng router.
  */
 export default function SearchForm({ initialQuery }: { initialQuery: string }) {
   const router = useRouter();
@@ -27,7 +31,14 @@ export default function SearchForm({ initialQuery }: { initialQuery: string }) {
   };
 
   return (
-    <form role="search" onSubmit={onSubmit} className="flex items-start gap-2" noValidate>
+    <form
+      role="search"
+      action="/search"
+      method="get"
+      onSubmit={onSubmit}
+      className="flex items-start gap-2"
+      noValidate
+    >
       <div className="flex-1">
         <Input
           type="search"
