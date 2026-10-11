@@ -104,6 +104,26 @@ public sealed class CreateCategoryTests(PostgresApiFactory factory) : IClassFixt
         problem!.Type.Should().Be(ErrorCodes.ValidationError);
     }
 
+    [Fact(DisplayName = "FR-CAT-003/D8: tạo danh mục xóa cache Redis → GET /categories thấy ngay danh mục mới")]
+    public async Task Create_InvalidatesCache_NewCategoryVisibleImmediately()
+    {
+        var token = await RegisterAdminAsync();
+
+        // GET lần 1 để nạp cache "categories:all".
+        var firstGet = await _client.GetAsync("/api/v1/categories");
+        firstGet.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var name = $"Món Test Cache {Guid.NewGuid():N}"[..25];
+        await CreateAsync(token, name);
+
+        // CreateCategoryCommand implement ICacheInvalidator (D8) → tag "categories" đã bị xóa.
+        var secondGet = await _client.GetAsync("/api/v1/categories");
+        secondGet.StatusCode.Should().Be(HttpStatusCode.OK);
+        // Đọc qua DTO, không so chuỗi thô: System.Text.Json escape "ó" thành "ó".
+        var categories = await secondGet.Content.ReadFromJsonAsync<List<CategoryDto>>(JsonOptions);
+        categories.Should().Contain(c => c.Name == name);
+    }
+
     private async Task<CategoryDto> CreateAsync(string token, string name)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/categories")
