@@ -71,4 +71,12 @@ public class CreateCategoryCommandHandlerTests
         result.Name.Should().Be("Món chay");
         result.Description.Should().Be("mô tả");
     }
+
+    [Fact(DisplayName = "FR-CAT-003/D8: command invalidate cả tag 'categories' và 'recipes'")]
+    public void Command_InvalidatesCategoriesAndRecipesTags()
+    {
+        var command = new CreateCategoryCommand("Món chay", null);
+
+        command.TagsToInvalidate.Should().BeEquivalentTo("categories", "recipes");
+    }
 }

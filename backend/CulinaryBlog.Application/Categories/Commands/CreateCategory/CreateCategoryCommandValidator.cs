@@ -15,7 +15,9 @@ public class CreateCategoryCommandValidator : AbstractValidator<CreateCategoryCo
             .Must(name => !_htmlRegex.IsMatch(name ?? string.Empty))
             .WithMessage("Tên danh mục không được chứa mã HTML.");
 
+        // decisions.md "Ràng buộc validator": Category.Description ≤ 500 ký tự (giống FR-CAT-004)
         RuleFor(x => x.Description)
+            .MaximumLength(500).WithMessage("Mô tả không được vượt quá 500 ký tự.")
             .Must(desc => string.IsNullOrEmpty(desc) || !_htmlRegex.IsMatch(desc))
             .WithMessage("Mô tả không được chứa mã HTML.")
             .When(x => !string.IsNullOrEmpty(x.Description));
