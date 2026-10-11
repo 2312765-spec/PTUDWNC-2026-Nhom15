@@ -15,19 +15,26 @@ public sealed class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategor
     private readonly ICategoryRepository _categoryRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICacheService? _cacheService;
-
+    private readonly ICurrentUser _currentUser;
     public UpdateCategoryCommandHandler(
         ICategoryRepository categoryRepository,
         IUnitOfWork unitOfWork,
+        ICurrentUser currentUser,
         ICacheService? cacheService = null)
     {
         _categoryRepository = categoryRepository;
         _unitOfWork = unitOfWork;
+        _currentUser = currentUser;
         _cacheService = cacheService;
     }
     
     public async Task<CategoryDto> Handle(UpdateCategoryCommand request, CancellationToken cancellationToken)
     {
+         // 0. Kiểm tra quyền Admin (FR-CAT-004)
+          if (!_currentUser.IsAdmin)
+        {
+            throw new UnauthorizedAccessException("Chỉ Quản trị viên (Admin) mới có quyền cập nhật danh mục.");
+        }
         // NotEmpty/Length/HTML đã được UpdateCategoryCommandValidator (FluentValidation +
         // ValidationBehavior, CONS-008) chặn từ trước — Name khác null/rỗng khi tới đây.
         var trimmedName = request.Name.Trim();

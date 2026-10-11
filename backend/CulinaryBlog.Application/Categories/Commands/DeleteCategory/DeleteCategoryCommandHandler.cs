@@ -1,6 +1,7 @@
 using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Domain.Common;
 using CulinaryBlog.Domain.Interfaces;
+using CulinaryBlog.Application.Common.Interfaces;
 using MediatR;
 
 namespace CulinaryBlog.Application.Categories.Commands.DeleteCategory;
@@ -13,17 +14,25 @@ public sealed class DeleteCategoryCommandHandler : IRequestHandler<DeleteCategor
 {
     private readonly ICategoryRepository _categoryRepository;
     private readonly IUnitOfWork _unitOfWork;
-
+    private readonly ICurrentUser _currentUser;
     public DeleteCategoryCommandHandler(
         ICategoryRepository categoryRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+         ICurrentUser currentUser)
     {
         _categoryRepository = categoryRepository;
         _unitOfWork = unitOfWork;
+        _currentUser = currentUser;
     }
 
     public async Task Handle(DeleteCategoryCommand request, CancellationToken cancellationToken)
     {
+
+         // 0. Kiểm tra quyền Admin (FR-CAT-005)
+       if (!_currentUser.IsAdmin)
+        {
+            throw new UnauthorizedAccessException("Chỉ Quản trị viên (Admin) mới có quyền xóa danh mục.");
+        }
         // 1. Tìm category theo Id
         var category = await _categoryRepository.GetByIdAsync(request.Id, cancellationToken);
         if (category == null)
