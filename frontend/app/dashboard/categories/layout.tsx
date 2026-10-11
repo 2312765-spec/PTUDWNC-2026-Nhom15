@@ -1,7 +1,41 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+
+function subscribe(callback: () => void) {
+  window.addEventListener('storage', callback);
+  return () => window.removeEventListener('storage', callback);
+}
+
+function getSnapshot(): 'admin' | 'forbidden' | 'anonymous' {
+  if (typeof window === 'undefined') return 'anonymous';
+
+  const userJson = localStorage.getItem('user') || sessionStorage.getItem('user');
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+
+  if (!userJson && !token) return 'anonymous';
+
+  try {
+    if (userJson) {
+      const user = JSON.parse(userJson);
+      const roles: string[] = user.roles || (user.role ? [user.role] : []);
+      const isAdmin =
+        roles.includes('Admin') ||
+        roles.includes('admin') ||
+        user.isAdmin === true;
+
+      return isAdmin ? 'admin' : 'forbidden';
+    }
+    return 'admin';
+  } catch {
+    return 'forbidden';
+  }
+}
+
+function getServerSnapshot(): 'loading' {
+  return 'loading';
+}
 
 export default function AdminCategoriesLayout({
   children,
@@ -9,38 +43,16 @@ export default function AdminCategoriesLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+  const authStatus = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   useEffect(() => {
-    // 1. Kiểm tra session/token đăng nhập
-    const userJson = localStorage.getItem('user') || sessionStorage.getItem('user');
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-
-    if (!userJson && !token) {
-      // Chưa đăng nhập -> chuyển về login
+    if (authStatus === 'anonymous') {
       router.replace('/auth/login?callbackUrl=/dashboard/categories');
-      return;
     }
+  }, [authStatus, router]);
 
-    try {
-      if (userJson) {
-        const user = JSON.parse(userJson);
-        const roles: string[] = user.roles || (user.role ? [user.role] : []);
-        const isAdmin = roles.includes('Admin') || roles.includes('admin') || user.isAdmin === true;
-
-        if (!isAdmin) {
-          setIsAuthorized(false);
-          return;
-        }
-      }
-      setIsAuthorized(true);
-    } catch {
-      setIsAuthorized(false);
-    }
-  }, [router]);
-
-  // Đang kiểm tra quyền
-  if (isAuthorized === null) {
+  // Đang tải / Render phía server
+  if (authStatus === 'loading') {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <div className="text-center">
@@ -51,13 +63,18 @@ export default function AdminCategoriesLayout({
     );
   }
 
-  // Không có quyền Admin -> Hiện thông báo 403 Forbidden thay vì cho vào giao diện quản trị
-  if (isAuthorized === false) {
+  // Không có quyền Admin -> Hiện 403 Forbidden
+  if (authStatus === 'forbidden' || authStatus === 'anonymous') {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center px-4 text-center">
         <div className="rounded-full bg-red-100 p-3 text-red-600 mb-3">
           <svg className="size-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
           </svg>
         </div>
         <h2 className="text-xl font-bold text-slate-800">Truy cập bị từ chối (403)</h2>
