@@ -1,45 +1,56 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-test.describe('FR-RCP: Luồng xem danh sách và chi tiết công thức', () => {
-  test('FR-RCP-001: Hiển thị danh mục và công thức mới nhất trên trang chủ', async ({ page }) => {
+/**
+ * Chờ dữ liệu: chưa có cách tạo công thức Published cho E2E — API tạo/publish (FR-RCP-003/005/
+ * 009/010, C) còn Pending và DbSeeder đang trống. Bỏ `fixme` khi một trong hai sẵn sàng.
+ */
+const NEEDS_PUBLISHED_RECIPE = 'Chờ FR-RCP-003/005 (C) hoặc DbSeeder có công thức Published';
+
+test.describe('Trang chủ (FR-RCP-001)', () => {
+  test('FR-RCP-001: hiện hero, ô tìm kiếm, danh mục và công thức mới nhất — không có lỗi tải', async ({ page }) => {
     await page.goto('/');
 
-    // Kiểm tra hiển thị tiêu đề trang chủ
-    await expect(page.locator('text=Khám Phá Hương Vị Mới')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: /Nấu ngon mỗi ngày cùng Culinary Blog/ })).toBeVisible();
+    await expect(page.getByRole('search').getByRole('searchbox', { name: 'Từ khóa tìm kiếm' })).toBeVisible();
 
-    // Kiểm tra hiển thị mục Danh Mục Nổi Bật
-    await expect(page.locator('text=Danh Mục Nổi Bật')).toBeVisible();
-
-    // Kiểm tra hiển thị mục Công Thức Mới Nhất
-    await expect(page.locator('text=Công Thức Mới Nhất')).toBeVisible();
-
-    // Kiểm tra có ít nhất một thẻ công thức món ăn (link dẫn tới /recipes/...)
-    const recipeCards = page.locator('a[href^="/recipes/"]');
-    await expect(recipeCards.first()).toBeVisible();
+    const categories = page.getByRole('region', { name: 'Danh mục món ăn' });
+    const latest = page.getByRole('region', { name: 'Công thức mới nhất' });
+    await expect(categories).toBeVisible();
+    await expect(latest).toBeVisible();
+    // Backend sống (global-setup) → không phần nào được rơi vào trạng thái lỗi.
+    await expect(categories.getByRole('alert')).toHaveCount(0);
+    await expect(latest.getByRole('alert')).toHaveCount(0);
   });
 
-  test('FR-RCP-002: Bấm vào thẻ công thức để xem chi tiết món ăn', async ({ page }) => {
+  test('FR-CAT-001: "Xem tất cả" ở trang chủ dẫn tới /categories', async ({ page }) => {
     await page.goto('/');
 
-    // Lấy thẻ công thức đầu tiên trên trang chủ và click vào
-    const firstRecipe = page.locator('a[href^="/recipes/"]').first();
-    await expect(firstRecipe).toBeVisible();
-    await firstRecipe.click();
+    await page.getByRole('region', { name: 'Danh mục món ăn' }).getByRole('link', { name: /Xem tất cả/ }).click();
 
-    // Đảm bảo URL đã chuyển sang trang chi tiết công thức
-    await expect(page).toHaveURL(/\/recipes\/.+/);
+    await expect(page).toHaveURL(/\/categories$/);
+  });
 
-    // Kiểm tra các phần quan trọng trên trang chi tiết công thức
-    // 1. Tiêu đề món ăn
-    const recipeTitle = page.locator('h1').first();
-    await expect(recipeTitle).toBeVisible();
+  test('FR-RCP-001/002: bấm card công thức ở trang chủ → trang chi tiết có Nguyên liệu và Các bước thực hiện', async ({
+    page,
+  }) => {
+    test.fixme(true, NEEDS_PUBLISHED_RECIPE);
 
-    // 2. Phần Nguyên liệu (Ingredients)
-    const ingredientsSection = page.locator('text=/Nguyên liệu|Ingredients/i').first();
-    await expect(ingredientsSection).toBeVisible();
+    await page.goto('/');
+    const card = page.getByRole('region', { name: 'Công thức mới nhất' }).getByRole('link').first();
+    const title = (await card.getByRole('heading').textContent())?.trim() ?? '';
+    await card.click();
 
-    // 3. Phần Các bước thực hiện (Instructions / Steps)
-    const instructionsSection = page.locator('text=/Cách làm|Các bước|Hướng dẫn/i').first();
-    await expect(instructionsSection).toBeVisible();
+    await expect(page).toHaveURL(/\/recipes\/[^/]+$/);
+    await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Nguyên liệu' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Các bước thực hiện' })).toBeVisible();
+  });
+});
+
+test.describe('Chi tiết công thức (FR-RCP-002)', () => {
+  test('FR-RCP-002: slug không tồn tại → 404', async ({ page }) => {
+    const response = await page.goto('/recipes/khong-ton-tai-e2e');
+
+    expect(response?.status()).toBe(404);
   });
 });

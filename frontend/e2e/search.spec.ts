@@ -1,48 +1,50 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-test.describe('FR-SRCH: Luồng tìm kiếm công thức món ăn', () => {
-  test.beforeEach(async ({ page }) => {
-    // Truy cập trang chủ trước mỗi test case
+/** Từ khóa chắc chắn không khớp công thức nào → trạng thái rỗng ổn định, không phụ thuộc dữ liệu. */
+const NO_MATCH = 'zzkhongtontaie2e';
+
+test.describe('Luồng tìm kiếm (FR-SRCH-001)', () => {
+  test('FR-SRCH-001: gõ từ khóa ở trang chủ → sang /search?q= và hiện kết quả cho đúng từ khóa', async ({ page }) => {
     await page.goto('/');
+
+    const search = page.getByRole('search');
+    await search.getByRole('searchbox', { name: 'Từ khóa tìm kiếm' }).fill(`  ${NO_MATCH} `);
+    await search.getByRole('button', { name: 'Tìm kiếm' }).click();
+
+    await expect(page).toHaveURL(new RegExp(`/search\\?q=${NO_MATCH}$`));
+    await expect(page.getByRole('heading', { level: 1, name: 'Tìm kiếm công thức' })).toBeVisible();
+    // Ô tìm kiếm ở /search giữ lại từ khóa (đã trim).
+    await expect(page.getByRole('searchbox', { name: 'Từ khóa tìm kiếm' })).toHaveValue(NO_MATCH);
+    await expect(page.getByRole('status')).toContainText(`Không tìm thấy công thức nào cho "${NO_MATCH}"`);
   });
 
-  test('FR-SRCH-001: Tìm kiếm nhanh từ thanh tìm kiếm trang chủ', async ({ page }) => {
-    // Tìm ô input tìm kiếm (có placeholder hoặc type="search" / type="text")
-    const searchInput = page.locator('input[placeholder*="Tìm kiếm"], input[type="search"]').first();
-    await expect(searchInput).toBeVisible();
+  test('FR-SRCH-001: từ khóa < 2 ký tự → báo lỗi tiếng Việt, ở lại trang chủ', async ({ page }) => {
+    await page.goto('/');
 
-    // Gõ từ khóa tìm kiếm
-    await searchInput.fill('bò');
-    await searchInput.press('Enter');
+    const search = page.getByRole('search');
+    await search.getByRole('searchbox', { name: 'Từ khóa tìm kiếm' }).fill('a');
+    await search.getByRole('button', { name: 'Tìm kiếm' }).click();
 
-    // Kiểm tra URL được chuyển hướng sang trang kết quả tìm kiếm có query param
-    await expect(page).toHaveURL(/search/);
-
-    // Kiểm tra trang hiển thị tiêu đề kết quả hoặc danh sách công thức
-    const resultsHeading = page.locator('h1, h2, [data-testid="search-results"]').first();
-    await expect(resultsHeading).toBeVisible();
+    await expect(search.getByRole('alert')).toContainText('ít nhất 2 ký tự');
+    await expect(page).toHaveURL(/\/$/);
   });
 
-  test('FR-SRCH-002 & 003: Lọc kết quả tìm kiếm theo danh mục hoặc độ khó', async ({ page }) => {
-    // Đi thẳng tới trang tìm kiếm
-    await page.goto('/search?q=gà');
+  test('FR-SRCH-001: mở thẳng /search?q= dưới 2 ký tự → không tìm, chỉ hiện form', async ({ page }) => {
+    await page.goto('/search?q=a');
 
-    // Đảm bảo trang load không bị lỗi crash
-    await expect(page.locator('body')).not.toContainText('500 Internal Server Error');
-
-    // Kiểm tra có hiển thị các bộ lọc (nếu giao diện trang search có dropdown/button filter)
-    const filterSection = page.locator('select, [data-testid="category-filter"], button:has-text("Lọc")').first();
-    if (await filterSection.isVisible()) {
-      await expect(filterSection).toBeEnabled();
-    }
+    await expect(page.getByRole('heading', { level: 1, name: 'Tìm kiếm công thức' })).toBeVisible();
+    await expect(page.getByRole('status')).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Kết quả tìm kiếm' })).toHaveCount(0);
   });
 
-  test('FR-SRCH-004: Xử lý khi không tìm thấy công thức nào', async ({ page }) => {
-    // Tìm với từ khóa vô nghĩa
-    await page.goto('/search?q=tukhoakhonghecothuc123456');
+  test('FR-SRCH-001: có công thức khớp → hiện danh sách kết quả, bấm vào sang trang chi tiết', async ({ page }) => {
+    test.fixme(true, 'Chờ FR-RCP-003/005 (C) hoặc DbSeeder có công thức Published');
 
-    // Kiểm tra hiển thị thông báo không tìm thấy kết quả
-    const emptyState = page.locator('text=/Không tìm thấy|Chưa có công thức/i').first();
-    await expect(emptyState).toBeVisible();
+    await page.goto('/search?q=pho');
+
+    const results = page.getByRole('region', { name: 'Kết quả tìm kiếm' });
+    await expect(results.getByRole('link').first()).toBeVisible();
+    await results.getByRole('link').first().click();
+    await expect(page).toHaveURL(/\/recipes\/[^/]+$/);
   });
 });
