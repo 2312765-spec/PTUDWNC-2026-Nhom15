@@ -1,8 +1,10 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import HomePage, { revalidate } from '@/app/page';
 import { ApiError, getCategories } from '@/lib/categories';
 import { getLatestRecipes } from '@/lib/recipes';
 import type { CategoryDto, PagedResult, RecipeSummaryDto } from '@/lib/types';
+import { mockPush } from '../../jest.setup';
 
 jest.mock('@/lib/categories', () => ({
   ...jest.requireActual('@/lib/categories'),
@@ -121,15 +123,31 @@ describe('/ — trang chủ (FR-RCP-001)', () => {
     expect(screen.getAllByTestId('recipe-card')).toHaveLength(2);
   });
 
-  it('FR-SRCH-001 + WCAG: form tìm kiếm có nhãn, gửi tới /search, q tối thiểu 2 ký tự', async () => {
+  it('FR-SRCH-001: dùng chung SearchForm — form GET tới /search (chạy cả khi chưa có JS), ô có nhãn', async () => {
     await renderHome();
 
     const form = screen.getByRole('search');
     expect(form).toHaveAttribute('action', '/search');
-    const input = within(form).getByRole('searchbox', { name: 'Tìm công thức' });
-    expect(input).toHaveAttribute('name', 'q');
-    expect(input).toHaveAttribute('minLength', '2');
-    expect(input).toBeRequired();
+    expect(within(form).getByRole('searchbox', { name: 'Từ khóa tìm kiếm' })).toHaveAttribute('name', 'q');
+  });
+
+  it('FR-SRCH-001: từ khóa < 2 ký tự → thông báo tiếng Việt, không chuyển trang', async () => {
+    await renderHome();
+
+    await userEvent.type(screen.getByRole('searchbox'), ' a ');
+    await userEvent.click(screen.getByRole('button', { name: 'Tìm kiếm' }));
+
+    expect(within(screen.getByRole('search')).getByRole('alert')).toHaveTextContent('ít nhất 2 ký tự');
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('FR-SRCH-001: từ khóa hợp lệ → chuyển trang mềm tới /search?q= (đã trim + encode)', async () => {
+    await renderHome();
+
+    await userEvent.type(screen.getByRole('searchbox'), '  phở bò ');
+    await userEvent.click(screen.getByRole('button', { name: 'Tìm kiếm' }));
+
+    expect(mockPush).toHaveBeenCalledWith(`/search?q=${encodeURIComponent('phở bò')}`);
   });
 
   it('WCAG: không lồng <main> (layout gốc đã có <main id="main">), có đúng 1 h1', async () => {

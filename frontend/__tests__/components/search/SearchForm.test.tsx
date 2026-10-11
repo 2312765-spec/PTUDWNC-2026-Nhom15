@@ -29,4 +29,13 @@ describe('SearchForm — FR-SRCH-001', () => {
 
     expect(mockPush).toHaveBeenCalledWith(`/search?q=${encodeURIComponent('phở bò')}`);
   });
+
+  it('FR-SRCH-001: chưa có JS vẫn tìm được — form GET tới /search với ô name="q"', () => {
+    renderWithProviders(<SearchForm initialQuery="" />);
+
+    const form = screen.getByRole('search');
+    expect(form).toHaveAttribute('action', '/search');
+    expect(form).toHaveAttribute('method', 'get');
+    expect(screen.getByRole('searchbox')).toHaveAttribute('name', 'q');
+  });
 });
