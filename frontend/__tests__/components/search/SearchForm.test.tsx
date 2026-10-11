@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import SearchForm from '@/app/(public)/search/SearchForm';
+import SearchForm from '@/components/search/SearchForm';
 import { mockPush } from '../../../jest.setup';
 import { renderWithProviders } from '../../utils/render';
 
@@ -28,5 +28,14 @@ describe('SearchForm — FR-SRCH-001', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Tìm kiếm' }));
 
     expect(mockPush).toHaveBeenCalledWith(`/search?q=${encodeURIComponent('phở bò')}`);
+  });
+
+  it('FR-SRCH-001: chưa có JS vẫn tìm được — form GET tới /search với ô name="q"', () => {
+    renderWithProviders(<SearchForm initialQuery="" />);
+
+    const form = screen.getByRole('search');
+    expect(form).toHaveAttribute('action', '/search');
+    expect(form).toHaveAttribute('method', 'get');
+    expect(screen.getByRole('searchbox')).toHaveAttribute('name', 'q');
   });
 });

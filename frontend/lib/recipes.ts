@@ -82,3 +82,19 @@ export async function getRecipes(
 ): Promise<PagedResult<RecipeSummaryDto>> {
   return getJson(`${API_BASE_URL}/recipes?${toRecipeListQuery(filters, pageSize)}`);
 }
+
+/**
+ * FR-RCP-001 — công thức mới nhất cho trang chủ. SRS 5.1: `/` ISR 3600 → dùng `revalidate`,
+ * KHÔNG `no-store` (no-store biến cả trang thành dynamic). Sort mặc định của backend là
+ * `-createdAt` nên không gửi.
+ */
+export async function getLatestRecipes(pageSize: number): Promise<PagedResult<RecipeSummaryDto>> {
+  const res = await fetch(`${API_BASE_URL}/recipes?${toRecipeListQuery({}, pageSize)}`, {
+    next: { revalidate: 3600 },
+  });
+  if (!res.ok) {
+    const problem = (await res.json().catch(() => null)) as { type?: string } | null;
+    throw new ApiError(res.status, problem?.type ?? 'UNKNOWN_ERROR');
+  }
+  return res.json();
+}
