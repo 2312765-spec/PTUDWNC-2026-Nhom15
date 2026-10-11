@@ -53,8 +53,5 @@ seqdata/
 Thumbs.db
 *.swp
 
-**/logs/*.json
-*.log
-
-
-
+# ---- Serilog File sink (FR-OBS-002) ----
+logs/

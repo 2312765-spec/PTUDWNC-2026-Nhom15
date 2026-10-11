@@ -4,7 +4,7 @@ using Xunit;
 
 namespace CulinaryBlog.UnitTests.Categories;
 
-/// <summary>FR-CAT-003 — CONS-008, decisions.md "Ràng buộc validator" (Category.Name 2-50 ký tự, không HTML).</summary>
+/// <summary>FR-CAT-003 — CONS-008, decisions.md "Ràng buộc validator" (Category.Name 2-50 ký tự, Description ≤ 500 ký tự, không HTML).</summary>
 public class CreateCategoryCommandValidatorTests
 {
     private readonly CreateCategoryCommandValidator _validator = new();
@@ -49,6 +49,22 @@ public class CreateCategoryCommandValidatorTests
         var result = _validator.TestValidate(new CreateCategoryCommand("Món chay", "<b>đậm</b>"));
 
         result.ShouldHaveValidationErrorFor(c => c.Description);
+    }
+
+    [Fact(DisplayName = "FR-CAT-003: Description dài 501 ký tự → lỗi")]
+    public void DescriptionTooLong_HasError()
+    {
+        var result = _validator.TestValidate(new CreateCategoryCommand("Món chay", new string('a', 501)));
+
+        result.ShouldHaveValidationErrorFor(c => c.Description);
+    }
+
+    [Fact(DisplayName = "FR-CAT-003: Description dài đúng 500 ký tự vẫn hợp lệ")]
+    public void DescriptionAtLimit_IsValid()
+    {
+        var result = _validator.TestValidate(new CreateCategoryCommand("Món chay", new string('a', 500)));
+
+        result.ShouldNotHaveValidationErrorFor(c => c.Description);
     }
 
     [Fact(DisplayName = "FR-CAT-003: Description null hoặc rỗng vẫn hợp lệ (optional)")]

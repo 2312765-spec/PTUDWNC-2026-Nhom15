@@ -543,6 +543,7 @@ ba endpoint con.
 | `Recipe.Description` | 1–2000 ký tự (mô hình 7.2 không có CHECK — ràng buộc ở validator) |
 | `RecipeStep.Description` | 1–2000 ký tự (mô hình 7.3 là `text` — ràng buộc ở validator) |
 | `Category.Name` | 2–50 ký tự, không chứa HTML |
+| `Category.Description` | Tùy chọn, ≤ 500 ký tự, không chứa HTML (mô hình 7.x là `text` — ràng buộc ở validator, áp dụng cho cả FR-CAT-003 và FR-CAT-004) |
 | `q` (search) | ≥ 2 ký tự |
 | `pageSize` | 1–50, mặc định 12. Vượt 50 → **clamp về 50**, không trả lỗi |
 | `page` | ≥ 1, mặc định 1 |
