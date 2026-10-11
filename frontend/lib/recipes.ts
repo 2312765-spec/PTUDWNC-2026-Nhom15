@@ -1,5 +1,5 @@
 import { ApiError } from '@/lib/categories';
-import type { PagedResult, RecipeSummaryDto } from '@/lib/types';
+import type { PagedResult, RecipeDetailDto, RecipeSummaryDto } from '@/lib/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1';
 
@@ -49,12 +49,15 @@ export function toRecipeListQuery(filters: RecipeListFilters, pageSize?: number)
   return params;
 }
 
+/** NFR-USE-003 — lỗi RFC 7807 → {@link ApiError} mang Application Error Code (`type`). */
+async function toApiError(res: Response): Promise<ApiError> {
+  const problem = (await res.json().catch(() => null)) as { type?: string } | null;
+  return new ApiError(res.status, problem?.type ?? 'UNKNOWN_ERROR');
+}
+
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) {
-    const problem = (await res.json().catch(() => null)) as { type?: string } | null;
-    throw new ApiError(res.status, problem?.type ?? 'UNKNOWN_ERROR');
-  }
+  if (!res.ok) throw await toApiError(res);
   return res.json();
 }
 
@@ -92,9 +95,22 @@ export async function getLatestRecipes(pageSize: number): Promise<PagedResult<Re
   const res = await fetch(`${API_BASE_URL}/recipes?${toRecipeListQuery({}, pageSize)}`, {
     next: { revalidate: 3600 },
   });
-  if (!res.ok) {
-    const problem = (await res.json().catch(() => null)) as { type?: string } | null;
-    throw new ApiError(res.status, problem?.type ?? 'UNKNOWN_ERROR');
-  }
+  if (!res.ok) throw await toApiError(res);
+  return res.json();
+}
+
+/**
+ * FR-RCP-002 — SRS 5.1: `/recipes/[slug]` ISR 300, tag `recipes` + `recipe:{slug}` (D8).
+ *
+ * Chỉ 404/403 → `null` (trang gọi notFound(); 403 = Draft của người khác, trả 404 để không lộ là
+ * nó tồn tại). Lỗi khác (5xx, mất kết nối) phải NÉM ra: trả `null` sẽ biến sự cố thành 404 giả,
+ * ISR lưu trang 404 đè lên bản tốt và Google gỡ trang khỏi index (NFR-USE-003, NFR-SEO).
+ */
+export async function getRecipeBySlug(slug: string): Promise<RecipeDetailDto | null> {
+  const res = await fetch(`${API_BASE_URL}/recipes/${encodeURIComponent(slug)}`, {
+    next: { revalidate: 300, tags: ['recipes', `recipe:${slug}`] },
+  });
+  if (res.status === 404 || res.status === 403) return null;
+  if (!res.ok) throw await toApiError(res);
   return res.json();
 }
