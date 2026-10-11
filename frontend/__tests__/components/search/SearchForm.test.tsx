@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import SearchForm from '@/app/(public)/search/SearchForm';
+import SearchForm from '@/components/search/SearchForm';
 import { mockPush } from '../../../jest.setup';
 import { renderWithProviders } from '../../utils/render';
 
