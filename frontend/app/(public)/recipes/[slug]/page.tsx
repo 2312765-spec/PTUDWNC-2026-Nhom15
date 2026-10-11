@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { getRecipeBySlug } from '@/lib/recipes';
 import { serializeJsonLd } from '@/lib/seo/jsonLd';
 
 export const revalidate = 300; // SRS 5.1: ISR 5 phút (300 giây)
@@ -14,92 +15,13 @@ export function generateStaticParams() {
   return [];
 }
 
-interface RecipeDetailDto {
-  id: string;
-  title: string;
-  slug: string;
-  description: string;
-  instructions?: string;
-  difficulty: number;
-  status: number;
-  prepTime: number;
-  cookTime: number;
-  servings: number;
-  publishedAt?: string;
-  createdAt: string;
-  updatedAt?: string;
-  category: {
-    id: string;
-    name: string;
-    slug: string;
-  };
-  author: {
-    id: string;
-    displayName: string;
-    avatarUrl?: string;
-  };
-  nutrition?: {
-    calories?: number;
-    protein?: number;
-    carbohydrates?: number;
-    fat?: number;
-    fiber?: number;
-    sodium?: number;
-  };
-  ingredients: Array<{
-    id: string;
-    name: string;
-    quantity?: number;
-    unit?: string;
-    notes?: string;
-    orderIndex: number;
-  }>;
-  steps: Array<{
-    id: string;
-    stepNumber: number;
-    title: string;
-    description: string;
-    timerMinutes?: number;
-    imageUrl?: string;
-  }>;
-  images: Array<{
-    id: string;
-    originalUrl: string;
-    altText?: string;
-    isPrimary: boolean;
-    orderIndex: number;
-  }>;
-}
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-
-async function getRecipe(slug: string): Promise<RecipeDetailDto | null> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/recipes/${slug}`, {
-      next: { revalidate: 300, tags: ['recipes', `recipe:${slug}`] },
-    });
-
-    if (res.status === 404 || res.status === 403) {
-      return null;
-    }
-
-    if (!res.ok) {
-      return null;
-    }
-
-    return await res.json();
-  } catch (error) {
-    return null;
-  }
-}
-
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const recipe = await getRecipe(slug);
+  const recipe = await getRecipeBySlug(slug);
 
   if (!recipe) {
     return {
@@ -136,7 +58,7 @@ export default async function RecipeDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const recipe = await getRecipe(slug);
+  const recipe = await getRecipeBySlug(slug);
 
   if (!recipe) {
     notFound();

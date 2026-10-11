@@ -82,7 +82,64 @@ export interface CategoryDetailResponseDto {
   recipes: PagedResult<RecipeSummaryDto>;
 }
 
-// TODO(S4 — B): RecipeDetailDto
+/** FR-RCP-002 — chi tiết công thức (`GET /recipes/{slug}`). */
+export interface RecipeDetailDto {
+  id: string;
+  title: string;
+  slug: string;
+  description: string;
+  instructions?: string;
+  difficulty: number;
+  status: number;
+  prepTime: number;
+  cookTime: number;
+  servings: number;
+  publishedAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+  category: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  author: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string;
+  };
+  nutrition?: {
+    calories?: number;
+    protein?: number;
+    carbohydrates?: number;
+    fat?: number;
+    fiber?: number;
+    sodium?: number;
+  };
+  ingredients: Array<{
+    id: string;
+    name: string;
+    quantity?: number;
+    unit?: string;
+    notes?: string;
+    orderIndex: number;
+  }>;
+  steps: Array<{
+    id: string;
+    stepNumber: number;
+    title: string;
+    description: string;
+    timerMinutes?: number;
+    imageUrl?: string;
+  }>;
+  images: Array<{
+    id: string;
+    originalUrl: string;
+    altText?: string;
+    isPrimary: boolean;
+    orderIndex: number;
+  }>;
+}
+
 // TODO(S6 — C): RecipeStepDto (timerMinutes — D6), RecipeIngredientDto (orderIndex — D7)
 
 /**
