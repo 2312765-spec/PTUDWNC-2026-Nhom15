@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import RecipeCard from '@/components/recipes/RecipeCard';
-import { Button, Input } from '@/components/ui';
+import SearchForm from '@/components/search/SearchForm';
 import { getCategories } from '@/lib/categories';
-import { getLatestRecipes, SEARCH_MIN_LENGTH } from '@/lib/recipes';
+import { getLatestRecipes } from '@/lib/recipes';
 import type { CategoryDto, RecipeSummaryDto } from '@/lib/types';
 
 /**
@@ -32,7 +32,7 @@ export default async function HomePage() {
 
   return (
     <div>
-      {/* Hero + tìm kiếm nhanh (FR-SRCH-001). Form GET thuần: chạy cả khi chưa có JS. */}
+      {/* Hero + tìm kiếm nhanh (FR-SRCH-001) — cùng SearchForm với /search. */}
       <section className="border-b border-border bg-brand-50 py-16 md:py-24">
         <div className="mx-auto max-w-5xl px-4 text-center">
           <h1 className="text-4xl font-extrabold tracking-tight text-ink md:text-5xl">
@@ -42,19 +42,9 @@ export default async function HomePage() {
             Công thức nấu ăn từ các đầu bếp gia đình và chuyên nghiệp.
           </p>
 
-          <form role="search" action="/search" method="GET" className="mx-auto mt-8 flex max-w-xl items-start gap-2">
-            <div className="flex-1">
-              <Input
-                type="search"
-                name="q"
-                aria-label="Tìm công thức"
-                placeholder={`Tìm theo tên hoặc mô tả món ăn… (tối thiểu ${SEARCH_MIN_LENGTH} ký tự)`}
-                minLength={SEARCH_MIN_LENGTH}
-                required
-              />
-            </div>
-            <Button type="submit">Tìm kiếm</Button>
-          </form>
+          <div className="mx-auto mt-8 max-w-xl text-left">
+            <SearchForm initialQuery="" />
+          </div>
         </div>
       </section>
 
