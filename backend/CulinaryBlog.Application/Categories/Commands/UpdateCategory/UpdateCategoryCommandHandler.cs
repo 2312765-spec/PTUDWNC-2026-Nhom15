@@ -28,11 +28,8 @@ public sealed class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategor
     
     public async Task<CategoryDto> Handle(UpdateCategoryCommand request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Name))
-        {
-            throw new ArgumentException("Tên danh mục không được để trống.", nameof(request.Name));
-        }
-
+        // NotEmpty/Length/HTML đã được UpdateCategoryCommandValidator (FluentValidation +
+        // ValidationBehavior, CONS-008) chặn từ trước — Name khác null/rỗng khi tới đây.
         var trimmedName = request.Name.Trim();
 
         // 1. Tìm danh mục theo ID

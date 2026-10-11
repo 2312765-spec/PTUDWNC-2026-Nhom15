@@ -19,7 +19,7 @@ namespace CulinaryBlog.IntegrationTests.Categories;
 /// <summary>FR-CAT-004 — SRS mục 3.2/8.2 + docs/decisions.md D4 (validation → 400), D10 (slug bất biến), D8 (cache).</summary>
 public sealed class UpdateCategoryTests(PostgresApiFactory factory) : IClassFixture<PostgresApiFactory>
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly HttpClient _client = factory.CreateClient();
 
@@ -33,7 +33,7 @@ public sealed class UpdateCategoryTests(PostgresApiFactory factory) : IClassFixt
         var response = await PutAsync(token, created.Id, new { name = newName, description = "mô tả mới" });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<CategoryDto>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<CategoryDto>(_jsonOptions);
         body!.Id.Should().Be(created.Id);
         body.Name.Should().Be(newName);
         body.Description.Should().Be("mô tả mới");
@@ -50,7 +50,7 @@ public sealed class UpdateCategoryTests(PostgresApiFactory factory) : IClassFixt
 
         (await PutAsync(token, created.Id, new { name = newName, description = (string?)null })).EnsureSuccessStatusCode();
 
-        var list = await _client.GetFromJsonAsync<List<CategoryDto>>("/api/v1/categories", JsonOptions);
+        var list = await _client.GetFromJsonAsync<List<CategoryDto>>("/api/v1/categories", _jsonOptions);
         list!.Should().Contain(c => c.Id == created.Id && c.Name == newName);
     }
 
@@ -82,7 +82,7 @@ public sealed class UpdateCategoryTests(PostgresApiFactory factory) : IClassFixt
         var response = await PutAsync(token, Guid.NewGuid(), new { name = "Ten moi", description = (string?)null });
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
         problem!.Type.Should().Be(ErrorCodes.CategoryNotFound);
     }
 
@@ -96,7 +96,7 @@ public sealed class UpdateCategoryTests(PostgresApiFactory factory) : IClassFixt
         var response = await PutAsync(token, target.Id, new { name = other.Name, description = (string?)null });
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
         problem!.Type.Should().Be(ErrorCodes.CategoryNameExists);
     }
 
@@ -120,7 +120,7 @@ public sealed class UpdateCategoryTests(PostgresApiFactory factory) : IClassFixt
         var response = await PutAsync(token, created.Id, new { name = "", description = (string?)null });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
         problem!.Type.Should().Be(ErrorCodes.ValidationError);
     }
 
@@ -133,7 +133,7 @@ public sealed class UpdateCategoryTests(PostgresApiFactory factory) : IClassFixt
         var response = await PutAsync(token, created.Id, new { description = "chỉ có mô tả" });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
         problem!.Type.Should().Be(ErrorCodes.ValidationError);
     }
 
@@ -146,7 +146,7 @@ public sealed class UpdateCategoryTests(PostgresApiFactory factory) : IClassFixt
         var response = await PutAsync(token, created.Id, new { name = created.Name, description = "<script>alert(1)</script>" });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
         problem!.Type.Should().Be(ErrorCodes.ValidationError);
     }
 
@@ -169,7 +169,7 @@ public sealed class UpdateCategoryTests(PostgresApiFactory factory) : IClassFixt
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         var response = await _client.SendAsync(request);
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<CategoryDto>(JsonOptions))!;
+        return (await response.Content.ReadFromJsonAsync<CategoryDto>(_jsonOptions))!;
     }
 
     private async Task<string> RegisterAuthorAsync()
@@ -179,7 +179,7 @@ public sealed class UpdateCategoryTests(PostgresApiFactory factory) : IClassFixt
             "/api/v1/auth/register",
             new { email, password = "Str0ng!Pass1", displayName = "Tác giả test" });
         response.EnsureSuccessStatusCode();
-        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(_jsonOptions);
         return body!.AccessToken;
     }
 
@@ -202,7 +202,7 @@ public sealed class UpdateCategoryTests(PostgresApiFactory factory) : IClassFixt
 
         var loginResponse = await _client.PostAsJsonAsync("/api/v1/auth/login", new { email, password });
         loginResponse.EnsureSuccessStatusCode();
-        var body = await loginResponse.Content.ReadFromJsonAsync<AuthResponseDto>(JsonOptions);
+        var body = await loginResponse.Content.ReadFromJsonAsync<AuthResponseDto>(_jsonOptions);
         return body!.AccessToken;
     }
 }

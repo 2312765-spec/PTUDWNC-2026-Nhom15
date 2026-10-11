@@ -1,5 +1,6 @@
 using System.Reflection;
 using CulinaryBlog.Application.Common.Behaviors;
+using CulinaryBlog.Application.Common.Observability;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +28,9 @@ public static class DependencyInjection
         });
 
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
+
+        // FR-OBS-003/D39 — IMeterFactory do host .NET đăng ký sẵn.
+        services.AddSingleton<RecipeMetrics>();
 
         return services;
     }

@@ -1,6 +1,3 @@
-using System.Globalization;
-using System.Text;
-using System.Text.RegularExpressions;
 using CulinaryBlog.Application.Categories.DTOs;
 using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Application.Common.Interfaces;
@@ -32,11 +29,8 @@ public sealed class CreateCategoryCommandHandler : IRequestHandler<CreateCategor
 
     public async Task<CategoryDto> Handle(CreateCategoryCommand request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Name))
-        {
-            throw new ArgumentException("Tên danh mục không được để trống.", nameof(request.Name));
-        }
-
+        // NotEmpty/Length/HTML đã được CreateCategoryCommandValidator (FluentValidation +
+        // ValidationBehavior, CONS-008) chặn từ trước — Name khác null/rỗng khi tới đây.
         var trimmedName = request.Name.Trim();
 
         // 1. Kiểm tra trùng tên danh mục (Yêu cầu mã lỗi: CATEGORY_NAME_EXISTS)
@@ -46,8 +40,10 @@ public sealed class CreateCategoryCommandHandler : IRequestHandler<CreateCategor
             throw new ConflictException("CATEGORY_NAME_EXISTS", $"Danh mục với tên '{trimmedName}' đã tồn tại trong hệ thống.");
         }
 
-        // 2. Tạo Slug duy nhất (Quyết định D10: Bắt đầu thêm hậu tố từ -2)
-        var baseSlug = GenerateSlug(trimmedName);
+        // 2. Tạo Slug duy nhất qua ISlugHelper dùng chung (D10: auto-suffix bắt đầu từ "-2",
+        // không bao giờ trả 409 — SlugHelper.GenerateUniqueAsync bắt đầu suffix từ "-1" nên
+        // không dùng ở đây, tự lặp bắt đầu từ 2 để khớp D10).
+        var baseSlug = _slugHelper.Generate(trimmedName);
         var uniqueSlug = baseSlug;
         var counter = 2;
 
@@ -56,7 +52,7 @@ public sealed class CreateCategoryCommandHandler : IRequestHandler<CreateCategor
             uniqueSlug = $"{baseSlug}-{counter++}";
         }
 
-        // 3. Khởi tạo thực thể Category (Domain Aggregate)
+        // 3. Khởi tạo thực thể Category (Domain Aggregate) — validate Name/Slug lần nữa ở Domain
         var category = Category.Create(trimmedName, uniqueSlug, request.Description?.Trim());
 
         await _categoryRepository.AddAsync(category, cancellationToken);
@@ -70,27 +66,5 @@ public sealed class CreateCategoryCommandHandler : IRequestHandler<CreateCategor
             category.Description,
             0
         );
-    }
-
-    private static string GenerateSlug(string text)
-    {
-        var normalizedString = text.Normalize(NormalizationForm.FormD);
-        var stringBuilder = new StringBuilder();
-
-        foreach (var c in normalizedString)
-        {
-            var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
-            if (unicodeCategory != UnicodeCategory.NonSpacingMark)
-            {
-                stringBuilder.Append(c);
-            }
-        }
-
-        var cleanText = stringBuilder.ToString().Normalize(NormalizationForm.FormC);
-        cleanText = cleanText.Replace("đ", "d").Replace("Đ", "D");
-        cleanText = Regex.Replace(cleanText.ToLowerInvariant(), @"[^a-z0-9\s-]", "");
-        cleanText = Regex.Replace(cleanText, @"\s+", "-").Trim('-');
-
-        return string.IsNullOrWhiteSpace(cleanText) ? "danh-muc" : cleanText;
     }
 }

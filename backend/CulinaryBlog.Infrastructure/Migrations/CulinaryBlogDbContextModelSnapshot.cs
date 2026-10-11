@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using NpgsqlTypes;
 
 #nullable disable
 
@@ -119,6 +120,9 @@ namespace CulinaryBlog.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("bytea");
 
+                    b.Property<NpgsqlTsVector>("SearchVector")
+                        .HasColumnType("tsvector");
+
                     b.Property<int>("Servings")
                         .HasColumnType("integer");
 
@@ -145,6 +149,11 @@ namespace CulinaryBlog.Infrastructure.Migrations
                     b.HasIndex("CategoryId");
 
                     b.HasIndex("Difficulty");
+
+                    b.HasIndex("SearchVector")
+                        .HasDatabaseName("IX_Recipes_SearchVector");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("SearchVector"), "GIN");
 
                     b.HasIndex("Slug")
                         .IsUnique();
@@ -594,7 +603,7 @@ namespace CulinaryBlog.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("CulinaryBlog.Domain.Entities.Category", null)
+                    b.HasOne("CulinaryBlog.Domain.Entities.Category", "Category")
                         .WithMany("Recipes")
                         .HasForeignKey("CategoryId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -643,35 +652,43 @@ namespace CulinaryBlog.Infrastructure.Migrations
                                 .HasForeignKey("RecipeId");
                         });
 
+                    b.Navigation("Category");
+
                     b.Navigation("Nutrition")
                         .IsRequired();
                 });
 
             modelBuilder.Entity("CulinaryBlog.Domain.Entities.RecipeImage", b =>
                 {
-                    b.HasOne("CulinaryBlog.Domain.Entities.Recipe", null)
+                    b.HasOne("CulinaryBlog.Domain.Entities.Recipe", "Recipe")
                         .WithMany("Images")
                         .HasForeignKey("RecipeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Recipe");
                 });
 
             modelBuilder.Entity("CulinaryBlog.Domain.Entities.RecipeIngredient", b =>
                 {
-                    b.HasOne("CulinaryBlog.Domain.Entities.Recipe", null)
+                    b.HasOne("CulinaryBlog.Domain.Entities.Recipe", "Recipe")
                         .WithMany("Ingredients")
                         .HasForeignKey("RecipeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Recipe");
                 });
 
             modelBuilder.Entity("CulinaryBlog.Domain.Entities.RecipeStep", b =>
                 {
-                    b.HasOne("CulinaryBlog.Domain.Entities.Recipe", null)
+                    b.HasOne("CulinaryBlog.Domain.Entities.Recipe", "Recipe")
                         .WithMany("Steps")
                         .HasForeignKey("RecipeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Recipe");
                 });
 
             modelBuilder.Entity("CulinaryBlog.Domain.Entities.RefreshToken", b =>

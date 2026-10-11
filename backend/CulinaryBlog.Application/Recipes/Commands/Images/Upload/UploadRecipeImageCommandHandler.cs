@@ -3,6 +3,7 @@ using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Interfaces;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace CulinaryBlog.Application.Recipes.Commands.Images;
 
@@ -16,7 +17,8 @@ public sealed class UploadRecipeImageCommandHandler(
     IFileStorageService fileStorageService,
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
-    IBackgroundJobService backgroundJobService)
+    IBackgroundJobService backgroundJobService,
+    ILogger<UploadRecipeImageCommandHandler> logger)
     : IRequestHandler<UploadRecipeImageCommand, UploadRecipeImageResult>
 {
     public async Task<UploadRecipeImageResult> Handle(UploadRecipeImageCommand request, CancellationToken cancellationToken)
@@ -34,9 +36,9 @@ public sealed class UploadRecipeImageCommandHandler(
         var url = await fileStorageService.UploadAsync(
             request.Content, request.FileName, request.ContentType, $"recipes/{request.RecipeId}", cancellationToken);
 
+        UploadRecipeImageResult? result = null;
         try
         {
-            UploadRecipeImageResult? result = null;
             var recipeSlug = string.Empty;
 
             // Khoá dòng Recipe rồi mới quyết định primary/orderIndex: nhiều upload đồng thời vào cùng
@@ -60,14 +62,32 @@ public sealed class UploadRecipeImageCommandHandler(
             }, cancellationToken);
 
             request.TagsToInvalidate = ["recipes", $"recipe:{recipeSlug}"];
-
-            return result!;
         }
         catch
         {
             // File đã lên MinIO nhưng DB không ghi được → xoá bất đồng bộ để khỏi thành file mồ côi.
             backgroundJobService.EnqueueDeleteImageFile(url);
             throw;
+        }
+
+        EnqueueGenerateImageVariants(request.RecipeId, result!.ImageId);
+
+        return result;
+    }
+
+    /// <summary>
+    /// FR-JOB-002/D44 — chỉ enqueue SAU khi ảnh đã nằm trong DB. Enqueue lỗi không làm fail request:
+    /// ảnh gốc đã lưu xong và vẫn hiển thị được, chỉ thiếu medium/thumbnail.
+    /// </summary>
+    private void EnqueueGenerateImageVariants(Guid recipeId, Guid imageId)
+    {
+        try
+        {
+            backgroundJobService.EnqueueGenerateImageVariants(recipeId, imageId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "FR-JOB-002: không enqueue được job resize cho ảnh {ImageId}", imageId);
         }
     }
 }

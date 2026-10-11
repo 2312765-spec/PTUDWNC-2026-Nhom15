@@ -5,12 +5,17 @@ using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Enums;
 using CulinaryBlog.Domain.Interfaces;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 
 namespace CulinaryBlog.UnitTests.Images;
 
-/// <summary>FR-RCP-008 — thứ tự kiểm tra quyền → upload MinIO → lưu DB, và dọn file khi lưu DB lỗi.</summary>
+/// <summary>
+/// FR-RCP-008 — thứ tự kiểm tra quyền → upload MinIO → lưu DB, và dọn file khi lưu DB lỗi.
+/// FR-JOB-002/D44 — enqueue job resize chỉ sau khi lưu DB thành công.
+/// </summary>
 public class UploadRecipeImageCommandHandlerTests
 {
     private const string OwnerId = "owner-1";
@@ -36,7 +41,8 @@ public class UploadRecipeImageCommandHandlerTests
     }
 
     private UploadRecipeImageCommandHandler CreateHandler() =>
-        new(_recipeRepository, _imageRepository, _fileStorage, _unitOfWork, _currentUser, _jobs);
+        new(_recipeRepository, _imageRepository, _fileStorage, _unitOfWork, _currentUser, _jobs,
+            NullLogger<UploadRecipeImageCommandHandler>.Instance);
 
     private static UploadRecipeImageCommand Command(Guid recipeId) =>
         new(recipeId, new MemoryStream([1, 2, 3]), 3, "image/jpeg", "a.jpg", null);
@@ -95,5 +101,46 @@ public class UploadRecipeImageCommandHandlerTests
         result.IsPrimary.Should().BeTrue();
         result.OriginalUrl.Should().Be(UploadedUrl);
         _jobs.DidNotReceive().EnqueueDeleteImageFile(Arg.Any<string>());
+    }
+
+    [Fact(DisplayName = "FR-JOB-002/D44: upload thành công → enqueue job resize với đúng recipeId + imageId")]
+    public async Task Handle_Success_EnqueuesGenerateImageVariants()
+    {
+        var recipe = NewRecipe();
+        _recipeRepository.GetAuthorIdAsync(recipe.Id, Arg.Any<CancellationToken>()).Returns(OwnerId);
+        _recipeRepository.GetByIdWithImagesForUpdateAsync(recipe.Id, Arg.Any<CancellationToken>()).Returns(recipe);
+
+        var result = await CreateHandler().Handle(Command(recipe.Id), CancellationToken.None);
+
+        _jobs.Received(1).EnqueueGenerateImageVariants(recipe.Id, result.ImageId);
+    }
+
+    [Fact(DisplayName = "FR-JOB-002/D44: enqueue job resize lỗi → request vẫn thành công (ảnh gốc vẫn dùng được)")]
+    public async Task Handle_EnqueueResizeFails_StillSucceeds()
+    {
+        var recipe = NewRecipe();
+        _recipeRepository.GetAuthorIdAsync(recipe.Id, Arg.Any<CancellationToken>()).Returns(OwnerId);
+        _recipeRepository.GetByIdWithImagesForUpdateAsync(recipe.Id, Arg.Any<CancellationToken>()).Returns(recipe);
+        _jobs.When(j => j.EnqueueGenerateImageVariants(Arg.Any<Guid>(), Arg.Any<Guid>()))
+            .Do(_ => throw new InvalidOperationException("hangfire storage down"));
+
+        var result = await CreateHandler().Handle(Command(recipe.Id), CancellationToken.None);
+
+        result.OriginalUrl.Should().Be(UploadedUrl);
+        _jobs.DidNotReceive().EnqueueDeleteImageFile(Arg.Any<string>());
+    }
+
+    [Fact(DisplayName = "FR-JOB-002/D44: lưu DB lỗi → KHÔNG enqueue job resize cho ảnh không tồn tại")]
+    public async Task Handle_DbFails_DoesNotEnqueueResize()
+    {
+        var recipe = NewRecipe();
+        _recipeRepository.GetAuthorIdAsync(recipe.Id, Arg.Any<CancellationToken>()).Returns(OwnerId);
+        _recipeRepository.GetByIdWithImagesForUpdateAsync(recipe.Id, Arg.Any<CancellationToken>()).Returns(recipe);
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new InvalidOperationException("db down"));
+
+        var act = () => CreateHandler().Handle(Command(recipe.Id), CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        _jobs.DidNotReceiveWithAnyArgs().EnqueueGenerateImageVariants(default, default);
     }
 }

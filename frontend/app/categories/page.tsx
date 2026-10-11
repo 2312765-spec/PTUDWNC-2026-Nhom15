@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { unstable_noStore as noStore } from 'next/cache';
 import Link from 'next/link';
-import { Badge, Card, CardBody } from '@/components/ui';
+import { DeleteCategoryButton } from '@/components/categories/DeleteCategoryButton';
+import { Badge, Card, CardBody, CardFooter } from '@/components/ui';
 import { getCategories } from '@/lib/categories';
 
 /**
@@ -40,11 +41,11 @@ export default async function CategoriesPage() {
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {categories.map((category) => (
             <li key={category.id}>
-              <Link
-                href={`/categories/${category.slug}`}
-                className="block h-full rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-              >
-                <Card className="h-full transition-colors hover:border-brand-500">
+              <Card className="flex h-full flex-col transition-colors hover:border-brand-500">
+                <Link
+                  href={`/categories/${category.slug}`}
+                  className="block flex-1 rounded-t-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+                >
                   <CardBody className="flex h-full flex-col gap-2">
                     <Badge variant="warning" className="self-start">
                       {category.recipeCount} công thức
@@ -54,8 +55,16 @@ export default async function CategoriesPage() {
                       {category.description || 'Chưa có mô tả.'}
                     </p>
                   </CardBody>
-                </Card>
-              </Link>
+                </Link>
+                {/* FR-CAT-005 — nằm ngoài <Link> để không lồng phần tử tương tác (nút trong thẻ a). */}
+                <CardFooter className="flex justify-end p-2">
+                  <DeleteCategoryButton
+                    categoryId={category.id}
+                    categoryName={category.name}
+                    recipeCount={category.recipeCount}
+                  />
+                </CardFooter>
+              </Card>
             </li>
           ))}
         </ul>

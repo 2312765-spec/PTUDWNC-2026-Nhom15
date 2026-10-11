@@ -17,7 +17,8 @@
     <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="MailKit" />
-    <PackageReference Include="SixLabors.ImageSharp" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
     <PackageReference Include="Hangfire.Core" />
     <PackageReference Include="Hangfire.AspNetCore" />
     <PackageReference Include="Hangfire.PostgreSql" />

@@ -80,4 +80,10 @@ public class LayerDependencyTests
         Types().That().Are(DomainLayer)
             .Should().NotDependOnAny(Types().That().ResideInNamespace("Microsoft.EntityFrameworkCore", true))
             .Check(Architecture);
+
+    [Fact(DisplayName = "CONS-001/D39: Domain và Application không dùng OpenTelemetry (chỉ System.Diagnostics)")]
+    public void DomainAndApplication_ShouldNotDependOn_OpenTelemetry() =>
+        Types().That().Are(DomainLayer).Or().Are(ApplicationLayer)
+            .Should().NotDependOnAny(Types().That().ResideInNamespace("OpenTelemetry", true))
+            .Check(Architecture);
 }

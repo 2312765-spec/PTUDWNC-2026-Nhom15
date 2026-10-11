@@ -13,6 +13,12 @@ const nextConfig: NextConfig = {
 
   // NFR-SEC-005
   poweredByHeader: false,
+
+  // FR-AUTH-001/002 — dev log mặc định in tham số server action, tức in cả mật khẩu
+  // của loginAction/registerAction ra terminal. Tắt đi.
+  logging: {
+    serverFunctions: false,
+  },
 };
 
 export default nextConfig;

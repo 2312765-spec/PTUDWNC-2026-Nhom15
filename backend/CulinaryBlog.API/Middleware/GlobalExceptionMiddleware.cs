@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Domain.Common;
 using CulinaryBlog.Domain.Exceptions;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using FluentValidationException = FluentValidation.ValidationException;
@@ -12,6 +13,7 @@ namespace CulinaryBlog.API.Middleware;
 /// <summary>
 /// CONS-005 — Mọi lỗi trả về theo RFC 7807 (application/problem+json).
 /// Quyết định D4: 400 cho validation, 401 cho auth, 403 cho forbidden, 404 cho not found, 409 cho conflict, 423 cho locked.
+/// D33: 502 cho phụ thuộc ngoài (Google) không khả dụng.
 /// </summary>
 public sealed class GlobalExceptionMiddleware(
     RequestDelegate next,
@@ -43,6 +45,11 @@ public sealed class GlobalExceptionMiddleware(
         if (status >= 500)
         {
             logger.LogError(exception, "Lỗi chưa xử lý: {Message}", exception.Message);
+
+            // FR-OBS-003/D38: exception bị nuốt ở đây nên ASP.NET Core Hosting không tự gắn error.type
+            // vào http.server.request.duration — gắn tay như ExceptionHandlerMiddleware có sẵn làm.
+            context.Features.Get<IHttpMetricsTagsFeature>()?.Tags
+                .Add(new KeyValuePair<string, object?>("error.type", exception.GetType().FullName));
         }
         else
         {
@@ -143,7 +150,15 @@ public sealed class GlobalExceptionMiddleware(
             LockedException le => (
                 StatusCodes.Status423Locked, 
                 string.IsNullOrEmpty(le.ErrorCode) ? "AUTH_ACCOUNT_LOCKED" : le.ErrorCode, 
-                "Tài khoản bị khóa", 
+                "Tài khoản bị khóa",
+                null),
+
+            // D33: 502 có chủ đích khi phụ thuộc ngoài (Google) không gọi được vì hạ tầng —
+            // khác bản chất với DomainException 400 (token client gửi sai).
+            BadGatewayException be => (
+                StatusCodes.Status502BadGateway,
+                be.ErrorCode,
+                "Dịch vụ bên ngoài không khả dụng",
                 null),
 
             // Concurrency conflict -> 409 (D4)

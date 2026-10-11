@@ -14,12 +14,16 @@ public sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
         builder.Property(c => c.Name).HasMaxLength(100).IsRequired();
         builder.Property(c => c.Slug).HasMaxLength(120).IsRequired();
         builder.Property(c => c.Description);
-       
+        builder.Property(c => c.ImageUrl).HasMaxLength(500);
+        builder.Property(c => c.OrderIndex).HasDefaultValue(0);
+
         builder.HasIndex(c => c.Name).IsUnique();
         builder.HasIndex(c => c.Slug).IsUnique();
 
+        // Cùng một quan hệ với RecipeConfiguration (r.Category ↔ c.Recipes) — phải khai báo đủ hai
+        // navigation, để trống .WithOne() sẽ thành quan hệ thứ hai.
         builder.HasMany(c => c.Recipes)
-            .WithOne()
+            .WithOne(r => r.Category)
             .HasForeignKey(r => r.CategoryId)
             .OnDelete(DeleteBehavior.Restrict); // D2: không bao giờ thật sự kích hoạt (soft delete)
     }

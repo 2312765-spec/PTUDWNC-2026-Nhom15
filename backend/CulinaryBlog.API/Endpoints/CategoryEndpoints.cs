@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using CulinaryBlog.API.Extensions;
 using CulinaryBlog.Application.Categories.Commands.CreateCategory;
 using CulinaryBlog.Application.Categories.Commands.UpdateCategory;
 using CulinaryBlog.Application.Categories.DTOs;
@@ -8,7 +9,7 @@ using MediatR;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-
+using CulinaryBlog.Application.Categories.Commands.DeleteCategory;
 namespace CulinaryBlog.API.Endpoints;
 
 /// <summary>
@@ -66,7 +67,7 @@ public static class CategoryEndpoints
         .WithName("CreateCategory")
         .WithSummary("Tạo danh mục món ăn mới (FR-CAT-003)")
         .WithDescription("Tạo danh mục mới, tự động sinh slug URL-friendly duy nhất theo Quyết định D10. Yêu cầu quyền Admin.")
-        .RequireAuthorization(policy => policy.RequireRole(Roles.Admin)) // <-- SỬA LỖI 201 THÀNH 401/403 Ở ĐÂY
+        .RequireAuthorization(Policies.Admin)
         .Produces<CategoryDto>(StatusCodes.Status201Created)
         .ProducesValidationProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -84,7 +85,7 @@ public static class CategoryEndpoints
         .WithName("UpdateCategory")
         .WithSummary("Cập nhật thông tin danh mục (FR-CAT-004)")
         .WithDescription("Cập nhật Tên và Mô tả của danh mục. Theo Quyết định D10, slug được giữ nguyên để không làm gãy liên kết SEO.")
-        .RequireAuthorization(policy => policy.RequireRole(Roles.Admin)) // <-- SỬA LỖI 404 THÀNH 401/403 Ở ĐÂY
+        .RequireAuthorization(Policies.Admin)
         .Produces<CategoryDto>(StatusCodes.Status200OK)
         .ProducesValidationProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -92,8 +93,29 @@ public static class CategoryEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict);
 
+    
+    // FR-CAT-005: Xóa danh mục (Chỉ Admin)
+        group.MapDelete("/{id:guid}", async (
+            Guid id,
+            ISender mediator,
+            CancellationToken ct) =>
+        {
+            await mediator.Send(new DeleteCategoryCommand(id), ct);
+            return TypedResults.NoContent();
+        })
+        .RequireAuthorization(Policies.Admin)
+        .WithName("DeleteCategory")
+        .WithSummary("Xóa danh mục (FR-CAT-005)")
+        .WithDescription("Admin xóa danh mục")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict);
         return group;
+        
     }
+    
 }
 
 public sealed record UpdateCategoryRequest(string Name, string? Description);

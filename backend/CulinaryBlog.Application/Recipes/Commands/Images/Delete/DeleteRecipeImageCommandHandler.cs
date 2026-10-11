@@ -7,7 +7,7 @@ using MediatR;
 namespace CulinaryBlog.Application.Recipes.Commands.Images;
 
 /// <summary>
-/// FR-RCP-008/FR-FILE-002/D1 — xóa RecipeImage khỏi DB ngay (hard delete), còn file MinIO xóa
+/// FR-RCP-008/FR-FILE-002/D1/D43 — xóa RecipeImage khỏi DB ngay (hard delete), còn file MinIO xóa
 /// bất đồng bộ qua Hangfire (fire-and-forget) — không chờ, không làm fail request nếu MinIO chậm.
 /// </summary>
 public sealed class DeleteRecipeImageCommandHandler(
@@ -41,9 +41,13 @@ public sealed class DeleteRecipeImageCommandHandler(
 
         request.TagsToInvalidate = ["recipes", $"recipe:{recipe.Slug}"];
 
-        if (!string.IsNullOrEmpty(image.OriginalUrl))
+        // D43: xóa cả ảnh gốc lẫn medium/thumbnail do FR-JOB-002 sinh (URL nào null thì job chưa chạy).
+        foreach (var url in new[] { image.OriginalUrl, image.MediumUrl, image.ThumbnailUrl })
         {
-            backgroundJobService.EnqueueDeleteImageFile(image.OriginalUrl);
+            if (!string.IsNullOrEmpty(url))
+            {
+                backgroundJobService.EnqueueDeleteImageFile(url);
+            }
         }
     }
 }

@@ -52,3 +52,6 @@ seqdata/
 .DS_Store
 Thumbs.db
 *.swp
+
+# ---- Serilog File sink (FR-OBS-002) ----
+logs/

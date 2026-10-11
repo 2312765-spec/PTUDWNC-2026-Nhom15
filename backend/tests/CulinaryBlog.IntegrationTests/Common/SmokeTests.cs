@@ -1,5 +1,8 @@
 using System.Net;
+using System.Net.Http.Headers;
+using CulinaryBlog.Application.Common.Interfaces;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace CulinaryBlog.IntegrationTests.Common;
@@ -40,10 +43,17 @@ public class SmokeTests(CulinaryBlogApiFactory factory) : IClassFixture<Culinary
     }
 
     [Theory(DisplayName = "Endpoint chưa hiện thực trả 501 kèm mã FR")]
-    [InlineData("/api/v1/recipes")]
+    [InlineData("/api/v1/recipes/11111111-1111-1111-1111-111111111111/publish")] // FR-RCP-005 (C)
     public async Task PendingEndpoints_Return501(string url)
     {
-        var response = await _client.GetAsync(url);
+        // Các endpoint còn pending đều cần policy Author → gửi JWT thật (ký bằng khóa test) để
+        // request đi qua tầng xác thực và chạm tới handler 501.
+        var jwt = factory.Services.GetRequiredService<IJwtService>();
+        var (token, _) = jwt.GenerateAccessToken(Guid.NewGuid().ToString(), "smoke@test.local", ["Author"]);
+        using var request = new HttpRequestMessage(HttpMethod.Patch, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _client.SendAsync(request);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotImplemented);
     }

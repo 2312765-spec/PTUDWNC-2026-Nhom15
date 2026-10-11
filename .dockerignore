@@ -1,0 +1,26 @@
+# CONS-009 — build context gốc (.) chỉ dùng cho backend/CulinaryBlog.API/Dockerfile.
+# bin/obj của máy dev chứa project.assets.json trỏ đường dẫn NuGet local (vd. C:\...) →
+# đè lên kết quả restore trong container làm publish lỗi.
+**/bin/
+**/obj/
+**/TestResults/
+
+# Không cần cho build backend
+.git/
+.github/
+.vs/
+.vscode/
+.idea/
+frontend/
+e2e/
+nginx/
+docs/
+**/node_modules/
+*.docx
+*.md
+
+# Không bao giờ đưa secrets vào image
+**/.env
+**/.env.*
+**/appsettings.*.local.json
+**/secrets.json

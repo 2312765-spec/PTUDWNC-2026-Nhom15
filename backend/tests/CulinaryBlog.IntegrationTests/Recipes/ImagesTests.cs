@@ -342,6 +342,25 @@ public sealed class ImagesTests(RecipeImagesApiFactory factory) : IClassFixture<
         (await db.Recipes.FindAsync(recipeId)).Should().NotBeNull();
     }
 
+    [Fact(DisplayName = "D43: xóa ảnh đã có medium/thumbnail → enqueue xóa cả 3 file trên MinIO")]
+    public async Task Delete_ImageWithVariants_EnqueuesDeleteForAllThreeFiles()
+    {
+        var (token, userId) = await RegisterAuthorAsync();
+        var recipeId = await SeedRecipeAsync(userId, recipe =>
+        {
+            var seeded = recipe.AttachImage("https://fake/original.jpg");
+            recipe.SetImageVariants(seeded.Id, "https://fake/medium.webp", "https://fake/thumb.webp");
+        });
+        var imageId = (await GetImagesAsync(recipeId)).Single().Id;
+
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/recipes/{recipeId}/images/{imageId}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        (await _client.SendAsync(request)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        factory.BackgroundJobs.DeleteImageFileUrls.Should()
+            .Contain(["https://fake/original.jpg", "https://fake/medium.webp", "https://fake/thumb.webp"]);
+    }
+
     [Fact(DisplayName = "permissions.md: Author khác xóa ảnh → 403 RECIPE_FORBIDDEN")]
     public async Task Delete_AsOtherAuthor_Returns403()
     {
