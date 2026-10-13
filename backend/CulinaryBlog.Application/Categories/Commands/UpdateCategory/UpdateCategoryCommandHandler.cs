@@ -1,5 +1,6 @@
 using CulinaryBlog.Application.Categories.DTOs;
 using CulinaryBlog.Application.Common.Exceptions;
+using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Domain.Interfaces;
 using MediatR;
 
@@ -14,17 +15,26 @@ public sealed class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategor
 {
     private readonly ICategoryRepository _categoryRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICurrentUser _currentUser;
 
     public UpdateCategoryCommandHandler(
         ICategoryRepository categoryRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ICurrentUser currentUser)
     {
         _categoryRepository = categoryRepository;
         _unitOfWork = unitOfWork;
+        _currentUser = currentUser;
     }
     
     public async Task<CategoryDto> Handle(UpdateCategoryCommand request, CancellationToken cancellationToken)
     {
+        // 0. Chỉ Admin (NFR-SEC-006: kiểm tra lại ở Application Layer, không chỉ dựa vào AdminPolicy ở endpoint)
+        if (!_currentUser.IsAdmin)
+        {
+            throw new ForbiddenException(ErrorCodes.CategoryForbidden, "Chỉ Admin mới được cập nhật danh mục.");
+        }
+
         // NotEmpty/Length/HTML đã được UpdateCategoryCommandValidator (FluentValidation +
         // ValidationBehavior, CONS-008) chặn từ trước — Name khác null/rỗng khi tới đây.
         var trimmedName = request.Name.Trim();

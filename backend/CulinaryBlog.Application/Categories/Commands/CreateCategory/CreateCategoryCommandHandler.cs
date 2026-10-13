@@ -16,19 +16,28 @@ public sealed class CreateCategoryCommandHandler : IRequestHandler<CreateCategor
     private readonly ICategoryRepository _categoryRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ISlugHelper _slugHelper;
+    private readonly ICurrentUser _currentUser;
 
     public CreateCategoryCommandHandler(
         ICategoryRepository categoryRepository,
         IUnitOfWork unitOfWork,
-        ISlugHelper slugHelper)
+        ISlugHelper slugHelper,
+        ICurrentUser currentUser)
     {
         _categoryRepository = categoryRepository;
         _unitOfWork = unitOfWork;
         _slugHelper = slugHelper;
+        _currentUser = currentUser;
     }
 
     public async Task<CategoryDto> Handle(CreateCategoryCommand request, CancellationToken cancellationToken)
     {
+        // 0. Chỉ Admin (NFR-SEC-006: kiểm tra lại ở Application Layer, không chỉ dựa vào AdminPolicy ở endpoint)
+        if (!_currentUser.IsAdmin)
+        {
+            throw new ForbiddenException(ErrorCodes.CategoryForbidden, "Chỉ Admin mới được tạo danh mục.");
+        }
+
         // NotEmpty/Length/HTML đã được CreateCategoryCommandValidator (FluentValidation +
         // ValidationBehavior, CONS-008) chặn từ trước — Name khác null/rỗng khi tới đây.
         var trimmedName = request.Name.Trim();

@@ -65,6 +65,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D47 | Logout (FR-AUTH-005) | Giữ `RequireAuthorization` · thiếu `refreshToken` → 400 · token user khác / đã revoke / hết hạn → **204 no-op** · không kích hoạt reuse detection |
 | D48 | Xem hồ sơ (FR-AUTH-006) | User bị xóa sau khi cấp token → **404** `USER_NOT_FOUND` · user `IsActive=false` còn access token → **200** (chỉ đọc) |
 | D49 | Full-text search (FR-SRCH-001) | `simple` + `unaccent` (không có cấu hình `vietnamese`) · `SearchVector` do **trigger** cập nhật + GIN index · Title trọng số A, Description B · xếp `ts_rank` · bỏ khớp `ILIKE` giữa từ |
+| D50 | Non-Admin gọi lệnh ghi Category (NFR-SEC-006) | Handler kiểm tra lại `IsAdmin` → **403** `CATEGORY_FORBIDDEN` (thêm mã mới) |
 
 ---
 
@@ -578,6 +579,7 @@ nếu không request `/recipes/search` sẽ khớp vào route slug. Kèm theo D1
 | `CATEGORY_NOT_FOUND` | 404 | Category | — |
 | `CATEGORY_NAME_EXISTS` | 409 | Category | — |
 | `CATEGORY_DELETE_HAS_RECIPES` | 409 | Category | — |
+| `CATEGORY_FORBIDDEN` | 403 | Category | 🆕 **thêm mới** (D50) — người không phải Admin gọi tạo/sửa/xóa category |
 | `FILE_SIZE_EXCEEDED` | 400 | File | — |
 | `FILE_MIME_INVALID` | 400 | File | — |
 | `VALIDATION_ERROR` | 400 | Common | — |
@@ -1345,6 +1347,32 @@ Description có quan trọng ngang nhau không.
 
 **Sửa SRS:** FR-SRCH-001 — `vietnamese` → `simple` + `unaccent`; "computed column" → "cột cập nhật bởi
 trigger"; ghi trọng số Title A / Description B; mã lỗi 422 → 400 (D4).
+
+---
+
+## D50 — Phân quyền lệnh ghi Category ở Application Layer (NFR-SEC-006)
+
+> 2026-10-13. Review PR #49.
+
+**Nguồn thiếu:** NFR-SEC-006 yêu cầu kiểm tra phân quyền ở Application Layer, không chỉ ở Presentation
+Layer. FR-CAT-003/004/005 chỉ cho Admin, endpoint đã có `RequireAuthorization("AdminPolicy")`, nhưng
+handler chưa kiểm tra lại. Bảng Application Error Code chỉ có `RECIPE_FORBIDDEN` (403), không có mã 403
+nào cho Category.
+
+**Chốt:**
+
+1. `CreateCategoryCommandHandler`, `UpdateCategoryCommandHandler`, `DeleteCategoryCommandHandler` kiểm tra
+   `ICurrentUser.IsAdmin` **trước mọi truy cập dữ liệu**. Không phải Admin → `ForbiddenException`
+   → **403** `CATEGORY_FORBIDDEN`.
+2. Thêm mã `CATEGORY_FORBIDDEN` (403), cùng dạng với `RECIPE_FORBIDDEN`.
+3. Không dùng `UnauthorizedAccessException` của BCL: `GlobalExceptionMiddleware` không map kiểu này,
+   nên nó sẽ thành 500.
+4. Ở endpoint, `AdminPolicy` vẫn chặn trước (trả 403 của ASP.NET). Kiểm tra trong handler là lớp thứ hai,
+   phòng khi endpoint bị cấu hình thiếu policy hoặc command được gửi từ nơi khác (job, endpoint mới).
+
+**Vì:** đúng NFR-SEC-006, và lỗi phân quyền luôn trả RFC 7807 với error code, không bao giờ 500.
+
+**Sửa SRS:** bảng Application Error Code — thêm `CATEGORY_FORBIDDEN` (403, Category).
 
 ---
 

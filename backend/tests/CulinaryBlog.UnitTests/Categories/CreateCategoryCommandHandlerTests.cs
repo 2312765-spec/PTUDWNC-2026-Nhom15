@@ -15,8 +15,26 @@ public class CreateCategoryCommandHandlerTests
     private readonly ICategoryRepository _categoryRepository = Substitute.For<ICategoryRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly ISlugHelper _slugHelper = Substitute.For<ISlugHelper>();
+    private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
 
-    private CreateCategoryCommandHandler CreateHandler() => new(_categoryRepository, _unitOfWork, _slugHelper);
+    public CreateCategoryCommandHandlerTests()
+    {
+        _currentUser.IsAdmin.Returns(true);
+    }
+
+    private CreateCategoryCommandHandler CreateHandler() => new(_categoryRepository, _unitOfWork, _slugHelper, _currentUser);
+
+    [Fact(DisplayName = "NFR-SEC-006/D50: không phải Admin → ForbiddenException CATEGORY_FORBIDDEN, không ghi DB")]
+    public async Task Handle_NotAdmin_ThrowsForbidden()
+    {
+        _currentUser.IsAdmin.Returns(false);
+
+        var act = () => CreateHandler().Handle(new CreateCategoryCommand("Món chay", null), CancellationToken.None);
+
+        (await act.Should().ThrowAsync<ForbiddenException>()).Which.ErrorCode.Should().Be(ErrorCodes.CategoryForbidden);
+        await _categoryRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+        await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+    }
 
     [Fact(DisplayName = "FR-CAT-003: tạo thành công → gọi AddAsync + SaveChanges, trả CategoryDto")]
     public async Task Handle_Success_AddsCategoryAndSaves()

@@ -27,7 +27,7 @@ namespace CulinaryBlog.IntegrationTests.Categories;
 /// </summary>
 public sealed class GetCategoryBySlugTests(PostgresApiFactory factory) : IClassFixture<PostgresApiFactory>
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly HttpClient _client = factory.CreateClient();
 
@@ -37,7 +37,7 @@ public sealed class GetCategoryBySlugTests(PostgresApiFactory factory) : IClassF
         var response = await _client.GetAsync($"/api/v1/categories/khong-ton-tai-{Guid.NewGuid():N}");
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
         problem!.Type.Should().Be(ErrorCodes.CategoryNotFound);
     }
 
@@ -50,7 +50,7 @@ public sealed class GetCategoryBySlugTests(PostgresApiFactory factory) : IClassF
         var response = await _client.GetAsync($"/api/v1/categories/{categorySlug}");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<CategoryDetailResponseDto>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<CategoryDetailResponseDto>(_jsonOptions);
         body.Should().NotBeNull();
         body!.Recipes.Items.Should().ContainSingle(r => r.Id == recipeId);
         body.Recipes.TotalCount.Should().Be(1);
@@ -65,7 +65,7 @@ public sealed class GetCategoryBySlugTests(PostgresApiFactory factory) : IClassF
 
         var response = await _client.GetAsync($"/api/v1/categories/{categorySlug}");
 
-        var body = await response.Content.ReadFromJsonAsync<CategoryDetailResponseDto>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<CategoryDetailResponseDto>(_jsonOptions);
         body!.Recipes.Items.Should().BeEmpty();
     }
 
@@ -79,7 +79,7 @@ public sealed class GetCategoryBySlugTests(PostgresApiFactory factory) : IClassF
         var response = await _client.GetAsync($"/api/v1/categories/{categorySlug}");
         _client.DefaultRequestHeaders.Authorization = null;
 
-        var body = await response.Content.ReadFromJsonAsync<CategoryDetailResponseDto>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<CategoryDetailResponseDto>(_jsonOptions);
         body!.Recipes.Items.Should().ContainSingle(r => r.Id == recipeId);
     }
 
@@ -90,7 +90,7 @@ public sealed class GetCategoryBySlugTests(PostgresApiFactory factory) : IClassF
             "/api/v1/auth/register",
             new { email, password = "Str0ng!Pass1", displayName = "Tác giả test" });
         response.EnsureSuccessStatusCode();
-        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(JsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<AuthResponseDto>(_jsonOptions);
         return (body!.AccessToken, body.User.Id);
     }
 
