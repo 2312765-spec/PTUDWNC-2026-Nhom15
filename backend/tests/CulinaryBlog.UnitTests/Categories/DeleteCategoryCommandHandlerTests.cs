@@ -1,29 +1,46 @@
 using CulinaryBlog.Application.Categories.Commands.DeleteCategory;
 using CulinaryBlog.Application.Common.Exceptions;
+using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Interfaces;
 using FluentAssertions;
-using Xunit;
-using CulinaryBlog.Application.Common.Interfaces;
 using NSubstitute;
-
+using Xunit;
 
 namespace CulinaryBlog.UnitTests.Categories;
 
 public sealed class DeleteCategoryCommandHandlerTests
 {
     private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
+
     public DeleteCategoryCommandHandlerTests()
     {
         _currentUser.IsAdmin.Returns(true);
     }
-    
+
+    [Fact(DisplayName = "NFR-SEC-006/D50: không phải Admin → ForbiddenException CATEGORY_FORBIDDEN, không xóa")]
+    public async Task Handle_NotAdmin_ThrowsForbidden()
+    {
+        _currentUser.IsAdmin.Returns(false);
+        var cat = Category.Create("Món hấp", "mon-hap", "Mô tả");
+        var repo = new TestCategoryRepository { Category = cat, RecipeCount = 0 };
+        var uow = new TestUnitOfWork();
+        var handler = new DeleteCategoryCommandHandler(repo, uow, _currentUser);
+
+        var act = async () => await handler.Handle(new DeleteCategoryCommand(cat.Id), CancellationToken.None);
+
+        (await act.Should().ThrowAsync<ForbiddenException>()).Which.ErrorCode.Should().Be(ErrorCodes.CategoryForbidden);
+        cat.IsDeleted.Should().BeFalse();
+        uow.Saved.Should().BeFalse();
+    }
+
     [Fact(DisplayName = "FR-CAT-005: Xóa danh mục không tồn tại → ném NotFoundException")]
     public async Task Handle_CategoryNotFound_ThrowsNotFoundException()
-    {   
+    {
         var repo = new TestCategoryRepository { Category = null };
         var uow = new TestUnitOfWork();
         var handler = new DeleteCategoryCommandHandler(repo, uow, _currentUser);
+
         var act = async () => await handler.Handle(new DeleteCategoryCommand(Guid.NewGuid()), CancellationToken.None);
 
         await act.Should().ThrowAsync<NotFoundException>();
@@ -32,11 +49,10 @@ public sealed class DeleteCategoryCommandHandlerTests
     [Fact(DisplayName = "FR-CAT-005: Xóa danh mục còn công thức → ném ConflictException (409)")]
     public async Task Handle_CategoryHasRecipes_ThrowsConflictException()
     {
-        
         var cat = Category.Create("Món bánh", "mon-banh", "Mô tả");
         var repo = new TestCategoryRepository { Category = cat, RecipeCount = 5 };
         var uow = new TestUnitOfWork();
-        var handler = new DeleteCategoryCommandHandler(repo, uow,_currentUser);
+        var handler = new DeleteCategoryCommandHandler(repo, uow, _currentUser);
 
         var act = async () => await handler.Handle(new DeleteCategoryCommand(cat.Id), CancellationToken.None);
 
@@ -49,7 +65,7 @@ public sealed class DeleteCategoryCommandHandlerTests
         var cat = Category.Create("Món xào", "mon-xao", "Mô tả");
         var repo = new TestCategoryRepository { Category = cat, RecipeCount = 0 };
         var uow = new TestUnitOfWork();
-        var handler = new DeleteCategoryCommandHandler(repo, uow,_currentUser);
+        var handler = new DeleteCategoryCommandHandler(repo, uow, _currentUser);
 
         await handler.Handle(new DeleteCategoryCommand(cat.Id), CancellationToken.None);
 

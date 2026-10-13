@@ -9,44 +9,44 @@ namespace CulinaryBlog.Application.Categories.Commands.UpdateCategory;
 /// <summary>
 /// Handler xử lý cập nhật danh mục món ăn (FR-CAT-004).
 /// Tuân thủ Quyết định D10: Giữ nguyên Slug ban đầu, chỉ cập nhật Name và Description.
+/// Việc xóa cache do MediatR CacheInvalidationBehavior tự động đảm nhiệm qua ICacheInvalidator (đồng bộ với FR-CAT-003 và FR-CAT-005).
 /// </summary>
 public sealed class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryCommand, CategoryDto>
 {
     private readonly ICategoryRepository _categoryRepository;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly ICacheService? _cacheService;
     private readonly ICurrentUser _currentUser;
+
     public UpdateCategoryCommandHandler(
         ICategoryRepository categoryRepository,
         IUnitOfWork unitOfWork,
-        ICurrentUser currentUser,
-        ICacheService? cacheService = null)
+        ICurrentUser currentUser)
     {
         _categoryRepository = categoryRepository;
         _unitOfWork = unitOfWork;
         _currentUser = currentUser;
-        _cacheService = cacheService;
     }
     
     public async Task<CategoryDto> Handle(UpdateCategoryCommand request, CancellationToken cancellationToken)
     {
-         // 0. Kiểm tra quyền Admin (FR-CAT-004)
-          if (!_currentUser.IsAdmin)
+        // 0. Chỉ Admin (NFR-SEC-006: kiểm tra lại ở Application Layer, không chỉ dựa vào AdminPolicy ở endpoint)
+        if (!_currentUser.IsAdmin)
         {
-            throw new UnauthorizedAccessException("Chỉ Quản trị viên (Admin) mới có quyền cập nhật danh mục.");
+            throw new ForbiddenException(ErrorCodes.CategoryForbidden, "Chỉ Admin mới được cập nhật danh mục.");
         }
+
         // NotEmpty/Length/HTML đã được UpdateCategoryCommandValidator (FluentValidation +
         // ValidationBehavior, CONS-008) chặn từ trước — Name khác null/rỗng khi tới đây.
         var trimmedName = request.Name.Trim();
 
-        // 1. Tìm danh mục theo ID
+        // 1. Tìm danh mục theo ID (nếu không tìm thấy -> 404 CATEGORY_NOT_FOUND)
         var category = await _categoryRepository.GetByIdAsync(request.Id, cancellationToken);
         if (category == null)
         {
             throw new NotFoundException("CATEGORY_NOT_FOUND", $"Không tìm thấy danh mục với ID: '{request.Id}'.");
         }
 
-        // 2. Kiểm tra nếu tên thay đổi và trùng với danh mục khác (Yêu cầu mã: CATEGORY_NAME_EXISTS)
+        // 2. Kiểm tra nếu tên thay đổi và trùng với danh mục khác (-> 409 CATEGORY_NAME_EXISTS)
         if (!string.Equals(category.Name, trimmedName, StringComparison.OrdinalIgnoreCase))
         {
             var exists = await _categoryRepository.ExistsByNameAsync(trimmedName, cancellationToken);
@@ -62,13 +62,7 @@ public sealed class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategor
         _categoryRepository.Update(category);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // 4. Xóa cache của cả categories và recipes (thỏa mãn Command_InvalidatesCategoriesAndRecipesTags)
-        if (_cacheService != null)
-        {
-            await _cacheService.RemoveByTagsAsync(new[] { "categories", "recipes" }, cancellationToken);
-        }
-
-        // 5. Lấy số lượng công thức liên kết
+        // 4. Lấy số lượng công thức liên kết
         var recipeCount = await _categoryRepository.GetPublishedRecipeCountAsync(category.Id, cancellationToken);
 
         return new CategoryDto(

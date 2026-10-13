@@ -31,6 +31,7 @@ public static class ErrorCodes
     public const string CategoryNotFound = "CATEGORY_NOT_FOUND";                     // 404
     public const string CategoryNameExists = "CATEGORY_NAME_EXISTS";                 // 409
     public const string CategoryDeleteHasRecipes = "CATEGORY_DELETE_HAS_RECIPES";    // 409
+    public const string CategoryForbidden = "CATEGORY_FORBIDDEN";                    // 403 (D50)
 
     // File
     public const string FileSizeExceeded = "FILE_SIZE_EXCEEDED";                     // 400

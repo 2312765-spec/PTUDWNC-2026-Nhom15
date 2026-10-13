@@ -1,10 +1,10 @@
 using CulinaryBlog.Application.Categories.Commands.UpdateCategory;
 using CulinaryBlog.Application.Common.Exceptions;
+using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Interfaces;
 using FluentAssertions;
 using NSubstitute;
-using CulinaryBlog.Application.Common.Interfaces;
 using Xunit;
 
 namespace CulinaryBlog.UnitTests.Categories;
@@ -14,12 +14,28 @@ public class UpdateCategoryCommandHandlerTests
 {
     private readonly ICategoryRepository _categoryRepository = Substitute.For<ICategoryRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
-    private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>(); 
-    private UpdateCategoryCommandHandler CreateHandler()
+    private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
+
+    public UpdateCategoryCommandHandlerTests()
     {
-        _currentUser.IsAdmin.Returns(true); // 👈 Cấp quyền Admin cho Update handler
-        return new(_categoryRepository, _unitOfWork, _currentUser);
-}    private static Category ExistingCategory() => Category.Create("Món chính", "mon-chinh", "mô tả cũ", null, 0);
+        _currentUser.IsAdmin.Returns(true);
+    }
+
+    private UpdateCategoryCommandHandler CreateHandler() => new(_categoryRepository, _unitOfWork, _currentUser);
+
+    private static Category ExistingCategory() => Category.Create("Món chính", "mon-chinh", "mô tả cũ", null, 0);
+
+    [Fact(DisplayName = "NFR-SEC-006/D50: không phải Admin → ForbiddenException CATEGORY_FORBIDDEN, không ghi DB")]
+    public async Task Handle_NotAdmin_ThrowsForbidden()
+    {
+        _currentUser.IsAdmin.Returns(false);
+
+        var act = () => CreateHandler().Handle(new UpdateCategoryCommand(Guid.NewGuid(), "Món sáng", null), CancellationToken.None);
+
+        (await act.Should().ThrowAsync<ForbiddenException>()).Which.ErrorCode.Should().Be(ErrorCodes.CategoryForbidden);
+        await _categoryRepository.DidNotReceiveWithAnyArgs().GetByIdAsync(default, default);
+        await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+    }
 
     [Fact(DisplayName = "FR-CAT-004/D10: đổi tên thành công → Slug KHÔNG đổi, lưu DB, trả CategoryDto kèm recipeCount")]
     public async Task Handle_Success_KeepsSlugAndSaves()

@@ -12,12 +12,12 @@ namespace CulinaryBlog.Application.Categories.Commands.CreateCategory;
 /// Tuân thủ Quyết định D10: Tự động sinh URL-friendly slug, xử lý hậu tố nếu trùng.
 /// </summary>
 public sealed class CreateCategoryCommandHandler : IRequestHandler<CreateCategoryCommand, CategoryDto>
-{   
+{
     private readonly ICategoryRepository _categoryRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ISlugHelper _slugHelper;
     private readonly ICurrentUser _currentUser;
-    
+
     public CreateCategoryCommandHandler(
         ICategoryRepository categoryRepository,
         IUnitOfWork unitOfWork,
@@ -32,13 +32,12 @@ public sealed class CreateCategoryCommandHandler : IRequestHandler<CreateCategor
 
     public async Task<CategoryDto> Handle(CreateCategoryCommand request, CancellationToken cancellationToken)
     {
-
-        {
-        // 1. Kiểm tra quyền Admin
+        // 0. Chỉ Admin (NFR-SEC-006: kiểm tra lại ở Application Layer, không chỉ dựa vào AdminPolicy ở endpoint)
         if (!_currentUser.IsAdmin)
         {
-            throw new UnauthorizedAccessException("Chỉ Quản trị viên (Admin) mới có quyền tạo danh mục.");
+            throw new ForbiddenException(ErrorCodes.CategoryForbidden, "Chỉ Admin mới được tạo danh mục.");
         }
+
         // NotEmpty/Length/HTML đã được CreateCategoryCommandValidator (FluentValidation +
         // ValidationBehavior, CONS-008) chặn từ trước — Name khác null/rỗng khi tới đây.
         var trimmedName = request.Name.Trim();
@@ -78,4 +77,3 @@ public sealed class CreateCategoryCommandHandler : IRequestHandler<CreateCategor
         );
     }
 }
-    }

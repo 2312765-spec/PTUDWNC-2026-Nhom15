@@ -1,5 +1,5 @@
 import { ApiError } from '@/lib/categories';
-import { getRecipes, searchRecipes, toRecipeListQuery } from '@/lib/recipes';
+import { getLatestRecipes, getRecipeBySlug, getRecipes, searchRecipes, toRecipeListQuery } from '@/lib/recipes';
 
 const mockFetch = jest.fn();
 
@@ -85,5 +85,67 @@ describe('lib/recipes — FR-RCP-001 / FR-SRCH-002/003/004', () => {
     mockFetch.mockResolvedValue(jsonResponse(400, { type: 'VALIDATION_ERROR' }));
 
     await expect(getRecipes({ sort: 'servings' })).rejects.toEqual(new ApiError(400, 'VALIDATION_ERROR'));
+  });
+});
+
+describe('lib/recipes — trang chủ (FR-RCP-001)', () => {
+  it('SRS 5.1: getLatestRecipes gọi /recipes mới nhất với pageSize, ISR revalidate 3600 (không no-store)', async () => {
+    const paged = { items: [], totalCount: 0, page: 1, pageSize: 6, totalPages: 0 };
+    mockFetch.mockResolvedValue(jsonResponse(200, paged));
+
+    await expect(getLatestRecipes(6)).resolves.toEqual(paged);
+
+    const [url, init] = mockFetch.mock.calls[0];
+    const parsed = new URL(url);
+    expect(parsed.pathname).toMatch(/\/recipes$/);
+    expect(parsed.searchParams.get('pageSize')).toBe('6');
+    // Sort mặc định của backend là -createdAt (mới nhất) → không gửi, giữ cache key ổn định.
+    expect(parsed.searchParams.has('sort')).toBe(false);
+    expect(init).toEqual({ next: { revalidate: 3600 } });
+  });
+
+  it('NFR-USE-003: getLatestRecipes lỗi API → ApiError', async () => {
+    mockFetch.mockResolvedValue(jsonResponse(500, { type: 'INTERNAL_ERROR' }));
+
+    await expect(getLatestRecipes(6)).rejects.toEqual(new ApiError(500, 'INTERNAL_ERROR'));
+  });
+});
+
+describe('lib/recipes — chi tiết công thức (FR-RCP-002)', () => {
+  it('FR-RCP-002: gọi /recipes/{slug} đúng một lần /api/v1 (không lặp), ISR 300 + tag cache', async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, { slug: 'pho-bo' }));
+
+    await expect(getRecipeBySlug('pho-bo')).resolves.toEqual({ slug: 'pho-bo' });
+
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).not.toContain('/api/v1/api/v1');
+    expect(url).toMatch(/\/api\/v1\/recipes\/pho-bo$/);
+    expect(init).toEqual({ next: { revalidate: 300, tags: ['recipes', 'recipe:pho-bo'] } });
+  });
+
+  it('FR-RCP-002: slug được encode', async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, {}));
+
+    await getRecipeBySlug('pho bo/x');
+
+    expect(mockFetch.mock.calls[0][0]).toMatch(/\/recipes\/pho%20bo%2Fx$/);
+  });
+
+  it.each([404, 403])('FR-RCP-002: backend trả %i (không có / Draft người khác) → null để trang trả 404', async (status) => {
+    mockFetch.mockResolvedValue(jsonResponse(status, { type: 'RECIPE_NOT_FOUND' }));
+
+    await expect(getRecipeBySlug('pho-bo')).resolves.toBeNull();
+  });
+
+  it('NFR-USE-003: backend lỗi 500 → ném ApiError, KHÔNG giả làm "không tìm thấy"', async () => {
+    mockFetch.mockResolvedValue(jsonResponse(500, { type: 'INTERNAL_ERROR' }));
+
+    await expect(getRecipeBySlug('pho-bo')).rejects.toEqual(new ApiError(500, 'INTERNAL_ERROR'));
+  });
+
+  it('NFR-USE-003: backend không kết nối được → ném lỗi, KHÔNG trả null', async () => {
+    mockFetch.mockRejectedValue(new TypeError('fetch failed'));
+
+    await expect(getRecipeBySlug('pho-bo')).rejects.toThrow('fetch failed');
   });
 });
