@@ -1,4 +1,5 @@
 using Hangfire;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CulinaryBlog.Infrastructure.Jobs;
 
@@ -10,7 +11,14 @@ public static class RecurringJobsRegistration
     /// <summary>SRS FR-JOB-003: hàng ngày 02:00 UTC.</summary>
     public const string SitemapCron = "0 2 * * *";
 
-    public static void RegisterRecurringJobs(this IServiceProvider services) => throw new NotImplementedException();
+    public static void RegisterRecurringJobs(this IServiceProvider services) =>
+        services.GetRequiredService<IRecurringJobManager>().RegisterRecurringJobs();
 
-    public static void RegisterRecurringJobs(this IRecurringJobManager manager) => throw new NotImplementedException();
+    /// <summary>AddOrUpdate idempotent — chạy lại mỗi lần khởi động chỉ cập nhật lịch, không tạo bản trùng.</summary>
+    public static void RegisterRecurringJobs(this IRecurringJobManager manager) =>
+        manager.AddOrUpdate<SitemapGenerationJob>(
+            SitemapJobId,
+            job => job.ExecuteAsync(CancellationToken.None),
+            SitemapCron,
+            new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
 }

@@ -119,3 +119,12 @@ Không có recipe/category nào → bỏ `<lastmod>` của trang tĩnh tương �
 - `team-assignment.md`: `frontend/app/sitemap.ts` → `frontend/app/robots.ts`.
 - `CHANGELOG.md` cập nhật.
 - Đã báo A (`Program.cs`) và C (`IFileStorageService`).
+
+## 8. Lệch so với kế hoạch khi code (2026-10-14)
+
+- **`Seo:SiteBaseUrl` đi qua command** (`GenerateSitemapCommand(SiteBaseUrl)`) thay vì handler tự đọc
+  cấu hình: Application không có package Options/Configuration, và kiểm tra URL thành
+  `GenerateSitemapCommandValidator` (CONS-008) — thiếu/sai → `ValidationException`.
+- `SitemapRepository` nằm ở `Infrastructure/Persistence/Repositories/` cạnh `RecipeRepository` (không phải `Repositories/`).
+- Nginx dùng `expires 1h` thay `add_header Cache-Control`: `add_header` trong `location` chặn kế thừa
+  header bảo mật NFR-SEC-005 khai báo ở `server`.

@@ -14,8 +14,8 @@
 > Tóm tắt: **A** = FR-AUTH + FR-JOB-001 · **B** = FR-CAT + FR-RCP-001/002 + FR-SRCH ·
 > **C** = FR-RCP-003/004/005/006/007/009/010 · **D** = FR-RCP-008 + FR-FILE + FR-JOB-002/003 + FR-OBS.
 
-**Tiến độ:** 22 / 34 FR (65%) — A 5/8 (AUTH-001→005; AUTH-006 🟡) · B 11/11 (CAT-001→005, RCP-001→002, SRCH-001→004) · C 0/7 ·
-D 6/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002, FR-OBS-001/002; FR-OBS-003 🟡)
+**Tiến độ:** 23 / 34 FR (68%) — A 5/8 (AUTH-001→005; AUTH-006 🟡) · B 11/11 (CAT-001→005, RCP-001→002, SRCH-001→004) · C 0/7 ·
+D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 🟡)
 
 ---
 
@@ -169,7 +169,7 @@ D 6/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002, FR-OBS-001/002; FR-OBS-003 🟡)
 |---|---|---|---|---|---|---|---|---|
 | FR-JOB-001 | Welcome Email | Fire-and-forget | Sau FR-AUTH-001 | S9 | `WelcomeEmailJob`, `MailKitEmailService`. Retry 3× (1p/5p/30p) | `Jobs/WelcomeEmailTests.cs` | **D12** | ⬜ |
 | FR-JOB-002 | Image Resize / Thumbnail | Fire-and-forget | Sau FR-RCP-008 upload (`EnqueueGenerateImageVariants` sau khi lưu DB) | S8 | `ResizeRecipeImageJob` [AutomaticRetry 3× 1p/5p/30p] → `GenerateRecipeImageVariantsCommand(+Handler, Validator)` → `SkiaImageResizer` (SkiaSharp — D46; thumbnail crop 300×300, medium fit 800×600, WebP, không upscale, bỏ EXIF, giới hạn 40 MP; AVIF → bỏ qua) → `Recipe.SetImageVariants`. No-op khi recipe/ảnh đã xóa hoặc đã có thumbnail. Kế hoạch: `plans/FR-JOB-002-resize-anh.md` | `IntegrationTests/Jobs/ImageResizeTests.cs` (7) + `IntegrationTests/Files/SkiaImageResizerTests.cs` (8) + `UnitTests/Images/GenerateRecipeImageVariantsCommand{Handler,Validator}Tests.cs` (11) | **D40–D46** | ✅ |
-| FR-JOB-003 | Sitemap Generation | Recurring | Cron `0 2 * * *` (02:00 UTC) | S11 | `SitemapGenerationJob` → sitemap.xml (Published recipes + categories + trang tĩnh), ping Google. Retry 2× | `Jobs/SitemapTests.cs` | — | ⬜ |
+| FR-JOB-003 | Sitemap Generation | Recurring | Cron `0 2 * * *` (02:00 UTC), id `sitemap-generation` — `RecurringJobsRegistration` gọi trong `Program.cs` (trừ Testing) | S11 | `SitemapGenerationJob` [AutomaticRetry 2× · DisableConcurrentExecution 600s — D53] → `GenerateSitemapCommand(Seo:SiteBaseUrl)` (+Handler, Validator: URL tuyệt đối http(s)) → `ISitemapRepository` (projection, AsNoTracking) → `SitemapXmlBuilder` (sitemaps.org 0.9) → `IFileStorageService.SaveAsync("seo/sitemap.xml")` → Nginx `location = /sitemap.xml`. URL: `/`, `/recipes`, `/categories`, category chưa xóa, recipe Published. **Không ping Google** (D51) — `frontend/app/robots.ts` khai báo `Sitemap:`. Kế hoạch: `plans/FR-JOB-003-sitemap.md` | `IntegrationTests/Jobs/SitemapTests.cs` (13) + `IntegrationTests/Files/MinioFileStorageServiceTests.cs` (+2 `SaveAsync`, S3 thật) + `UnitTests/Seo/*` (18) + FE `__tests__/app/robots.test.ts` (4) | **D51–D53**, D1, D2, D44 | ✅ |
 
 > **FR-JOB-002 (2026-10-07):** ghi chú "cố ý để lại" ngày 2026-09-22 đã được xử lý — làm ở
 > slice riêng, test viết trước. Job đi qua MediatR (D44) thay vì "cập nhật DB ngoài luồng MediatR".
@@ -227,7 +227,7 @@ D 6/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002, FR-OBS-001/002; FR-OBS-003 🟡)
 | SCALE | NFR-SCALE-003 | Mỗi service 1 container; Nginx upstream pool; CDN static assets | Docker Compose | ⬜ |
 | SEO | NFR-SEO-001 | JSON-LD Schema.org Recipe, pass 100% Google Rich Results Test | Rich Results Test | ⬜ |
 | SEO | NFR-SEO-002 | `<title>` ≤ 60 ký tự, meta description 150–160, OG image 1200×630, canonical, noindex cho draft/archived | Lighthouse SEO | ⬜ |
-| SEO | NFR-SEO-003 | sitemap.xml tự sinh hàng ngày + robots.txt + ping GSC | FR-JOB-003 | ⬜ |
+| SEO | NFR-SEO-003 | sitemap.xml tự sinh hàng ngày + robots.txt ~~+ ping GSC~~ (bỏ — D51) | FR-JOB-003 · `frontend/app/robots.ts` | ✅ |
 | SEO | NFR-SEO-004 | `/recipes/{slug}` không dấu; **slug bất biến sau khi tạo; không có 301 redirect** (D13) | Manual | ⬜ |
 
 ---
@@ -241,9 +241,9 @@ D 6/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002, FR-OBS-001/002; FR-OBS-003 🟡)
 | FR-RCP | 10 | 2 | 0 | 8 |
 | FR-SRCH | 4 | 3 | 1 | 0 |
 | FR-FILE | 2 | 2 | 0 | 0 |
-| FR-JOB | 3 | 1 | 0 | 2 |
+| FR-JOB | 3 | 2 | 0 | 1 |
 | FR-OBS | 3 | 2 | 1 | 0 |
-| **Tổng** | **34** | **19** | **2** | **13** |
+| **Tổng** | **34** | **20** | **2** | **12** |
 
 > Không còn FR nào bị chặn — cả 22 mâu thuẫn trong SRS đã chốt tại `decisions.md`.
 > Cột **Quyết định** ở mỗi bảng cho biết FR đó phải đọc mục D nào trước khi code.

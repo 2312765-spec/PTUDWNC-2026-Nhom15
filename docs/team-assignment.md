@@ -134,15 +134,15 @@ hoặc chỉ làm frontend.
 | Validation 3 lớp: size → MIME → **magic bytes** | Gallery ảnh, đặt ảnh chính, xóa ảnh |
 | 3 endpoint ảnh theo D22 (POST / PATCH / DELETE) | **JSON-LD Schema.org Recipe** |
 | Logic `IsPrimary` (ảnh đầu tự động, xóa → ảnh kế lên) | Meta tags, Open Graph, canonical, `noindex` |
-| `ImageResizeJob` — medium 800×600 + thumb 300×300 | `app/sitemap.ts`, `robots.txt` |
-| `SitemapGenerationJob` — cron `0 2 * * *` + ping GSC | `next/image` optimization |
+| `ImageResizeJob` — medium 800×600 + thumb 300×300 | `app/robots.ts` (sitemap do job sinh — D52) |
+| `SitemapGenerationJob` — cron `0 2 * * *` → MinIO (D51: không ping) | `next/image` optimization |
 | Health checks 3 endpoint, Serilog + `CorrelationIdMiddleware` | Lighthouse CI |
 | OpenTelemetry — traces, metrics, `TraceId` vào log | |
 
 **Sở hữu file:** `Application/Recipes/Commands/Images/**` · `Infrastructure/Storage/**`,
 `Infrastructure/Jobs/**`, `Infrastructure/Observability/**` ·
 `API/Endpoints/ImagesEndpoints.cs`, `API/Endpoints/HealthEndpoints.cs` ·
-`frontend/components/upload/**`, `frontend/components/seo/**`, `frontend/app/sitemap.ts`
+`frontend/components/upload/**`, `frontend/components/seo/**`, `frontend/app/robots.ts`
 
 **Bốn bẫy dễ sập:**
 1. **Thứ tự validation upload quan trọng:** check size **trước khi đọc stream** (NFR-SEC-004).

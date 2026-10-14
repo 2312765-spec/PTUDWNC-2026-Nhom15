@@ -8,6 +8,7 @@ using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Domain.Common;
 using CulinaryBlog.Infrastructure;
 using CulinaryBlog.Infrastructure.Identity;
+using CulinaryBlog.Infrastructure.Jobs;
 using CulinaryBlog.Infrastructure.Persistence;
 using CulinaryBlog.Infrastructure.Persistence.Seeding;
 using Hangfire;
@@ -212,6 +213,13 @@ if (app.Environment.IsDevelopment())
 
     await IdentityRoleSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>());
     await DbSeeder.SeedAsync(db);
+}
+
+// ---- Hangfire recurring job (FR-JOB-003, D52/D53) -------------------------
+// Sau migration: AddOrUpdate ghi lịch vào schema "hangfire". Testing không có Hangfire server (D45).
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.Services.RegisterRecurringJobs();
 }
 
 // ---- Đăng ký toàn bộ Minimal API Endpoints (CONS-003) ---------------------

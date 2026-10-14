@@ -40,8 +40,7 @@ public sealed class MinioFileStorageService(IAmazonS3 s3Client, IConfiguration c
             AutoCloseStream = false,
         }, ct);
 
-        var endpoint = (configuration["Minio:Endpoint"] ?? throw new InvalidOperationException("Thiếu Minio:Endpoint.")).TrimEnd('/');
-        return $"{endpoint}/{BucketName}/{key}";
+        return PublicUrl(key);
     }
 
     public async Task DeleteAsync(string fileUrl, CancellationToken ct = default)
@@ -69,8 +68,29 @@ public sealed class MinioFileStorageService(IAmazonS3 s3Client, IConfiguration c
         return buffer;
     }
 
-    public Task<string> SaveAsync(string objectKey, Stream content, string contentType, CancellationToken ct = default) =>
-        throw new NotImplementedException();
+    /// <summary>
+    /// FR-JOB-003/D52 — file hệ thống sinh (sitemap.xml): key cố định, ghi đè, không qua ImageSignature.
+    /// </summary>
+    public async Task<string> SaveAsync(string objectKey, Stream content, string contentType, CancellationToken ct = default)
+    {
+        content.Position = 0;
+        await s3Client.PutObjectAsync(new PutObjectRequest
+        {
+            BucketName = BucketName,
+            Key = objectKey,
+            InputStream = content,
+            ContentType = contentType,
+            AutoCloseStream = false,
+        }, ct);
+
+        return PublicUrl(objectKey);
+    }
+
+    private string PublicUrl(string key)
+    {
+        var endpoint = (configuration["Minio:Endpoint"] ?? throw new InvalidOperationException("Thiếu Minio:Endpoint.")).TrimEnd('/');
+        return $"{endpoint}/{BucketName}/{key}";
+    }
 
     private string ExtractKey(string fileUrl)
     {
