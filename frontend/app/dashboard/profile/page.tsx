@@ -1,15 +1,18 @@
 'use client';
 
+import { useState } from 'react';
 import { Badge, Button, Skeleton } from '@/components/ui';
 import { toProblemDetails } from '@/lib/api-client';
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
+import { EditProfileForm } from './EditProfileForm';
 
 /**
- * FR-AUTH-006 — trang xem hồ sơ cá nhân. SRS 5.1: /dashboard/* render CSR.
+ * FR-AUTH-006 — trang xem hồ sơ cá nhân; FR-AUTH-007 — sửa tại chỗ. SRS 5.1: /dashboard/* render CSR.
  * D5: chỉ hiển thị displayName, email, avatarUrl, bio, roles (không có fullName/userName).
  */
 export default function ProfilePage() {
   const { data: profile, isPending, isError, error, refetch } = useCurrentUser();
+  const [isEditing, setIsEditing] = useState(false);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
@@ -34,6 +37,8 @@ export default function ProfilePage() {
               Thử lại
             </Button>
           </div>
+        ) : isEditing ? (
+          <EditProfileForm profile={profile} onDone={() => setIsEditing(false)} />
         ) : (
           <div className="flex flex-col gap-6">
             <div className="flex items-center gap-4">
@@ -73,6 +78,12 @@ export default function ProfilePage() {
                 </dd>
               </div>
             </dl>
+
+            <div className="flex justify-end border-t border-border pt-4">
+              <Button type="button" variant="outline" onClick={() => setIsEditing(true)}>
+                Chỉnh sửa hồ sơ
+              </Button>
+            </div>
           </div>
         )}
       </section>

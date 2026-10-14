@@ -44,3 +44,33 @@ export const loginSchema = z.object({
 });
 
 export type LoginFormValues = z.infer<typeof loginSchema>;
+
+/** Chỉ chấp nhận URL tuyệt đối http/https — khớp UpdateProfileCommandValidator (chặn javascript:, ftp:). */
+function isHttpUrl(value: string): boolean {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * FR-AUTH-007 — khớp UpdateProfileCommandValidator (D5, D54). avatarUrl/bio để trống = xóa.
+ * Validate ở client chỉ để phản hồi nhanh — backend vẫn là nguồn quyết định (CONS-008).
+ */
+export const profileSchema = z.object({
+  displayName: z
+    .string()
+    .trim()
+    .min(2, 'Tên hiển thị cần ít nhất 2 ký tự.')
+    .max(100, 'Tên hiển thị tối đa 100 ký tự.'),
+  avatarUrl: z
+    .string()
+    .trim()
+    .max(500, 'Đường dẫn ảnh tối đa 500 ký tự.')
+    .refine((v) => v === '' || isHttpUrl(v), 'Đường dẫn ảnh phải bắt đầu bằng http:// hoặc https://.'),
+  bio: z.string().trim().max(1000, 'Giới thiệu tối đa 1000 ký tự.'),
+});
+
+export type ProfileFormValues = z.infer<typeof profileSchema>;
