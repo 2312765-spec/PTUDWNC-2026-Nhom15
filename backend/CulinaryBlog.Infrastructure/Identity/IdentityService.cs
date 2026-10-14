@@ -181,4 +181,40 @@ public sealed class IdentityService(UserManager<ApplicationUser> userManager) : 
 
         return new AuthenticatedUser(user.Id, user.Email!, user.DisplayName, user.AvatarUrl, user.Bio, [.. roles]);
     }
+
+    public async Task<AuthenticatedUser?> UpdateProfileAsync(
+        string userId,
+        string? displayName,
+        string? avatarUrl,
+        string? bio,
+        CancellationToken ct = default)
+    {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null)
+        {
+            return null;
+        }
+
+        // D51-2: null = giữ nguyên, "" = xóa (NULL). D51-4: cố ý không kiểm tra IsActive.
+        if (displayName is not null)
+        {
+            user.DisplayName = displayName;
+        }
+
+        if (avatarUrl is not null)
+        {
+            user.AvatarUrl = avatarUrl.Length == 0 ? null : avatarUrl;
+        }
+
+        if (bio is not null)
+        {
+            user.Bio = bio.Length == 0 ? null : bio;
+        }
+
+        EnsureSucceeded(await userManager.UpdateAsync(user), "cập nhật hồ sơ");
+
+        var roles = await userManager.GetRolesAsync(user);
+
+        return new AuthenticatedUser(user.Id, user.Email!, user.DisplayName, user.AvatarUrl, user.Bio, [.. roles]);
+    }
 }
