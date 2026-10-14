@@ -232,6 +232,14 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 
 ---
 
+## Dữ liệu mẫu Development (không phải FR — không tính vào bảng đếm)
+
+| Nguồn | Yêu cầu | File | Test | Trạng thái |
+|---|---|---|---|---|
+| SRS dòng 295 · roadmap S4 · roadmap mục Auth | Bogus seed 50 recipe / 5 tác giả, có cả Draft + Archived, 1 Admin. Nội dung viết tay (không Lorem) — plan `docs/plans/DEV-SEED-du-lieu-mau-that.md` | `Infrastructure/Persistence/Seeding/DbSeeder.cs` · `SeedRecipeCatalog.cs` | `IntegrationTests/Seeding/DbSeederTests.cs` (11) | ✅ |
+
+---
+
 ## Bảng đếm nhanh
 
 | Module | Tổng FR | ✅ | 🟡 | ⬜ |
