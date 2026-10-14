@@ -116,6 +116,45 @@ public sealed class MinioFileStorageServiceTests : IAsyncLifetime
         await act.Should().NotThrowAsync();
     }
 
+    [Fact(DisplayName = "FR-JOB-003/D52: SaveAsync ghi đúng key cố định, đúng content-type, trả URL công khai")]
+    public async Task SaveAsync_FixedKey_StoresObjectWithContentType()
+    {
+        var bytes = "<urlset/>"u8.ToArray();
+        using var content = new MemoryStream(bytes);
+
+        var url = await _sut.SaveAsync("seo/sitemap.xml", content, "application/xml", CancellationToken.None);
+
+        url.Should().EndWith($"/{BucketName}/seo/sitemap.xml");
+        using var response = await _s3.GetObjectAsync(BucketName, "seo/sitemap.xml");
+        response.Headers.ContentType.Should().Be("application/xml");
+        using var responseStream = new MemoryStream();
+        await response.ResponseStream.CopyToAsync(responseStream);
+        responseStream.ToArray().Should().BeEquivalentTo(bytes);
+    }
+
+    [Fact(DisplayName = "FR-JOB-003/D52: SaveAsync lần 2 cùng key → ghi đè nội dung, không sinh object mới")]
+    public async Task SaveAsync_SameKeyTwice_Overwrites()
+    {
+        using (var first = new MemoryStream("<old/>"u8.ToArray()))
+        {
+            await _sut.SaveAsync("seo/sitemap.xml", first, "application/xml", CancellationToken.None);
+        }
+
+        var newer = "<new/>"u8.ToArray();
+        using (var second = new MemoryStream(newer))
+        {
+            await _sut.SaveAsync("seo/sitemap.xml", second, "application/xml", CancellationToken.None);
+        }
+
+        var listing = await _s3.ListObjectsV2Async(new ListObjectsV2Request { BucketName = BucketName, Prefix = "seo/" });
+        listing.S3Objects.Should().ContainSingle().Which.Key.Should().Be("seo/sitemap.xml");
+
+        using var response = await _s3.GetObjectAsync(BucketName, "seo/sitemap.xml");
+        using var responseStream = new MemoryStream();
+        await response.ResponseStream.CopyToAsync(responseStream);
+        responseStream.ToArray().Should().BeEquivalentTo(newer);
+    }
+
     private static byte[] JpegBytes()
     {
         // FF D8 FF = magic bytes JPEG (đủ để ImageSignature.Detect nhận diện trong MinioFileStorageService).

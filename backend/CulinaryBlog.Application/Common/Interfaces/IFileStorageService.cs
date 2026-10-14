@@ -17,4 +17,11 @@ public interface IFileStorageService
 
     /// <summary>FR-JOB-002 — tải ảnh gốc về để resize. Trả stream đã nằm trong bộ nhớ (file ≤ 5 MB, CONS-007).</summary>
     Task<Stream> DownloadAsync(string fileUrl, CancellationToken ct = default);
+
+    /// <summary>
+    /// FR-JOB-003/D52 — ghi (đè) object tại <paramref name="objectKey"/> cố định, trả URL công khai.
+    /// CHỈ cho file do hệ thống sinh ra (sitemap.xml). File người dùng upload luôn đi
+    /// <see cref="UploadAsync"/> — tên GUID + magic bytes (D16, D28, CONS-007).
+    /// </summary>
+    Task<string> SaveAsync(string objectKey, Stream content, string contentType, CancellationToken ct = default);
 }

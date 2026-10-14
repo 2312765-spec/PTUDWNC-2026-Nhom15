@@ -1,0 +1,24 @@
+using Hangfire;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace CulinaryBlog.Infrastructure.Jobs;
+
+/// <summary>FR-JOB-003 — đăng ký các Hangfire recurring job. Gọi một lần khi host khởi động (trừ Testing).</summary>
+public static class RecurringJobsRegistration
+{
+    public const string SitemapJobId = "sitemap-generation";
+
+    /// <summary>SRS FR-JOB-003: hàng ngày 02:00 UTC.</summary>
+    public const string SitemapCron = "0 2 * * *";
+
+    public static void RegisterRecurringJobs(this IServiceProvider services) =>
+        services.GetRequiredService<IRecurringJobManager>().RegisterRecurringJobs();
+
+    /// <summary>AddOrUpdate idempotent — chạy lại mỗi lần khởi động chỉ cập nhật lịch, không tạo bản trùng.</summary>
+    public static void RegisterRecurringJobs(this IRecurringJobManager manager) =>
+        manager.AddOrUpdate<SitemapGenerationJob>(
+            SitemapJobId,
+            job => job.ExecuteAsync(CancellationToken.None),
+            SitemapCron,
+            new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
+}

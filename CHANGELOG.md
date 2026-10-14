@@ -15,3 +15,7 @@ Theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và [SemVer](https
 - Architecture test kiểm tra Dependency Rule (CONS-001).
 - Tài liệu: `docs/decisions.md` (22 quyết định chốt mâu thuẫn SRS), `traceability.md`,
   `permissions.md`, `roadmap.md`, `team-assignment.md`.
+- FR-JOB-003 / NFR-SEO-003: Hangfire recurring `SitemapGenerationJob` (02:00 UTC, retry 2 lần,
+  `DisableConcurrentExecution`) sinh `sitemap.xml` (trang tĩnh + category + recipe Published) lên MinIO
+  `seo/sitemap.xml`; Nginx phục vụ `/sitemap.xml`; `frontend/app/robots.ts`. Cấu hình mới `Seo:SiteBaseUrl`.
+  `IFileStorageService.SaveAsync` cho file hệ thống sinh. Không ping Google (D51–D53).
