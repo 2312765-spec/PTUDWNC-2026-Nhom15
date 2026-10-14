@@ -96,6 +96,22 @@ export async function logout(body: LogoutRequest, accessToken: string): Promise<
   });
 }
 
+/**
+ * FR-AUTH-007, D5/D51 — wire contract của PATCH /auth/me. Field vắng/null = giữ nguyên;
+ * chuỗi rỗng ở avatarUrl/bio = xóa.
+ */
+export interface UpdateProfileRequest {
+  displayName?: string;
+  avatarUrl?: string;
+  bio?: string;
+}
+
+/** FR-AUTH-007 — 200 trả UserProfileDto đã cập nhật (cùng shape với GET /auth/me). */
+export async function updateMe(body: UpdateProfileRequest): Promise<UserProfile> {
+  const { data } = await apiClient.patch<UserProfile>('/auth/me', body);
+  return data;
+}
+
 /** FR-AUTH-006, D5 — hồ sơ của user đang đăng nhập. Bearer do interceptor của apiClient gắn từ session. */
 export async function getMe(): Promise<UserProfile> {
   const { data } = await apiClient.get<UserProfile>('/auth/me');

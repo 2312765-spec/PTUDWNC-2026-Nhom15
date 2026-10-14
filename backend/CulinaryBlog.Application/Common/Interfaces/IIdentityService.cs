@@ -54,6 +54,18 @@ public interface IIdentityService
     /// <c>IsActive == false</c> (D11 chặn ở login/refresh), KHÔNG kiểm tra lockout.
     /// </summary>
     Task<AuthenticatedUser?> GetUserByIdAsync(string userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// FR-AUTH-007, D51 — cập nhật một phần. Tham số null = giữ nguyên; <c>""</c> ở
+    /// <paramref name="avatarUrl"/>/<paramref name="bio"/> = xóa (lưu NULL). User đã bị xóa → <c>null</c>.
+    /// KHÔNG ném lỗi khi <c>IsActive == false</c> (D51-4). Email/UserName không đổi qua đây.
+    /// </summary>
+    Task<AuthenticatedUser?> UpdateProfileAsync(
+        string userId,
+        string? displayName,
+        string? avatarUrl,
+        string? bio,
+        CancellationToken ct = default);
 }
 
 /// <summary>Hồ sơ user sau khi tạo/đăng nhập thành công — Application không cần biết gì thêm về ApplicationUser.</summary>

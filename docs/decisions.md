@@ -66,6 +66,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D48 | Xem hồ sơ (FR-AUTH-006) | User bị xóa sau khi cấp token → **404** `USER_NOT_FOUND` · user `IsActive=false` còn access token → **200** (chỉ đọc) |
 | D49 | Full-text search (FR-SRCH-001) | `simple` + `unaccent` (không có cấu hình `vietnamese`) · `SearchVector` do **trigger** cập nhật + GIN index · Title trọng số A, Description B · xếp `ts_rank` · bỏ khớp `ILIKE` giữa từ |
 | D50 | Non-Admin gọi lệnh ghi Category (NFR-SEC-006) | Handler kiểm tra lại `IsAdmin` → **403** `CATEGORY_FORBIDDEN` (thêm mã mới) |
+| D51 | Cập nhật hồ sơ (FR-AUTH-007) | Body rỗng → 400 · field vắng/`null` = giữ nguyên, `""` = xóa (`bio`, `avatarUrl`) · `IsActive=false` → 200 · user đã xóa → 404 |
 
 ---
 
@@ -1373,6 +1374,28 @@ nào cho Category.
 **Vì:** đúng NFR-SEC-006, và lỗi phân quyền luôn trả RFC 7807 với error code, không bao giờ 500.
 
 **Sửa SRS:** bảng Application Error Code — thêm `CATEGORY_FORBIDDEN` (403, Category).
+
+---
+
+## D51 — Cập nhật hồ sơ (FR-AUTH-007): PATCH một phần
+
+> Phát hiện lúc lập kế hoạch FR-AUTH-007 (2026-10-14). Xem `docs/plans/FR-AUTH-007-cap-nhat-ho-so-ca-nhan.md`.
+
+**Nguồn mâu thuẫn / thiếu:** SRS FR-AUTH-007 dùng `fullName` và 422 (D5, D4 đã thay). SRS không nói body rỗng,
+giá trị `null`, cách xóa `bio`/`avatarUrl`, user `IsActive=false` hay user đã bị xóa khi gọi PATCH.
+
+**Chốt:**
+
+1. Body không có field nào (`{}`) → **400** `VALIDATION_ERROR`.
+2. Field vắng hoặc `null` → **giữ nguyên**. Xóa `bio`/`avatarUrl` bằng chuỗi rỗng `""` (server lưu `NULL`).
+3. `displayName` rỗng/chỉ khoảng trắng → 400 (D5: NOT NULL, 2–100 ký tự). `avatarUrl` phải là URL tuyệt đối http/https.
+4. User `IsActive=false` còn access token → **200** (không cấp thêm quyền; D11 chặn ở login/refresh).
+5. User đã bị xóa → **404** `USER_NOT_FOUND` (D48).
+6. `email` và `userName` trong body (nếu có) bị bỏ qua, không đổi được.
+
+**Vì:** record C# với `string?` không phân biệt "vắng" và "null"; phân biệt cần tự dò JSON, không cần cho v1.
+
+**Sửa SRS:** FR-AUTH-007 — thay `fullName` theo D5, thay 422 bằng 400 (D4), bổ sung các điểm trên.
 
 ---
 

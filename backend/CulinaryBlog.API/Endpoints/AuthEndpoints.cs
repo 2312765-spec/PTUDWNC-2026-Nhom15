@@ -4,6 +4,7 @@ using CulinaryBlog.Application.Auth.Commands.Login;
 using CulinaryBlog.Application.Auth.Commands.Logout;
 using CulinaryBlog.Application.Auth.Commands.Refresh;
 using CulinaryBlog.Application.Auth.Commands.Register;
+using CulinaryBlog.Application.Auth.Commands.UpdateProfile;
 using CulinaryBlog.Application.Auth.Dtos;
 using CulinaryBlog.Application.Auth.Queries.GetCurrentUser;
 using MediatR;
@@ -65,7 +66,12 @@ public static class AuthEndpoints
              .ProducesProblem(StatusCodes.Status404NotFound)
              .RequireAuthorization();
 
-        group.MapPatch("/me", () => NotImplementedResults.Pending("FR-AUTH-007", "A"))
+        group.MapPatch("/me", UpdateMeAsync)
+             .WithSummary("Cập nhật hồ sơ — body { displayName?, avatarUrl?, bio? } (D5, D51)")
+             .Produces<UserProfileDto>(StatusCodes.Status200OK)
+             .ProducesValidationProblem()
+             .ProducesProblem(StatusCodes.Status401Unauthorized)
+             .ProducesProblem(StatusCodes.Status404NotFound)
              .RequireAuthorization();
 
         return app;
@@ -151,7 +157,21 @@ public static class AuthEndpoints
 
         return TypedResults.Ok(result);
     }
+
+    private static async Task<IResult> UpdateMeAsync(
+        UpdateProfileRequest request,
+        ISender sender,
+        CancellationToken ct)
+    {
+        var result = await sender.Send(
+            new UpdateProfileCommand(request.DisplayName, request.AvatarUrl, request.Bio), ct);
+
+        return TypedResults.Ok(result);
+    }
 }
+
+/// <summary>FR-AUTH-007, D5 — mọi field optional; email/userName/roles trong body bị bỏ qua (D51-6).</summary>
+public sealed record UpdateProfileRequest(string? DisplayName, string? AvatarUrl, string? Bio);
 
 /// <summary>FR-AUTH-005 — refresh token cần thu hồi, nằm trong body (không dùng cookie).</summary>
 public sealed record LogoutRequest(string RefreshToken);
