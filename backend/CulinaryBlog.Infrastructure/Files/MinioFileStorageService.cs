@@ -69,6 +69,9 @@ public sealed class MinioFileStorageService(IAmazonS3 s3Client, IConfiguration c
         return buffer;
     }
 
+    public Task<string> SaveAsync(string objectKey, Stream content, string contentType, CancellationToken ct = default) =>
+        throw new NotImplementedException();
+
     private string ExtractKey(string fileUrl)
     {
         var marker = $"/{BucketName}/";

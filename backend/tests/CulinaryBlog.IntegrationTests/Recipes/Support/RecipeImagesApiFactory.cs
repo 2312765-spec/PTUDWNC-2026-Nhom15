@@ -32,6 +32,9 @@ public sealed class RecipeImagesApiFactory : WebApplicationFactory<Program>, IAs
     // Redis riêng — xem lý do ở PostgresApiFactory (không dùng chung Redis dev localhost:6379).
     private readonly RedisContainer _redis = new RedisBuilder().Build();
 
+    /// <summary>FR-JOB-003 — gốc site công khai dùng để dựng &lt;loc&gt; trong sitemap.xml.</summary>
+    public const string SiteBaseUrl = "https://culinary.test";
+
     public FakeFileStorageService FileStorage { get; } = new();
 
     /// <summary>FR-JOB-002 — thay Hangfire để kiểm tra việc enqueue (Testing không chạy server, D45).</summary>
@@ -73,6 +76,7 @@ public sealed class RecipeImagesApiFactory : WebApplicationFactory<Program>, IAs
         builder.UseSetting("Cors:AllowedOrigins:0", "http://localhost:3000");
         builder.UseSetting("Smtp:Host", "localhost");
         builder.UseSetting("Smtp:Port", "1");
+        builder.UseSetting("Seo:SiteBaseUrl", SiteBaseUrl);
 
         builder.ConfigureTestServices(services =>
         {

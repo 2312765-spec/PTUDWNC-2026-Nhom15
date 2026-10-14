@@ -64,6 +64,7 @@ public static class DependencyInjection
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IRecipeRepository, RecipeRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<ISitemapRepository, SitemapRepository>();
 
         // 5. Đăng ký Identity & Helpers
         services.AddScoped<IIdentityService, IdentityService>();
@@ -115,6 +116,9 @@ public static class DependencyInjection
         // 9. FR-JOB-002 — resize ảnh (D40–D44). Resizer không giữ trạng thái → singleton.
         services.AddSingleton<IImageResizer>(new SkiaImageResizer());
         services.AddScoped<ResizeRecipeImageJob>();
+
+        // 10. FR-JOB-003 — sitemap (D51–D53). Lịch chạy đăng ký ở RecurringJobsRegistration.
+        services.AddScoped<SitemapGenerationJob>();
 
         return services;
     }

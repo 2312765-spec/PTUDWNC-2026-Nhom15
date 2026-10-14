@@ -12,6 +12,8 @@ namespace CulinaryBlog.IntegrationTests.Recipes.Support;
 ///
 /// FR-JOB-002: giữ lại nội dung từng object (<see cref="Objects"/>) để job resize tải được ảnh
 /// gốc và test đọc được ảnh phái sinh. Đuôi URL lấy từ magic bytes như MinioFileStorageService.
+///
+/// FR-JOB-003: <see cref="SaveAsync"/> ghi đè object theo key cố định, ghi lại từng lần gọi ở <see cref="Saves"/>.
 /// </summary>
 public sealed class FakeFileStorageService : IFileStorageService
 {
@@ -20,6 +22,10 @@ public sealed class FakeFileStorageService : IFileStorageService
     public ConcurrentBag<string> DeletedUrls { get; } = [];
 
     public ConcurrentDictionary<string, byte[]> Objects { get; } = new();
+
+    public ConcurrentQueue<(string ObjectKey, string ContentType)> Saves { get; } = new();
+
+    public static string UrlFor(string objectKey) => $"https://fake-minio.local/culinary-blog/{objectKey}";
 
     public async Task<string> UploadAsync(Stream content, string fileName, string contentType, string folder, CancellationToken ct = default)
     {
@@ -47,4 +53,16 @@ public sealed class FakeFileStorageService : IFileStorageService
         Objects.TryGetValue(fileUrl, out var bytes)
             ? Task.FromResult<Stream>(new MemoryStream(bytes, writable: false))
             : throw new FileNotFoundException($"Không có object {fileUrl} trong FakeFileStorageService.");
+
+    public async Task<string> SaveAsync(string objectKey, Stream content, string contentType, CancellationToken ct = default)
+    {
+        using var buffer = new MemoryStream();
+        content.Position = 0;
+        await content.CopyToAsync(buffer, ct);
+
+        var url = UrlFor(objectKey);
+        Objects[url] = buffer.ToArray();
+        Saves.Enqueue((objectKey, contentType));
+        return url;
+    }
 }
