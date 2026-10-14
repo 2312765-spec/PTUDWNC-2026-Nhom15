@@ -66,6 +66,9 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D48 | Xem hồ sơ (FR-AUTH-006) | User bị xóa sau khi cấp token → **404** `USER_NOT_FOUND` · user `IsActive=false` còn access token → **200** (chỉ đọc) |
 | D49 | Full-text search (FR-SRCH-001) | `simple` + `unaccent` (không có cấu hình `vietnamese`) · `SearchVector` do **trigger** cập nhật + GIN index · Title trọng số A, Description B · xếp `ts_rank` · bỏ khớp `ILIKE` giữa từ |
 | D50 | Non-Admin gọi lệnh ghi Category (NFR-SEC-006) | Handler kiểm tra lại `IsAdmin` → **403** `CATEGORY_FORBIDDEN` (thêm mã mới) |
+| D51 | Ping Google sau khi sinh sitemap (FR-JOB-003) | **Bỏ** — endpoint đã ngừng; khai báo qua `Sitemap:` trong robots.txt |
+| D52 | Nơi lưu & phục vụ sitemap.xml | **MinIO** key cố định `seo/sitemap.xml` + Nginx proxy `/sitemap.xml` · bỏ `frontend/app/sitemap.ts` |
+| D53 | Distributed lock cho sitemap job | Hangfire **`DisableConcurrentExecution`** thay RedLock |
 
 ---
 
@@ -1373,6 +1376,70 @@ nào cho Category.
 **Vì:** đúng NFR-SEC-006, và lỗi phân quyền luôn trả RFC 7807 với error code, không bao giờ 500.
 
 **Sửa SRS:** bảng Application Error Code — thêm `CATEGORY_FORBIDDEN` (403, Category).
+
+---
+
+## D51 — FR-JOB-003: bỏ bước ping Google Search Console
+
+> 2026-10-14.
+
+**Nguồn:** SRS FR-JOB-003 ("Gửi thông báo đến Google Search Console (ping)"), NFR-SEO-003 ("Ping Google
+Search Console sau khi update sitemap"), bảng tích hợp ngoài (`GET https://www.google.com/ping?sitemap={url}`).
+
+**Mâu thuẫn với thực tế:** Google đã ngừng endpoint ping sitemap từ 06/2023; từ cuối 2023 gọi vào trả
+404. SRS yêu cầu tích hợp với một dịch vụ không còn tồn tại.
+
+**Chốt:** không gọi ping. Google phát hiện sitemap qua dòng `Sitemap: {site}/sitemap.xml` trong
+`robots.txt` (đã là yêu cầu của NFR-SEO-003) và qua khai báo một lần trong Search Console.
+
+**Vì:** gọi một URL chắc chắn 404 mỗi ngày chỉ sinh log lỗi giả; để lỗi đó làm fail job thì sitemap không
+bao giờ "thành công".
+
+**Sửa SRS:** FR-JOB-003 (bỏ câu ping), NFR-SEO-003 (bỏ câu ping), bảng tích hợp ngoài (bỏ dòng Google
+Search Console).
+
+---
+
+## D52 — FR-JOB-003: sitemap.xml lưu trên MinIO, Nginx phục vụ
+
+> 2026-10-14.
+
+**Nguồn:** SRS FR-JOB-003 "Upload sitemap.xml lên MinIO **hoặc** lưu vào wwwroot" — chưa chốt.
+`team-assignment.md` lại giao `frontend/app/sitemap.ts` — thành hai nơi cùng sinh sitemap.
+`IFileStorageService.UploadAsync` luôn sinh tên GUID (D16), không ghi được key cố định.
+
+**Chốt:**
+
+1. Job ghi lên MinIO, key cố định **`seo/sitemap.xml`**, `Content-Type: application/xml`, ghi đè mỗi lần chạy.
+2. Thêm `IFileStorageService.SaveAsync(objectKey, content, contentType)` — **chỉ cho file do hệ thống
+   sinh ra**. File người dùng upload vẫn đi `UploadAsync` (tên GUID, magic bytes — D16, D28, CONS-007).
+3. Nginx: `location = /sitemap.xml` proxy tới object trên MinIO (bucket public-read, D16).
+4. **Không** làm `frontend/app/sitemap.ts`. Frontend chỉ có `app/robots.ts`.
+5. Danh sách URL: `/`, `/recipes`, `/categories`, mọi category chưa xóa, mọi recipe Published. Không đưa
+   `/search` (trang kết quả rỗng khi không có từ khóa), `/auth/*`, `/dashboard/*`.
+6. Base URL lấy từ cấu hình `Seo:SiteBaseUrl`; thiếu → job lỗi (Hangfire retry rồi Failed).
+
+**Vì:** wwwroot làm mỗi instance API giữ một bản riêng — lệch yêu cầu stateless/scale ngang (SRS mục
+NFR-SCAL). Sinh ở Next.js thì không còn là Hangfire job như FR-JOB-003.
+
+**Sửa SRS:** FR-JOB-003 — "Upload sitemap.xml lên MinIO (key `seo/sitemap.xml`), Nginx phục vụ tại `/sitemap.xml`".
+
+---
+
+## D53 — FR-JOB-003: Hangfire `DisableConcurrentExecution` thay RedLock
+
+> 2026-10-14.
+
+**Nguồn:** SRS mục khả năng mở rộng: "Distributed lock (RedLock) cho các tác vụ singleton (sitemap generation)".
+
+**Chốt:** `SitemapGenerationJob` gắn `[DisableConcurrentExecution(timeoutInSeconds: 600)]`. Lock nằm trên
+Hangfire PostgreSQL storage — vốn đã chia sẻ giữa mọi worker, nên là lock phân tán. Recurring job của
+Hangfire cũng chỉ được enqueue **một lần** cho mỗi mốc lịch dù có nhiều server.
+
+**Vì:** không thêm thư viện; RedLock phụ thuộc Redis, mà Redis down không được làm hỏng tác vụ
+(NFR-REL-002) — sitemap sẽ không sinh được đúng lúc Redis gặp sự cố.
+
+**Sửa SRS:** mục khả năng mở rộng — "Distributed lock (Hangfire `DisableConcurrentExecution`) cho tác vụ singleton".
 
 ---
 
