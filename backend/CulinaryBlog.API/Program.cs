@@ -212,7 +212,10 @@ if (app.Environment.IsDevelopment())
     }
 
     await IdentityRoleSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>());
-    await DbSeeder.SeedAsync(db);
+    await DbSeeder.SeedAsync(
+        db,
+        scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>(),
+        scope.ServiceProvider.GetRequiredService<ISlugHelper>());
 }
 
 // ---- Hangfire recurring job (FR-JOB-003, D52/D53) -------------------------
