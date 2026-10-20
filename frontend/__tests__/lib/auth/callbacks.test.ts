@@ -123,3 +123,35 @@ describe('sessionCallback — FR-AUTH-004', () => {
     expect(session).not.toHaveProperty('refreshToken');
   });
 });
+
+describe('jwtCallback — FR-AUTH-007 (trigger update)', () => {
+  it('chỉ chép displayName/avatarUrl/bio vào profile, không refresh token', async () => {
+    const result = await jwtCallback({
+      token,
+      trigger: 'update',
+      session: { profile: { displayName: 'Tên Mới', avatarUrl: 'https://example.com/n.png', bio: 'Bio' } },
+    });
+
+    expect(result.profile).toEqual({ ...profile, displayName: 'Tên Mới', avatarUrl: 'https://example.com/n.png', bio: 'Bio' });
+    expect(result.accessToken).toBe('access-1');
+    expect(mockRefreshAccessToken).not.toHaveBeenCalled();
+  });
+
+  it('bảo mật: bỏ qua id/email/roles do client gửi', async () => {
+    const result = await jwtCallback({
+      token,
+      trigger: 'update',
+      session: { profile: { displayName: 'X1', id: 'attacker', email: 'evil@example.com', roles: ['Admin'] } },
+    });
+
+    expect(result.profile).toMatchObject({ id: 'u1', email: 'lan@example.com', roles: ['Author'], displayName: 'X1' });
+  });
+
+  it('chưa đăng nhập (token không có profile) → không tạo profile từ dữ liệu client', async () => {
+    mockExpiring.mockReturnValue(false);
+
+    const result = await jwtCallback({ token: {}, trigger: 'update', session: { profile: { displayName: 'Ma' } } });
+
+    expect(result.profile).toBeUndefined();
+  });
+});

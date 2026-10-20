@@ -295,6 +295,8 @@ docs: cập nhật traceability sau slice 3
 
 **Vòng lặp chuẩn cho mỗi slice:**
 
+Pull code từ main về trước khi làm
+
 1. **Explore** — "Đọc `docs/SRS.md` phần FR-xxx và `docs/decisions.md`. Tóm tắt
    yêu cầu, nêu rõ quyết định D-x nào áp dụng cho FR này. Chưa viết code."
 2. **Plan** — "Lập kế hoạch implement FR-xxx. Liệt kê file sẽ tạo/sửa theo từng tầng.

@@ -69,6 +69,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D51 | Ping Google sau khi sinh sitemap (FR-JOB-003) | **Bỏ** — endpoint đã ngừng; khai báo qua `Sitemap:` trong robots.txt |
 | D52 | Nơi lưu & phục vụ sitemap.xml | **MinIO** key cố định `seo/sitemap.xml` + Nginx proxy `/sitemap.xml` · bỏ `frontend/app/sitemap.ts` |
 | D53 | Distributed lock cho sitemap job | Hangfire **`DisableConcurrentExecution`** thay RedLock |
+| D54 | Cập nhật hồ sơ (FR-AUTH-007) | Body rỗng → 400 · field vắng/`null` = giữ nguyên, `""` = xóa (`bio`, `avatarUrl`) · `IsActive=false` → 200 · user đã xóa → 404 |
 
 ---
 
@@ -1440,6 +1441,28 @@ Hangfire cũng chỉ được enqueue **một lần** cho mỗi mốc lịch dù
 (NFR-REL-002) — sitemap sẽ không sinh được đúng lúc Redis gặp sự cố.
 
 **Sửa SRS:** mục khả năng mở rộng — "Distributed lock (Hangfire `DisableConcurrentExecution`) cho tác vụ singleton".
+
+---
+
+## D54 — Cập nhật hồ sơ (FR-AUTH-007): PATCH một phần
+
+> Phát hiện lúc lập kế hoạch FR-AUTH-007 (2026-10-14). Xem `docs/plans/FR-AUTH-007-cap-nhat-ho-so-ca-nhan.md`.
+
+**Nguồn mâu thuẫn / thiếu:** SRS FR-AUTH-007 dùng `fullName` và 422 (D5, D4 đã thay). SRS không nói body rỗng,
+giá trị `null`, cách xóa `bio`/`avatarUrl`, user `IsActive=false` hay user đã bị xóa khi gọi PATCH.
+
+**Chốt:**
+
+1. Body không có field nào (`{}`) → **400** `VALIDATION_ERROR`.
+2. Field vắng hoặc `null` → **giữ nguyên**. Xóa `bio`/`avatarUrl` bằng chuỗi rỗng `""` (server lưu `NULL`).
+3. `displayName` rỗng/chỉ khoảng trắng → 400 (D5: NOT NULL, 2–100 ký tự). `avatarUrl` phải là URL tuyệt đối http/https.
+4. User `IsActive=false` còn access token → **200** (không cấp thêm quyền; D11 chặn ở login/refresh).
+5. User đã bị xóa → **404** `USER_NOT_FOUND` (D48).
+6. `email` và `userName` trong body (nếu có) bị bỏ qua, không đổi được.
+
+**Vì:** record C# với `string?` không phân biệt "vắng" và "null"; phân biệt cần tự dò JSON, không cần cho v1.
+
+**Sửa SRS:** FR-AUTH-007 — thay `fullName` theo D5, thay 422 bằng 400 (D4), bổ sung các điểm trên.
 
 ---
 
