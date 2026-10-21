@@ -1483,6 +1483,10 @@ SRS không nói ảnh được phục vụ ra Internet bằng địa chỉ nào.
    rỗng → giữ hành vi cũ (`Minio:Endpoint`), dev không đổi (`http://localhost:9000`).
 2. Prod: `PublicBaseUrl = https://{domain}`. Nginx `location /culinary-blog/` proxy tới MinIO, chỉ cho GET/HEAD.
 3. Tách key từ URL vẫn theo `/{bucket}/` → xóa/resize được ảnh dù URL ghép từ địa chỉ nào.
+4. Server Next.js (SSR/ISR và tối ưu ảnh `next/image`) gọi chính domain của site: trong compose, container
+   `nginx` có network alias = `SITE_DOMAIN`, frontend tin chứng chỉ qua `NODE_EXTRA_CA_CERTS`. Vì domain đó
+   phân giải ra IP nội bộ, bật `images.dangerouslyAllowLocalIP` — `remotePatterns` chỉ cho phép host của
+   chính dự án (`localhost:9000`, domain site) nên không mở thêm đường SSRF.
 
 **Vì:** ảnh cùng origin với site → không cần domain/chứng chỉ riêng cho MinIO, MinIO không lộ ra Internet (D57).
 

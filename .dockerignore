@@ -24,3 +24,9 @@ docs/
 **/.env.*
 **/appsettings.*.local.json
 **/secrets.json
+ssl/
+backups/
+
+# Log Serilog của máy dev (FR-OBS-002) — có email người dùng; Web SDK coi *.json là content nên
+# `dotnet publish` sẽ chép cả thư mục này vào image nếu không loại ở đây.
+**/logs/

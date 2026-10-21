@@ -138,3 +138,21 @@ Không có `seq`, `mailhog`.
 - `Program.cs` là file chung — báo nhóm trước, giữ thay đổi nhỏ.
 - Đổi `Jwt:Key` thành rỗng không ảnh hưởng dev/test: `appsettings.Development.json` và `CulinaryBlogApiFactory` đã có khóa riêng.
 - Image MinIO bị chặn pull trên Docker Hub (xem ghi chú FR-FILE trong traceability) → dùng `quay.io`, pin tag.
+
+## 9. Kết quả (2026-10-21) — khác so với kế hoạch
+
+- Đổi số quyết định thành **D55–D57** (D54 đã dùng cho FR-AUTH-007).
+- `JwtKeyGuardTests` đặt ở IntegrationTests (UnitTests không tham chiếu tầng API).
+- Hướng dẫn triển khai viết ở **`docs/deployment.md`** thay vì README — README hiện là bảng tiến độ nhóm.
+- Phát sinh thêm, không có trong mục 2:
+  - Server Next.js (SSR/ISR + `next/image`) gọi `https://{SITE_DOMAIN}` → nginx có network alias = domain,
+    frontend tin cert qua `NODE_EXTRA_CA_CERTS`, bật `images.dangerouslyAllowLocalIP` (ghi vào D55 mục 4).
+  - `frontend/.dockerignore` (trước đó chép cả `node_modules` của máy dev), tạo `public/` rỗng lúc build.
+  - Log Serilog của máy dev (có email người dùng) bị `dotnet publish` chép vào image → loại `**/logs/` trong
+    `.dockerignore`; tạo `/app/logs` cho user `app` sau `COPY` để File sink ghi được.
+  - Bỏ `ASPNETCORE_URLS` trong Dockerfile API (trùng `ASPNETCORE_HTTP_PORTS` có sẵn, sinh cảnh báo).
+- Bước 7 của smoke test không upload qua API được (cần recipe — FR-RCP-003 chưa có): ghi thẳng ảnh PNG vào
+  bucket, kiểm tra GET 200 / PUT 403 / `next/image` 200.
+- `verify-prod.sh` thêm bước 9: API ghi được log file, image không mang log của máy dev.
+- Kết quả: 18 test mới pass · `dotnet test` toàn bộ pass (267 unit + 259 integration + 10 architecture) ·
+  `npm run lint && npm run build` pass · Jest 340/340 · `verify-prod.sh` 16/16 · backup/giữ 30 ngày kiểm tay OK.
