@@ -14,7 +14,7 @@
 > Tóm tắt: **A** = FR-AUTH + FR-JOB-001 · **B** = FR-CAT + FR-RCP-001/002 + FR-SRCH ·
 > **C** = FR-RCP-003/004/005/006/007/009/010 · **D** = FR-RCP-008 + FR-FILE + FR-JOB-002/003 + FR-OBS.
 
-**Tiến độ:** 23 / 34 FR (68%) — A 5/8 (AUTH-001→005; AUTH-006 🟡) · B 11/11 (CAT-001→005, RCP-001→002, SRCH-001→004) · C 0/7 ·
+**Tiến độ:** 25 / 34 FR (74%) — A 7/8 (AUTH-001→005, AUTH-007, JOB-001; AUTH-006 🟡) · B 11/11 (CAT-001→005, RCP-001→002, SRCH-001→004) · C 0/7 ·
 D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 🟡)
 
 ---
@@ -167,7 +167,7 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 
 | FR | Job | Loại | Trigger | Slice | Hiện thực | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|---|
-| FR-JOB-001 | Welcome Email | Fire-and-forget | Sau FR-AUTH-001 | S9 | `WelcomeEmailJob`, `MailKitEmailService`. Retry 3× (1p/5p/30p) | `Jobs/WelcomeEmailTests.cs` | **D12** | ⬜ |
+| FR-JOB-001 | Welcome Email | Fire-and-forget | Sau FR-AUTH-001 **và** Google login tài khoản mới (D56) | S9 | `WelcomeEmailJob` [AutomaticRetry 3× 1p/5p/30p, hết lượt → Failed — D42] → `SendWelcomeEmailCommand(+Handler, Validator: email hợp lệ, displayName không rỗng, `Seo:SiteBaseUrl` http(s) tuyệt đối)` → `WelcomeEmailTemplate` (HTML + text, `displayName` HTML-encode, link `/` và `/dashboard`, **không** link kích hoạt — D12) → `IEmailService.SendAsync(EmailMessage)` → `MailKitEmailService` (multipart/alternative, SMTP/Mailhog). `RegisterCommandHandler`/`GoogleLoginCommandHandler` bọc enqueue try/catch → Warning, không làm fail request (D55). FE: trang đích `/dashboard` (`app/dashboard/page.tsx` — khung chào mừng + lối tắt, CSR, chuyển về login nếu chưa đăng nhập; C mở rộng thành tổng quan Author). Kế hoạch: `plans/FR-JOB-001-welcome-email.md` | `IntegrationTests/Jobs/WelcomeEmailTests.cs` (15 gồm theory) + `IntegrationTests/Email/MailKitEmailServiceTests.cs` (2, Mailhog thật) + `UnitTests/Auth/{SendWelcomeEmailCommandHandler,SendWelcomeEmailCommandValidator,WelcomeEmailTemplate}Tests.cs` + `RegisterCommandHandlerTests.cs` · FE `__tests__/app/dashboard/page.test.tsx` (6, pass) | **D12**, D5, D42, D44, D45, **D55–D57** | ✅ |
 | FR-JOB-002 | Image Resize / Thumbnail | Fire-and-forget | Sau FR-RCP-008 upload (`EnqueueGenerateImageVariants` sau khi lưu DB) | S8 | `ResizeRecipeImageJob` [AutomaticRetry 3× 1p/5p/30p] → `GenerateRecipeImageVariantsCommand(+Handler, Validator)` → `SkiaImageResizer` (SkiaSharp — D46; thumbnail crop 300×300, medium fit 800×600, WebP, không upscale, bỏ EXIF, giới hạn 40 MP; AVIF → bỏ qua) → `Recipe.SetImageVariants`. No-op khi recipe/ảnh đã xóa hoặc đã có thumbnail. Kế hoạch: `plans/FR-JOB-002-resize-anh.md` | `IntegrationTests/Jobs/ImageResizeTests.cs` (7) + `IntegrationTests/Files/SkiaImageResizerTests.cs` (8) + `UnitTests/Images/GenerateRecipeImageVariantsCommand{Handler,Validator}Tests.cs` (11) | **D40–D46** | ✅ |
 | FR-JOB-003 | Sitemap Generation | Recurring | Cron `0 2 * * *` (02:00 UTC), id `sitemap-generation` — `RecurringJobsRegistration` gọi trong `Program.cs` (trừ Testing) | S11 | `SitemapGenerationJob` [AutomaticRetry 2× · DisableConcurrentExecution 600s — D53] → `GenerateSitemapCommand(Seo:SiteBaseUrl)` (+Handler, Validator: URL tuyệt đối http(s)) → `ISitemapRepository` (projection, AsNoTracking) → `SitemapXmlBuilder` (sitemaps.org 0.9) → `IFileStorageService.SaveAsync("seo/sitemap.xml")` → Nginx `location = /sitemap.xml`. URL: `/`, `/recipes`, `/categories`, category chưa xóa, recipe Published. **Không ping Google** (D51) — `frontend/app/robots.ts` khai báo `Sitemap:`. Kế hoạch: `plans/FR-JOB-003-sitemap.md` | `IntegrationTests/Jobs/SitemapTests.cs` (13) + `IntegrationTests/Files/MinioFileStorageServiceTests.cs` (+2 `SaveAsync`, S3 thật) + `UnitTests/Seo/*` (18) + FE `__tests__/app/robots.test.ts` (4) | **D51–D53**, D1, D2, D44 | ✅ |
 
@@ -244,14 +244,14 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 
 | Module | Tổng FR | ✅ | 🟡 | ⬜ |
 |---|---|---|---|---|
-| FR-AUTH | 7 | 4 | 0 | 3 |
+| FR-AUTH | 7 | 6 | 1 | 0 |
 | FR-CAT | 5 | 5 | 0 | 0 |
-| FR-RCP | 10 | 2 | 0 | 8 |
-| FR-SRCH | 4 | 3 | 1 | 0 |
+| FR-RCP | 10 | 3 | 0 | 7 |
+| FR-SRCH | 4 | 4 | 0 | 0 |
 | FR-FILE | 2 | 2 | 0 | 0 |
-| FR-JOB | 3 | 2 | 0 | 1 |
+| FR-JOB | 3 | 3 | 0 | 0 |
 | FR-OBS | 3 | 2 | 1 | 0 |
-| **Tổng** | **34** | **20** | **2** | **12** |
+| **Tổng** | **34** | **25** | **2** | **7** |
 
 > Không còn FR nào bị chặn — cả 22 mâu thuẫn trong SRS đã chốt tại `decisions.md`.
 > Cột **Quyết định** ở mỗi bảng cho biết FR đó phải đọc mục D nào trước khi code.
