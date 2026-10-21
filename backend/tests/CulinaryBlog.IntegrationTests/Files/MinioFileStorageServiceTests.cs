@@ -155,6 +155,58 @@ public sealed class MinioFileStorageServiceTests : IAsyncLifetime
         responseStream.ToArray().Should().BeEquivalentTo(newer);
     }
 
+    [Fact(DisplayName = "CONS-009/D55: có Minio:PublicBaseUrl → URL ảnh trả cho trình duyệt dùng PublicBaseUrl")]
+    public async Task UploadAsync_WithPublicBaseUrl_ReturnsPublicUrl()
+    {
+        var sut = CreateSut(publicBaseUrl: "https://culinary.example/");
+        using var content = new MemoryStream(JpegBytes());
+
+        var url = await sut.UploadAsync(content, "a.jpg", "image/jpeg", "recipes/test-recipe", CancellationToken.None);
+
+        url.Should().StartWith($"https://culinary.example/{BucketName}/recipes/test-recipe/");
+        using var response = await _s3.GetObjectAsync(BucketName, ExtractKey(url));
+        response.HttpStatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact(DisplayName = "CONS-009/D55: Minio:PublicBaseUrl rỗng → URL vẫn ghép từ Minio:Endpoint (dev không đổi)")]
+    public async Task UploadAsync_EmptyPublicBaseUrl_FallsBackToEndpoint()
+    {
+        var sut = CreateSut(publicBaseUrl: "");
+        using var content = new MemoryStream(JpegBytes());
+
+        var url = await sut.UploadAsync(content, "a.jpg", "image/jpeg", "recipes/test-recipe", CancellationToken.None);
+
+        url.Should().StartWith($"{_s3Server.GetConnectionString().TrimEnd('/')}/{BucketName}/");
+    }
+
+    [Fact(DisplayName = "CONS-009/D55: URL công khai vẫn xóa được object thật trên MinIO")]
+    public async Task DeleteAsync_PublicUrl_RemovesFromMinio()
+    {
+        var sut = CreateSut(publicBaseUrl: "https://culinary.example");
+        using var content = new MemoryStream(JpegBytes());
+        var url = await sut.UploadAsync(content, "a.jpg", "image/jpeg", "recipes/test-recipe", CancellationToken.None);
+
+        await sut.DeleteAsync(url, CancellationToken.None);
+
+        var act = () => _s3.GetObjectAsync(BucketName, ExtractKey(url));
+        var exception = await act.Should().ThrowAsync<AmazonS3Exception>();
+        exception.Which.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    private MinioFileStorageService CreateSut(string publicBaseUrl)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Minio:BucketName"] = BucketName,
+                ["Minio:Endpoint"] = _s3Server.GetConnectionString(),
+                ["Minio:PublicBaseUrl"] = publicBaseUrl,
+            })
+            .Build();
+
+        return new MinioFileStorageService(_s3, configuration);
+    }
+
     private static byte[] JpegBytes()
     {
         // FF D8 FF = magic bytes JPEG (đủ để ImageSignature.Detect nhận diện trong MinioFileStorageService).
