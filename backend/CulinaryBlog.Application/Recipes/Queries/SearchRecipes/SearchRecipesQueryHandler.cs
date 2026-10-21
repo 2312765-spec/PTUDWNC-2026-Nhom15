@@ -7,7 +7,7 @@ using CulinaryBlog.Application.Common.Interfaces;
 namespace CulinaryBlog.Application.Recipes.Queries.SearchRecipes;
 
 public sealed class SearchRecipesQueryHandler(
-    IRecipeRepository recipeRepository, IIdentityService identityService)
+    IRecipeRepository recipeRepository, IIdentityService? identityService=null)
     : IRequestHandler<SearchRecipesQuery, PagedResult<RecipeSummaryDto>>
 {
     public async Task<PagedResult<RecipeSummaryDto>> Handle(SearchRecipesQuery request, CancellationToken cancellationToken)
@@ -30,7 +30,8 @@ public sealed class SearchRecipesQueryHandler(
             .ToList();
 
         // 2. Lấy dictionary tên tác giả qua IIdentityService (FR-RCP-002)
-        var authorNames = authorIds.Count > 0
+        // Thêm kiểm tra "identityService != null" để triệt tiêu hoàn toàn cảnh báo CS8602
+        var authorNames = (identityService != null && authorIds.Count > 0)
             ? await identityService.GetDisplayNamesAsync(authorIds, cancellationToken)
             : new Dictionary<string, string>();
         
@@ -45,7 +46,12 @@ public sealed class SearchRecipesQueryHandler(
             
             // Xử lý convert AuthorId từ string sang Guid an toàn 
             _ = Guid.TryParse(r.AuthorId, out var authorGuid);
-
+            // 3. Map tên tác giả từ dictionary (nếu không có thì trả về null)
+            string? authorName = null;
+            if (!string.IsNullOrEmpty(r.AuthorId) && authorNames.TryGetValue(r.AuthorId, out var name))
+            {
+                authorName = name;
+            }
             return new RecipeSummaryDto(
                 r.Id,
                 r.Title,
@@ -57,12 +63,14 @@ public sealed class SearchRecipesQueryHandler(
                 r.CookTime,
                 r.Difficulty.ToString(),
                 authorGuid,
-                null, // AuthorName (nullable)
+                authorName, 
                 r.CreatedAt,
                 hit.Rank
             );
         }).ToList();
 
         return new PagedResult<RecipeSummaryDto>(dtos, totalCount, page, pageSize);
+    
     }
+    
 }
