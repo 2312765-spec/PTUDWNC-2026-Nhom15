@@ -4,13 +4,15 @@ using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Interfaces;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace CulinaryBlog.Application.Auth.Commands.GoogleLogin;
 
 /// <summary>
 /// FR-AUTH-003 (SRS Chương 3; D9, D5, D12, D33). Verify ID Token với Google → liên kết tài
 /// khoản đã có hoặc tự tạo mới (role Author) → sinh cặp access+refresh token (giống hệt
-/// Register/Login, D24) → nếu là tài khoản mới thì enqueue welcome email (FR-JOB-001).
+/// Register/Login, D24) → nếu là tài khoản mới thì enqueue welcome email (FR-JOB-001, D56;
+/// lỗi enqueue chỉ log — D55).
 /// </summary>
 public sealed class GoogleLoginCommandHandler(
     IGoogleTokenValidator googleTokenValidator,
@@ -18,7 +20,8 @@ public sealed class GoogleLoginCommandHandler(
     IJwtService jwtService,
     IRefreshTokenRepository refreshTokenRepository,
     IUnitOfWork unitOfWork,
-    IBackgroundJobService backgroundJobService)
+    IBackgroundJobService backgroundJobService,
+    ILogger<GoogleLoginCommandHandler> logger)
     : IRequestHandler<GoogleLoginCommand, AuthResponseDto>
 {
     public async Task<AuthResponseDto> Handle(GoogleLoginCommand request, CancellationToken cancellationToken)
@@ -48,7 +51,7 @@ public sealed class GoogleLoginCommandHandler(
 
         if (isNewUser)
         {
-            backgroundJobService.EnqueueWelcomeEmail(user.Email, user.DisplayName);
+            backgroundJobService.TryEnqueueWelcomeEmail(user.Email, user.DisplayName, logger);
         }
 
         var profile = new UserProfileDto(user.UserId, user.Email, user.DisplayName, user.AvatarUrl, user.Bio, user.Roles);
