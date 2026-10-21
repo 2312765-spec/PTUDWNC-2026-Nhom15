@@ -70,6 +70,9 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D52 | Nơi lưu & phục vụ sitemap.xml | **MinIO** key cố định `seo/sitemap.xml` + Nginx proxy `/sitemap.xml` · bỏ `frontend/app/sitemap.ts` |
 | D53 | Distributed lock cho sitemap job | Hangfire **`DisableConcurrentExecution`** thay RedLock |
 | D54 | Cập nhật hồ sơ (FR-AUTH-007) | Body rỗng → 400 · field vắng/`null` = giữ nguyên, `""` = xóa (`bio`, `avatarUrl`) · `IsActive=false` → 200 · user đã xóa → 404 |
+| D55 | URL công khai của ảnh MinIO (CONS-009) | Cấu hình `Minio:PublicBaseUrl` (rỗng → dùng `Minio:Endpoint`) · prod = `https://{domain}`, Nginx proxy `/culinary-blog/` (GET/HEAD) tới MinIO |
+| D56 | Migration + seed role ở prod (CONS-009) | Service `migrate` một lần: `--migrate-only` = migrate + `IdentityRoleSeeder` rồi thoát · **không** chạy `DbSeeder` · `api` chờ `service_completed_successfully` |
+| D57 | Cổng prod (CONS-009, NFR-SEC-005) | **Chỉ Nginx** publish 80/443 (lệch bảng SRS §6.5) · API bật `ForwardedHeaders`, tin proxy trong mạng nội bộ |
 
 ---
 
@@ -1463,6 +1466,71 @@ giá trị `null`, cách xóa `bio`/`avatarUrl`, user `IsActive=false` hay user 
 **Vì:** record C# với `string?` không phân biệt "vắng" và "null"; phân biệt cần tự dò JSON, không cần cho v1.
 
 **Sửa SRS:** FR-AUTH-007 — thay `fullName` theo D5, thay 422 bằng 400 (D4), bổ sung các điểm trên.
+
+---
+
+## D55 — CONS-009: URL công khai của ảnh MinIO
+
+> 2026-10-21. Xem `docs/plans/CONS-009-docker-compose-prod.md`.
+
+**Nguồn:** SRS §6.5 chạy MinIO trong mạng Docker (`http://minio:9000`), nhưng `MinioFileStorageService`
+ghép URL ảnh trả cho trình duyệt từ chính `Minio:Endpoint` — địa chỉ nội bộ đó trình duyệt không mở được.
+SRS không nói ảnh được phục vụ ra Internet bằng địa chỉ nào.
+
+**Chốt:**
+
+1. Thêm cấu hình `Minio:PublicBaseUrl`. Có giá trị → URL ảnh = `{PublicBaseUrl}/{bucket}/{key}`;
+   rỗng → giữ hành vi cũ (`Minio:Endpoint`), dev không đổi (`http://localhost:9000`).
+2. Prod: `PublicBaseUrl = https://{domain}`. Nginx `location /culinary-blog/` proxy tới MinIO, chỉ cho GET/HEAD.
+3. Tách key từ URL vẫn theo `/{bucket}/` → xóa/resize được ảnh dù URL ghép từ địa chỉ nào.
+
+**Vì:** ảnh cùng origin với site → không cần domain/chứng chỉ riêng cho MinIO, MinIO không lộ ra Internet (D57).
+
+**Sửa SRS:** §6.5 — thêm "ảnh MinIO phục vụ qua Nginx tại `/{bucket}/`".
+
+---
+
+## D56 — CONS-009: migration và seed role ở Production
+
+> 2026-10-21.
+
+**Nguồn:** SRS không nói migration chạy lúc nào ở prod. `Program.cs` chỉ migrate + seed role trong
+`IsDevelopment()` → DB prod trống bảng, register/login lỗi 500 (thiếu role — xem `IdentityRoleSeeder`).
+
+**Chốt:**
+
+1. API nhận tham số `--migrate-only`: migrate + seed 2 role (`Author`, `Admin`) rồi thoát, không mở cổng.
+2. `docker-compose.prod.yml` có service `migrate` (cùng image API) chạy lệnh đó một lần; `api`
+   `depends_on: migrate: condition: service_completed_successfully`.
+3. **Không** chạy `DbSeeder` (dữ liệu mẫu) ở prod.
+4. Development dùng chung hàm `MigrateAndSeedRolesAsync`, rồi chạy thêm `DbSeeder` như cũ.
+
+**Vì:** migrate lúc API khởi động thì khi scale nhiều instance, các instance cùng migrate một lúc.
+Tách thành bước riêng cũng làm lỗi migration hiện rõ (service `migrate` exit ≠ 0, `api` không lên).
+
+**Sửa SRS:** §6.5 — thêm bước migration trước khi API khởi động.
+
+---
+
+## D57 — CONS-009: chỉ Nginx publish cổng ở Production
+
+> 2026-10-21.
+
+**Nguồn:** bảng service SRS §6.5 ghi cổng 5432/6379/9000/8080/3000 cho cả production — publish ra host
+nghĩa là DB, Redis, MinIO mở ra Internet, và API đi vòng được qua Nginx (bỏ qua HTTPS — NFR-SEC-005).
+
+**Chốt:**
+
+1. Prod chỉ `nginx` publish `80` và `443`. Các service còn lại chỉ nằm trong mạng nội bộ của compose.
+2. API bật `UseForwardedHeaders` (`X-Forwarded-For`, `X-Forwarded-Proto`) ở đầu pipeline và **xóa danh
+   sách proxy tin cậy mặc định** (chỉ có loopback) — địa chỉ của Nginx trong mạng Docker thay đổi mỗi lần tạo
+   lại container. An toàn vì API không nhận kết nối nào ngoài Nginx (mục 1).
+3. HSTS của API đặt `max-age=31536000` (giống Nginx, NFR-SEC-005).
+
+**Vì:** NFR-SEC-005 (mọi traffic qua HTTPS) và nguyên tắc không lộ hạ tầng. Thiếu forwarded headers thì
+sau Nginx scheme luôn là `http` (HSTS không gửi) và IP client trong log luôn là IP của Nginx (CONS-010).
+
+**Sửa SRS:** §6.5 — cột cổng của production chỉ còn Nginx 80/443.
 
 ---
 
