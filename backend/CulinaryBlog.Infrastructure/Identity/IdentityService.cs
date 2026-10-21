@@ -2,6 +2,7 @@ using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Domain.Common;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 namespace CulinaryBlog.Infrastructure.Identity;
 /// <summary>
 /// Hiện thực IIdentityService bằng ASP.NET Core Identity (D23/ADR-0003).
@@ -9,6 +10,7 @@ namespace CulinaryBlog.Infrastructure.Identity;
 /// </summary>
 public sealed class IdentityService(UserManager<ApplicationUser> userManager) : IIdentityService
 {
+        
         public async Task<AuthenticatedUser> CreateUserAsync(
         string email,
         string password,
@@ -217,4 +219,63 @@ public sealed class IdentityService(UserManager<ApplicationUser> userManager) : 
 
         return new AuthenticatedUser(user.Id, user.Email!, user.DisplayName, user.AvatarUrl, user.Bio, [.. roles]);
     }
+    public async Task<Dictionary<string, string>> GetDisplayNamesAsync(
+    IEnumerable<string> userIds, 
+    CancellationToken cancellationToken = default)
+{
+    var distinctIds = userIds?
+        .Where(id => !string.IsNullOrWhiteSpace(id))
+        .Distinct()
+        .ToList() ?? new List<string>();
+
+    if (!distinctIds.Any())
+    {
+        return new Dictionary<string, string>();
+    }
+
+    // Dùng Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions để tránh hoàn toàn xung đột Linq.Async
+    var users = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+        userManager.Users
+            .Where(u => distinctIds.Contains(u.Id))
+            .Select(u => new 
+            { 
+                u.Id, 
+                u.DisplayName, 
+                u.UserName 
+            }),
+        cancellationToken);
+
+    var result = new Dictionary<string, string>();
+    foreach (var u in users)
+    {
+        var name = !string.IsNullOrWhiteSpace(u.DisplayName)
+            ? u.DisplayName
+            : (!string.IsNullOrWhiteSpace(u.UserName) ? u.UserName : "Tác giả");
+        result[u.Id] = name;
+    }
+
+    return result;
+}
+
+public async Task<string?> GetUserDisplayNameAsync(
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return null;
+        }
+
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null)
+        {
+            return null;
+        }
+
+        return !string.IsNullOrWhiteSpace(user.DisplayName)
+            ? user.DisplayName
+            : (!string.IsNullOrWhiteSpace(user.UserName) ? user.UserName : null);
+    }
+    
+   
 }
