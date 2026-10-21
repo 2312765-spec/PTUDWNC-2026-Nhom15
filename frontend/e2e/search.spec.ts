@@ -38,8 +38,7 @@ test.describe('Luồng tìm kiếm (FR-SRCH-001)', () => {
   });
 
   test('FR-SRCH-001: có công thức khớp → hiện danh sách kết quả, bấm vào sang trang chi tiết', async ({ page }) => {
-    test.fixme(true, 'Chờ FR-RCP-003/005 (C) hoặc DbSeeder có công thức Published');
-
+    // Đã bật: PR #54 đã seed dữ liệu món Việt nên PostgreSQL full-text search với "pho" sẽ khớp công thức "Phở"
     await page.goto('/search?q=pho');
 
     const results = page.getByRole('region', { name: 'Kết quả tìm kiếm' });
