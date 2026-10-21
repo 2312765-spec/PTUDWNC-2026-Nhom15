@@ -3,10 +3,13 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
-  // NFR-PERF-005 — ảnh từ MinIO phải khai báo remotePatterns mới dùng được next/image
+  // NFR-PERF-005 — ảnh từ MinIO và placeholder mẫu phải khai báo remotePatterns mới dùng được next/image
   images: {
+    dangerouslyAllowSVG: true,
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost', port: '9000', pathname: '/culinary-blog/**' },
+      // Placeholder ảnh cho dữ liệu seed món Việt (PR #54)
+      { protocol: 'https', hostname: 'placehold.co' },
       // TODO(S8 — D): thêm domain MinIO production
     ],
   },
