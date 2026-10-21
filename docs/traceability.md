@@ -214,7 +214,7 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 | USE | NFR-USE-001 | Breakpoint 320/768/1200px, Tailwind utility-first | Chrome DevTools + BrowserStack | ⬜ |
 | USE | NFR-USE-002 | WCAG 2.1 AA, contrast ≥ 4.5:1, keyboard nav đầy đủ | axe + NVDA/VoiceOver | ⬜ |
 | USE | NFR-USE-003 | RFC 7807 + inline field error + error code i18n-ready (bảng cuối `decisions.md`) | Code review | ⬜ |
-| USE | NFR-USE-004 | Skeleton, optimistic update + rollback, toast, upload progress bar | Manual + E2E | ⬜ |
+| USE | NFR-USE-004 | Skeleton, optimistic update + rollback, toast, upload progress bar | Manual + E2E |[x] **NFR-USE-004 Loading States**: Skeleton loaders cho Home, Recipe Detail, Categories list, Category detail. Tích hợp trang 404 chuyên biệt cho `/recipes/[slug]` và `/categories/[slug]`.
 | REL | NFR-REL-001 | Uptime ≥ 99.5%, readiness probe mỗi 10s | Uptime Robot | ⬜ |
 | REL | NFR-REL-002 | GlobalExceptionMiddleware; **Redis down → đi thẳng xuống handler, không throw** (D8); Hangfire retry 3× | Chaos test | ⬜ |
 | REL | NFR-REL-003 | WAL, pg_dump hàng ngày 03:00 (giữ 30 ngày), MinIO volume persistent, soft delete (D1) | Ops | ⬜ |
