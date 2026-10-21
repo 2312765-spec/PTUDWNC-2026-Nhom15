@@ -7,6 +7,12 @@ namespace CulinaryBlog.Application.Common.Interfaces;
 /// </summary>
 public interface IIdentityService
 {
+    Task<string?> GetUserDisplayNameAsync(string userId, CancellationToken cancellationToken = default);
+    
+    // Batch lookup để triệt tiêu hoàn toàn vấn đề N+1 khi hiển thị danh sách/tìm kiếm
+    Task<Dictionary<string, string>> GetDisplayNamesAsync(IEnumerable<string> userIds, CancellationToken cancellationToken = default);
+
+    
     /// <summary>
     /// Tạo user mới, gán role "Author" mặc định (FR-AUTH-001).
     /// Ném ConflictException (AUTH_EMAIL_EXISTS, 409) nếu email đã tồn tại.
@@ -76,3 +82,5 @@ public sealed record AuthenticatedUser(
     string? AvatarUrl,
     string? Bio,
     IReadOnlyList<string> Roles);
+
+
