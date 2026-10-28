@@ -19,7 +19,7 @@ namespace CulinaryBlog.Infrastructure.Persistence.Seeding;
 /// </summary>
 public static class DbSeeder
 {
-    private const int RandomSeed = 20260920;
+    private const int _randomSeed = 20260920;
 
     public static async Task SeedAsync(
         CulinaryBlogDbContext db,
@@ -45,7 +45,7 @@ public static class DbSeeder
 
         var usedSlugs = (await db.Recipes.IgnoreQueryFilters().Select(r => r.Slug).ToListAsync(ct))
             .ToHashSet(StringComparer.Ordinal);
-        var faker = new Faker("vi") { Random = new Randomizer(RandomSeed) };
+        var faker = new Faker("vi") { Random = new Randomizer(_randomSeed) };
 
         var recipes = new List<Recipe>();
         for (var i = 0; i < SeedRecipeCatalog.Recipes.Count; i++)
@@ -134,7 +134,7 @@ public static class DbSeeder
             recipe.AddIngredient(ingredient.Name, ingredient.Quantity, ingredient.Unit, ingredient.Notes);
         }
 
-        recipe.AttachImage($"https://placehold.co/800x600?text={slug}", altText: seed.Title);
+        recipe.AttachImage($"https://placehold.co/800x600/png?text={slug}", altText: seed.Title);
 
         // Qua domain method để D3 (≥ 1 step và ≥ 1 ingredient) được kiểm tra thật.
         if (status != RecipeStatus.Draft)

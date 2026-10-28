@@ -1,24 +1,26 @@
 import type { NextConfig } from 'next';
 
+const isDev = process.env.NODE_ENV !== 'production';
+
+// Khai báo mảng remotePatterns chuẩn kiểu Next.js
+const remotePatterns: NonNullable<NextConfig['images']>['remotePatterns'] = [
+  { protocol: 'http', hostname: 'localhost', port: '9000', pathname: '/culinary-blog/**' },
+];
+
+// Chỉ thêm placehold.co khi ở môi trường dev/test
+if (isDev) {
+  remotePatterns.push({
+    protocol: 'https',
+    hostname: 'placehold.co',
+  });
+}
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-
-  // NFR-PERF-005 — ảnh từ MinIO và placeholder mẫu phải khai báo remotePatterns mới dùng được next/image
   images: {
-    dangerouslyAllowSVG: true,
-    remotePatterns: [
-      { protocol: 'http', hostname: 'localhost', port: '9000', pathname: '/culinary-blog/**' },
-      // Placeholder ảnh cho dữ liệu seed món Việt (PR #54)
-      { protocol: 'https', hostname: 'placehold.co' },
-      // TODO(S8 — D): thêm domain MinIO production
-    ],
+    remotePatterns,
   },
-
-  // NFR-SEC-005
   poweredByHeader: false,
-
-  // FR-AUTH-001/002 — dev log mặc định in tham số server action, tức in cả mật khẩu
-  // của loginAction/registerAction ra terminal. Tắt đi.
   logging: {
     serverFunctions: false,
   },
