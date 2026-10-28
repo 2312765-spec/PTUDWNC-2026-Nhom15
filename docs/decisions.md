@@ -76,6 +76,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D58 | URL công khai của ảnh MinIO (CONS-009) | Cấu hình `Minio:PublicBaseUrl` (rỗng → dùng `Minio:Endpoint`) · prod = `https://{domain}`, Nginx proxy `/culinary-blog/` (GET/HEAD) tới MinIO |
 | D59 | Migration + seed role ở prod (CONS-009) | Service `migrate` một lần: `--migrate-only` = migrate + `IdentityRoleSeeder` rồi thoát · **không** chạy `DbSeeder` · `api` chờ `service_completed_successfully` |
 | D60 | Cổng prod (CONS-009, NFR-SEC-005) | **Chỉ Nginx** publish 80/443 (lệch bảng SRS §6.5) · API bật `ForwardedHeaders`, tin proxy trong mạng nội bộ |
+| D61 | og:image, độ dài description, "pass 100%" (NFR-SEO-001/002) | og:image 1200×630 sinh bằng `opengraph-image.tsx` (fallback thẻ chữ) · description bổ sung/cắt về 150–160 · Rich Results = **0 lỗi** · `/search` + `/auth/*` `noindex` · canonical không query param |
 
 ---
 
@@ -1603,6 +1604,35 @@ nghĩa là DB, Redis, MinIO mở ra Internet, và API đi vòng được qua Ngi
 sau Nginx scheme luôn là `http` (HSTS không gửi) và IP client trong log luôn là IP của Nginx (CONS-010).
 
 **Sửa SRS:** §6.5 — cột cổng của production chỉ còn Nginx 80/443.
+
+---
+
+## D61 — NFR-SEO-001/002: og:image, meta description, tiêu chí Rich Results
+
+> 2026-10-28. Xem `docs/plans/NFR-SEO-001-002-seo-frontend.md`.
+
+**Nguồn:** NFR-SEO-002 đòi og:image **1200×630** nhưng FR-JOB-002 chỉ sinh 800×600 và 300×300; đòi meta
+description **150–160 ký tự** nhưng description là nội dung tác giả nhập, dài ngắn tùy ý. NFR-SEO-001 đòi
+Rich Results "pass 100%" và nhắc "star rating" — trong khi rating nằm ngoài scope v1. SRS không nói trang
+nào ngoài recipe được index, cũng không nói canonical xử lý query param thế nào.
+
+**Chốt:**
+
+1. og:image của `/recipes/{slug}` sinh ở frontend bằng `app/(public)/recipes/[slug]/opengraph-image.tsx`
+   (`next/og`): ảnh chính crop cover + tên món + tên site, đúng 1200×630. Không có ảnh, hoặc ảnh không
+   đọc được (WebP/AVIF, lỗi mạng) → thẻ chữ thương hiệu. Backend **không** thêm biến thể ảnh.
+2. Meta description: ngắn hơn 150 ký tự → nối "Chuẩn bị X phút, nấu Y phút, Z phần · {Danh mục}.";
+   dài hơn 160 → cắt tại ranh giới từ + "…", tổng ≤ 160. Không thêm validation độ dài cho tác giả.
+3. "Pass 100%" = Google Rich Results Test **0 lỗi**. Cảnh báo thiếu `aggregateRating`/`video` chấp nhận.
+4. `/search` → `noindex, follow`; `/auth/login`, `/auth/register` → `noindex`.
+5. Canonical luôn là đường dẫn **không query param** (`/recipes?page=2` → `/recipes`), gốc `NEXT_PUBLIC_SITE_URL`.
+
+**Vì:** đạt kích thước OG mà không cần migration/đổi DTO; tác giả không bị ép viết mô tả theo độ dài SEO;
+không thể có star rating khi rating ngoài scope; trang kết quả tìm kiếm nội bộ và trang đăng nhập không nên
+lên Google (khuyến nghị của Google); query param chỉ dùng cho filter/sort/paging (NFR-SEO-004).
+
+**Sửa SRS:** NFR-SEO-001 — bỏ "star rating" khỏi kết quả mong đợi, ghi "pass = 0 lỗi". NFR-SEO-002 —
+ghi rõ cách xử lý description ngoài 150–160 và nguồn og:image.
 
 ---
 
