@@ -214,8 +214,8 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 | USE | NFR-USE-001 | Breakpoint 320/768/1200px, Tailwind utility-first | Chrome DevTools + BrowserStack | ⬜ |
 | USE | NFR-USE-002 | WCAG 2.1 AA, contrast ≥ 4.5:1, keyboard nav đầy đủ | axe + NVDA/VoiceOver | ⬜ |
 | USE | NFR-USE-003 | RFC 7807 + inline field error + error code i18n-ready (bảng cuối `decisions.md`) | Code review | ⬜ |
-| USE | NFR-USE-004 | Skeleton, optimistic update + rollback, toast, upload progress bar | Manual + E2E | ⬜ |
-| REL | NFR-REL-001 | Uptime ≥ 99.5%, readiness probe mỗi 10s | Uptime Robot. **Đã có:** healthcheck `api` gọi `/health/ready` mỗi 10s trong `docker-compose.prod.yml`. **Còn thiếu:** giám sát uptime bên ngoài | 🟡 |
+| USE | NFR-USE-004 | Skeleton, optimistic update + rollback, toast, upload progress bar | Skeleton (home, recipes, categories), 404 (recipe, category); E2E | 🟡 Đang làm |
+| REL | NFR-REL-001 | Uptime ≥ 99.5%, readiness probe mỗi 10s | Uptime Robot. **Đã có:** health checks /health, /health/live, /health/ready (FR-OBS-001) | ✅ |
 | REL | NFR-REL-002 | GlobalExceptionMiddleware; **Redis down → đi thẳng xuống handler, không throw** (D8); Hangfire retry 3× | Chaos test | ⬜ |
 | REL | NFR-REL-003 | WAL, pg_dump hàng ngày 03:00 (giữ 30 ngày), MinIO volume persistent, soft delete (D1) | Ops. Service `pg-backup` (crond `0 3 * * *` UTC, `scripts/pg-backup.sh`, `pg_dump -Fc`, xóa bản ≥ 30 ngày) · volume `pgdata`/`miniodata`/`pgbackups` · WAL mặc định của PostgreSQL 16 · soft delete D1. Kiểm tay 2026-10-21: dump đủ 26 bảng, bản 30 ngày bị xóa, bản 28 ngày giữ lại. Khôi phục: `docs/deployment.md` | ✅ |
 | MAINT | NFR-MAINT-001 | 0 compiler warning, SonarAnalyzer/StyleCop, ESLint + Prettier, ≥1 reviewer | CI gate | ⬜ |
