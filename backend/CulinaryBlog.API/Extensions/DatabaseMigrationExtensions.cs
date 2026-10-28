@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace CulinaryBlog.API.Extensions;
 
 /// <summary>
-/// CONS-009/D56 — dữ liệu hệ thống bắt buộc ở MỌI môi trường có DB thật: schema (EF Core migration) và
+/// CONS-009/D59 — dữ liệu hệ thống bắt buộc ở MỌI môi trường có DB thật: schema (EF Core migration) và
 /// 2 role (<see cref="IdentityRoleSeeder"/>). Production gọi qua <c>--migrate-only</c> (service
 /// <c>migrate</c>), Development gọi lúc khởi động rồi chạy thêm DbSeeder. Idempotent.
 /// </summary>

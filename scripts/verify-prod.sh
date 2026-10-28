@@ -42,11 +42,11 @@ echo "$headers" | head -n1 | grep -q ' 200' && ok "/health/ready 200" || fail "/
 hsts_count="$(echo "$headers" | grep -ci '^strict-transport-security: max-age=31536000')"
 [ "$hsts_count" = "1" ] && ok "HSTS max-age=31536000 (đúng 1 header)" || fail "HSTS: thấy $hsts_count header đúng"
 
-step "5. Chỉ nginx publish cổng ra host (D57)"
+step "5. Chỉ nginx publish cổng ra host (D60)"
 published="$("${COMPOSE[@]}" ps --format '{{.Service}} {{.Publishers}}' | grep -v '^nginx ' | grep -E 'PublishedPort:[1-9]' || true)"
 [ -z "$published" ] && ok "postgres/redis/minio/api/frontend không publish cổng" || fail "service publish cổng: $published"
 
-step "6. Register + login trên DB mới (D56 — migrate + seed role)"
+step "6. Register + login trên DB mới (D59 — migrate + seed role)"
 email="verify-$(date +%s)@example.com"
 password='Verify@12345'
 code="$("${CURL[@]}" -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' \
@@ -56,7 +56,7 @@ code="$("${CURL[@]}" -o /dev/null -w '%{http_code}' -H 'Content-Type: applicatio
   -d "{\"email\":\"$email\",\"password\":\"$password\"}" "$BASE/api/v1/auth/login")"
 [ "$code" = "200" ] && ok "login 200" || fail "login trả $code"
 
-step "7. Ảnh công khai qua Nginx (D55)"
+step "7. Ảnh công khai qua Nginx (D58)"
 # Upload qua API cần recipe (FR-RCP-003, chưa có) → ghi thẳng ảnh PNG 1×1 vào bucket để kiểm tra đường đọc.
 mc_run() {
   "${COMPOSE[@]}" run --rm -T minio-init \

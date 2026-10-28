@@ -87,7 +87,7 @@ public sealed class MinioFileStorageService(IAmazonS3 s3Client, IConfiguration c
     }
 
     /// <summary>
-    /// D55 — URL trình duyệt dùng. Prod: <c>Minio:PublicBaseUrl</c> = domain của site (Nginx proxy
+    /// D58 — URL trình duyệt dùng. Prod: <c>Minio:PublicBaseUrl</c> = domain của site (Nginx proxy
     /// <c>/{bucket}/</c> tới MinIO nội bộ). Rỗng → <c>Minio:Endpoint</c> (dev: http://localhost:9000).
     /// </summary>
     private string PublicUrl(string key)

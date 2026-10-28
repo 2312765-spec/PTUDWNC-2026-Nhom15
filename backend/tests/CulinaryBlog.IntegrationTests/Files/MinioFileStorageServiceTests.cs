@@ -155,7 +155,7 @@ public sealed class MinioFileStorageServiceTests : IAsyncLifetime
         responseStream.ToArray().Should().BeEquivalentTo(newer);
     }
 
-    [Fact(DisplayName = "CONS-009/D55: có Minio:PublicBaseUrl → URL ảnh trả cho trình duyệt dùng PublicBaseUrl")]
+    [Fact(DisplayName = "CONS-009/D58: có Minio:PublicBaseUrl → URL ảnh trả cho trình duyệt dùng PublicBaseUrl")]
     public async Task UploadAsync_WithPublicBaseUrl_ReturnsPublicUrl()
     {
         var sut = CreateSut(publicBaseUrl: "https://culinary.example/");
@@ -168,7 +168,7 @@ public sealed class MinioFileStorageServiceTests : IAsyncLifetime
         response.HttpStatusCode.Should().Be(HttpStatusCode.OK);
     }
 
-    [Fact(DisplayName = "CONS-009/D55: Minio:PublicBaseUrl rỗng → URL vẫn ghép từ Minio:Endpoint (dev không đổi)")]
+    [Fact(DisplayName = "CONS-009/D58: Minio:PublicBaseUrl rỗng → URL vẫn ghép từ Minio:Endpoint (dev không đổi)")]
     public async Task UploadAsync_EmptyPublicBaseUrl_FallsBackToEndpoint()
     {
         var sut = CreateSut(publicBaseUrl: "");
@@ -179,7 +179,7 @@ public sealed class MinioFileStorageServiceTests : IAsyncLifetime
         url.Should().StartWith($"{_s3Server.GetConnectionString().TrimEnd('/')}/{BucketName}/");
     }
 
-    [Fact(DisplayName = "CONS-009/D55: URL công khai vẫn xóa được object thật trên MinIO")]
+    [Fact(DisplayName = "CONS-009/D58: URL công khai vẫn xóa được object thật trên MinIO")]
     public async Task DeleteAsync_PublicUrl_RemovesFromMinio()
     {
         var sut = CreateSut(publicBaseUrl: "https://culinary.example");

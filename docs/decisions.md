@@ -70,9 +70,9 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D52 | Nơi lưu & phục vụ sitemap.xml | **MinIO** key cố định `seo/sitemap.xml` + Nginx proxy `/sitemap.xml` · bỏ `frontend/app/sitemap.ts` |
 | D53 | Distributed lock cho sitemap job | Hangfire **`DisableConcurrentExecution`** thay RedLock |
 | D54 | Cập nhật hồ sơ (FR-AUTH-007) | Body rỗng → 400 · field vắng/`null` = giữ nguyên, `""` = xóa (`bio`, `avatarUrl`) · `IsActive=false` → 200 · user đã xóa → 404 |
-| D55 | URL công khai của ảnh MinIO (CONS-009) | Cấu hình `Minio:PublicBaseUrl` (rỗng → dùng `Minio:Endpoint`) · prod = `https://{domain}`, Nginx proxy `/culinary-blog/` (GET/HEAD) tới MinIO |
-| D56 | Migration + seed role ở prod (CONS-009) | Service `migrate` một lần: `--migrate-only` = migrate + `IdentityRoleSeeder` rồi thoát · **không** chạy `DbSeeder` · `api` chờ `service_completed_successfully` |
-| D57 | Cổng prod (CONS-009, NFR-SEC-005) | **Chỉ Nginx** publish 80/443 (lệch bảng SRS §6.5) · API bật `ForwardedHeaders`, tin proxy trong mạng nội bộ |
+| D58 | URL công khai của ảnh MinIO (CONS-009) | Cấu hình `Minio:PublicBaseUrl` (rỗng → dùng `Minio:Endpoint`) · prod = `https://{domain}`, Nginx proxy `/culinary-blog/` (GET/HEAD) tới MinIO |
+| D59 | Migration + seed role ở prod (CONS-009) | Service `migrate` một lần: `--migrate-only` = migrate + `IdentityRoleSeeder` rồi thoát · **không** chạy `DbSeeder` · `api` chờ `service_completed_successfully` |
+| D60 | Cổng prod (CONS-009, NFR-SEC-005) | **Chỉ Nginx** publish 80/443 (lệch bảng SRS §6.5) · API bật `ForwardedHeaders`, tin proxy trong mạng nội bộ |
 
 ---
 
@@ -1469,7 +1469,7 @@ giá trị `null`, cách xóa `bio`/`avatarUrl`, user `IsActive=false` hay user 
 
 ---
 
-## D55 — CONS-009: URL công khai của ảnh MinIO
+## D58 — CONS-009: URL công khai của ảnh MinIO
 
 > 2026-10-21. Xem `docs/plans/CONS-009-docker-compose-prod.md`.
 
@@ -1488,13 +1488,13 @@ SRS không nói ảnh được phục vụ ra Internet bằng địa chỉ nào.
    phân giải ra IP nội bộ, bật `images.dangerouslyAllowLocalIP` — `remotePatterns` chỉ cho phép host của
    chính dự án (`localhost:9000`, domain site) nên không mở thêm đường SSRF.
 
-**Vì:** ảnh cùng origin với site → không cần domain/chứng chỉ riêng cho MinIO, MinIO không lộ ra Internet (D57).
+**Vì:** ảnh cùng origin với site → không cần domain/chứng chỉ riêng cho MinIO, MinIO không lộ ra Internet (D60).
 
 **Sửa SRS:** §6.5 — thêm "ảnh MinIO phục vụ qua Nginx tại `/{bucket}/`".
 
 ---
 
-## D56 — CONS-009: migration và seed role ở Production
+## D59 — CONS-009: migration và seed role ở Production
 
 > 2026-10-21.
 
@@ -1516,7 +1516,7 @@ Tách thành bước riêng cũng làm lỗi migration hiện rõ (service `migr
 
 ---
 
-## D57 — CONS-009: chỉ Nginx publish cổng ở Production
+## D60 — CONS-009: chỉ Nginx publish cổng ở Production
 
 > 2026-10-21.
 

@@ -13,7 +13,7 @@ using Xunit;
 namespace CulinaryBlog.IntegrationTests.Common;
 
 /// <summary>
-/// CONS-009/D56 — bước <c>--migrate-only</c> của service <c>migrate</c> trong docker-compose.prod.yml.
+/// CONS-009/D59 — bước <c>--migrate-only</c> của service <c>migrate</c> trong docker-compose.prod.yml.
 /// Khác <see cref="PostgresApiFactory"/>: factory ở đây KHÔNG tự migrate, DB bắt đầu trống hoàn toàn
 /// như DB production lần đầu deploy.
 /// </summary>
@@ -40,7 +40,7 @@ public sealed class DatabaseMigrationTests : IAsyncLifetime
         await _postgres.DisposeAsync();
     }
 
-    [Fact(DisplayName = "CONS-009/D56: MigrateAndSeedRolesAsync trên DB trống → đủ migration + 2 role, không có dữ liệu mẫu")]
+    [Fact(DisplayName = "CONS-009/D59: MigrateAndSeedRolesAsync trên DB trống → đủ migration + 2 role, không có dữ liệu mẫu")]
     public async Task MigrateAndSeedRoles_EmptyDatabase_AppliesMigrationsAndSeedsRoles()
     {
         await _factory.Services.MigrateAndSeedRolesAsync();
@@ -53,11 +53,11 @@ public sealed class DatabaseMigrationTests : IAsyncLifetime
             .Roles.Select(r => r.Name).ToListAsync();
         roles.Should().BeEquivalentTo([Roles.Author, Roles.Admin]);
 
-        // D56: prod KHÔNG chạy DbSeeder.
+        // D59: prod KHÔNG chạy DbSeeder.
         (await db.Users.CountAsync()).Should().Be(0);
     }
 
-    [Fact(DisplayName = "CONS-009/D56: chạy MigrateAndSeedRolesAsync 2 lần → idempotent, không nhân đôi role")]
+    [Fact(DisplayName = "CONS-009/D59: chạy MigrateAndSeedRolesAsync 2 lần → idempotent, không nhân đôi role")]
     public async Task MigrateAndSeedRoles_RunTwice_IsIdempotent()
     {
         await _factory.Services.MigrateAndSeedRolesAsync();

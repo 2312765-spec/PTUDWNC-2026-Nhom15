@@ -110,7 +110,7 @@ builder.Services.AddCors(options => options.AddPolicy(CorsPolicy, policy => poli
     .WithHeaders("Content-Type", "Authorization", "X-Correlation-ID", "If-Match")
     .AllowCredentials()));
 
-// ---- Sau Nginx (CONS-009/D57, NFR-SEC-005) ---------------------------------
+// ---- Sau Nginx (CONS-009/D60, NFR-SEC-005) ---------------------------------
 // Prod chỉ Nginx nhận kết nối từ ngoài, nên tin mọi proxy: IP của Nginx trong mạng Docker không cố định.
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -180,14 +180,14 @@ builder.Services.AddAppHealthChecks(builder.Configuration);
 // ===========================================================================
 var app = builder.Build();
 
-// ---- CONS-009/D56: service "migrate" của docker-compose.prod.yml ----------
+// ---- CONS-009/D59: service "migrate" của docker-compose.prod.yml ----------
 if (args.Contains(DatabaseMigrationExtensions.MigrateOnlyArgument))
 {
     await app.Services.MigrateAndSeedRolesAsync();
     return;
 }
 
-// 0. Scheme/IP gốc từ Nginx — phải trước mọi middleware đọc Request.Scheme/RemoteIpAddress (D57)
+// 0. Scheme/IP gốc từ Nginx — phải trước mọi middleware đọc Request.Scheme/RemoteIpAddress (D60)
 app.UseForwardedHeaders();
 
 // 1. CorrelationId
@@ -216,7 +216,7 @@ app.UseAuthentication();
 
 app.UseAuthorization();
 
-// ---- Migration + seed (Development — prod dùng service "migrate", D56) ------
+// ---- Migration + seed (Development — prod dùng service "migrate", D59) ------
 if (app.Environment.IsDevelopment())
 {
     await app.Services.MigrateAndSeedRolesAsync();

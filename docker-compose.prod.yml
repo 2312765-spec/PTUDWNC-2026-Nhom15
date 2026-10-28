@@ -3,7 +3,7 @@
 #   cp .env.production.example .env.production      # điền secret — KHÔNG commit (NFR-SEC-007)
 #   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 #
-# Chỉ nginx publish cổng ra host (D57). Không có seq, mailhog (chỉ dev).
+# Chỉ nginx publish cổng ra host (D60). Không có seq, mailhog (chỉ dev).
 name: culinary-blog-prod
 
 x-defaults: &defaults
@@ -22,7 +22,7 @@ x-api-env: &api-env
   Minio__Endpoint: "http://minio:9000"
   Minio__AccessKey: "${MINIO_ROOT_USER:?}"
   Minio__SecretKey: "${MINIO_ROOT_PASSWORD:?}"
-  Minio__PublicBaseUrl: "https://${SITE_DOMAIN}"          # D55
+  Minio__PublicBaseUrl: "https://${SITE_DOMAIN}"          # D58
   Seo__SiteBaseUrl: "https://${SITE_DOMAIN}"              # FR-JOB-003
   Smtp__Host: "${SMTP_HOST:-}"
   Smtp__Port: "${SMTP_PORT:-587}"
@@ -45,7 +45,7 @@ services:
       - ./ssl:/etc/nginx/ssl:ro          # fullchain.pem + privkey.pem (SRS §6.5)
     networks:
       internal:
-        # D55 — server Next.js gọi https://${SITE_DOMAIN} (SSR + next/image) đi thẳng tới nginx trong mạng nội bộ.
+        # D58 — server Next.js gọi https://${SITE_DOMAIN} (SSR + next/image) đi thẳng tới nginx trong mạng nội bộ.
         aliases: ["${SITE_DOMAIN}"]
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/nginx-health"]
@@ -74,7 +74,7 @@ services:
       retries: 6
       start_period: 20s
 
-  # D56 — migrate + seed role một lần rồi thoát. Không chạy dữ liệu mẫu (DbSeeder).
+  # D59 — migrate + seed role một lần rồi thoát. Không chạy dữ liệu mẫu (DbSeeder).
   migrate:
     <<: *defaults
     image: culinary-blog/api:prod
@@ -101,7 +101,7 @@ services:
       AUTH_TRUST_HOST: "true"
       AUTH_GOOGLE_ID: "${AUTH_GOOGLE_ID:-}"
       AUTH_GOOGLE_SECRET: "${AUTH_GOOGLE_SECRET:-}"
-      # D55 — tin chứng chỉ của site khi server Next.js gọi https://${SITE_DOMAIN} (cần cho cert tự ký).
+      # D58 — tin chứng chỉ của site khi server Next.js gọi https://${SITE_DOMAIN} (cần cho cert tự ký).
       NODE_EXTRA_CA_CERTS: /etc/ssl/site/fullchain.pem
     volumes:
       - ./ssl/fullchain.pem:/etc/ssl/site/fullchain.pem:ro    # chỉ chứng chỉ, KHÔNG mount privkey

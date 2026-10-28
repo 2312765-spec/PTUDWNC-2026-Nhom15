@@ -5,7 +5,7 @@ namespace CulinaryBlog.API.Extensions;
 /// <summary>
 /// NFR-SEC-007, CONS-004 — fail fast khi thiếu khóa ký JWT. Không có khóa mặc định trong mã nguồn:
 /// Development lấy từ appsettings.Development.json / User Secrets, Production từ biến môi trường
-/// <c>Jwt__Key</c> (docker-compose.prod.yml, D56).
+/// <c>Jwt__Key</c> (docker-compose.prod.yml, D59).
 /// </summary>
 public static class JwtKeyGuard
 {

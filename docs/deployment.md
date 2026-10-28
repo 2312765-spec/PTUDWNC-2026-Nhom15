@@ -1,7 +1,7 @@
 # Triển khai Production — `docker-compose.prod.yml`
 
-> CONS-009 · NFR-SEC-005 · NFR-SEC-007 · NFR-REL-003. Quyết định: D55 (URL ảnh), D56 (migration),
-> D57 (cổng). Kế hoạch: `docs/plans/CONS-009-docker-compose-prod.md`. Dev xem `docker-compose.yml`.
+> CONS-009 · NFR-SEC-005 · NFR-SEC-007 · NFR-REL-003. Quyết định: D58 (URL ảnh), D59 (migration),
+> D60 (cổng). Kế hoạch: `docs/plans/CONS-009-docker-compose-prod.md`. Dev xem `docker-compose.yml`.
 
 ## Kiến trúc
 
@@ -10,12 +10,12 @@ Internet ──► nginx :80  ── 301 ──► :443
              nginx :443 (TLS 1.2/1.3, HSTS 1 năm)
                ├─ /api/, /health   → api:8080
                ├─ /sitemap.xml     → minio:9000/culinary-blog/seo/sitemap.xml   (D52)
-               ├─ /culinary-blog/  → minio:9000 (chỉ GET/HEAD — ảnh public, D55)
+               ├─ /culinary-blog/  → minio:9000 (chỉ GET/HEAD — ảnh public, D58)
                └─ /                → frontend:3000
 mạng internal: postgres · redis · minio · minio-init · migrate · api · frontend · pg-backup
 ```
 
-Chỉ `nginx` publish cổng ra host (D57). Thứ tự khởi động: postgres/redis/minio healthy →
+Chỉ `nginx` publish cổng ra host (D60). Thứ tự khởi động: postgres/redis/minio healthy →
 `minio-init` + `migrate` chạy xong → `api` healthy (`/health/ready`) → `frontend` healthy → `nginx`.
 
 ## Chuẩn bị (một lần)
@@ -47,7 +47,7 @@ MSYS_NO_PATHCONV=1 openssl req -x509 -newkey rsa:2048 -nodes -days 30 \
 ```
 
 (`MSYS_NO_PATHCONV=1` chỉ cần trên Git Bash Windows.) Trình duyệt sẽ cảnh báo cert tự ký — bình thường.
-Server Next.js tin cert này qua `NODE_EXTRA_CA_CERTS` (D55).
+Server Next.js tin cert này qua `NODE_EXTRA_CA_CERTS` (D58).
 
 ### 3. Image MinIO
 
@@ -71,7 +71,7 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d --bui
 ```
 
 Mở `https://culinary.localhost`. Migration + 2 role (`Author`, `Admin`) do service `migrate` tạo
-(D56) — **không** có dữ liệu mẫu.
+(D59) — **không** có dữ liệu mẫu.
 
 Log: `docker compose --env-file .env.production -f docker-compose.prod.yml logs -f api`
 (file JSON còn nằm trong volume `apilogs`).
