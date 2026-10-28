@@ -1,6 +1,7 @@
 using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Infrastructure.Identity;
 using CulinaryBlog.Infrastructure.Persistence;
+using CulinaryBlog.IntegrationTests.Common;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -39,6 +40,9 @@ public sealed class RecipeImagesApiFactory : WebApplicationFactory<Program>, IAs
 
     /// <summary>FR-JOB-002 — thay Hangfire để kiểm tra việc enqueue (Testing không chạy server, D45).</summary>
     public RecordingBackgroundJobService BackgroundJobs { get; } = new();
+
+    /// <summary>FR-JOB-001 — ghi lại email job gửi đi thay cho SMTP.</summary>
+    public RecordingEmailService Emails { get; } = new();
 
     public async Task InitializeAsync()
     {
@@ -82,6 +86,8 @@ public sealed class RecipeImagesApiFactory : WebApplicationFactory<Program>, IAs
         {
             services.AddScoped<IFileStorageService>(_ => FileStorage);
             services.AddScoped<IBackgroundJobService>(_ => BackgroundJobs);
+            services.AddScoped<IEmailService>(_ => Emails);
+            services.AddScoped<IGoogleTokenValidator, FakeGoogleTokenValidator>();
         });
     }
 }
