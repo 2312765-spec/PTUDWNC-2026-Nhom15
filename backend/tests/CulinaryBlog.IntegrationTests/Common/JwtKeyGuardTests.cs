@@ -29,7 +29,7 @@ public sealed class JwtKeyGuardTests
     [Fact(DisplayName = "NFR-SEC-007: Jwt:Key ≥ 32 byte (HS256) → trả đúng khóa")]
     public void GetSigningKey_ValidKey_ReturnsKey()
     {
-        const string key = "khoa-hop-le-dai-it-nhat-32-ky-tu-cho-hs256";
+        const string key = "khoa-hop-le-dai-it-nhat-32-ky-tu-cho-hs256"; // gitleaks:allow — khóa giả cho test, không phải secret
 
         JwtKeyGuard.GetSigningKey(Configuration(key)).Should().Be(key);
     }
