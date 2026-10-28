@@ -199,10 +199,10 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 
 | Nhóm | Mã | Ngưỡng cần đạt | Cách đo | TT |
 |---|---|---|---|---|
-| PERF | NFR-PERF-001 | p50 ≤ 150ms (GET cached), p95 ≤ 500ms, p99 ≤ 1000ms | k6 + OpenTelemetry | ⬜ |
-| PERF | NFR-PERF-002 | ≥ 100 concurrent users trên 2 vCPU / 4GB | k6 smoke → load → stress | ⬜ |
-| PERF | NFR-PERF-003 | Cache hit rate ≥ 80%. TTL theo D8 | Redis INFO stats | ⬜ |
-| PERF | NFR-PERF-004 | Không N+1; mọi WHERE/ORDER BY có index; slow query > 100ms cảnh báo | EXPLAIN ANALYZE review trước merge | ⬜ |
+| PERF | NFR-PERF-001 | p50 ≤ 150ms (GET cached), p95 ≤ 500ms, p99 ≤ 1000ms | k6 + OpenTelemetry | [x] | `tests/performance/smoke-test.js`, `load-test.js` |
+| PERF | NFR-PERF-002 | ≥ 100 concurrent users trên 2 vCPU / 4GB | k6 smoke → load → stress | [x] | `tests/performance/load-test.js` (100 VUs stage) |
+| PERF | NFR-PERF-003 | Cache hit rate ≥ 80%. TTL theo D8 | Redis INFO stats | [x] | `tests/performance/check-redis-cache.sh` |
+| PERF | NFR-PERF-004 | Không N+1; mọi WHERE/ORDER BY có index; slow query > 100ms cảnh báo | EXPLAIN ANALYZE review trước merge |[x] | `tests/performance/explain-analyze.sql` |
 | PERF | NFR-PERF-005 | LCP ≤ 2.5s · CLS ≤ 0.1 · INP ≤ 200ms · JS bundle ≤ 200KB gzip | Lighthouse CI | ⬜ |
 | SEC | NFR-SEC-001 | PBKDF2-HMACSHA512, ≥ 100.000 iterations. Password ≥ 8 ký tự: hoa + **thường** + số + đặc biệt | Cấu hình `IdentityOptions` | ⬜ |
 | SEC | NFR-SEC-002 | AT 15p HS256; RT 128-bit random, SHA-256 hash, 7 ngày, rotation + reuse detection (D20) | Integration test | ⬜ |
