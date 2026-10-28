@@ -121,7 +121,7 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 
 | FR | Tên | Ưu tiên | Endpoint / Tham số | Slice | Hiện thực | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|---|
-| FR-SRCH-001 | Full-text search tiếng Việt | M | `GET /api/v1/recipes/search?q=` | S10 | `SearchRecipesQuery(+Handler,+Validator)` `ICacheable` (1 phút, D8), trả `relevanceScore` | `RecipeRepository.SearchPublishedRecipesAsync`: `SearchVector @@ to_tsquery('simple', unaccent(...))` tiền tố `:*`, xếp `ts_rank`; `SearchVector` shadow property + GIN index `IX_Recipes_SearchVector`; migration `AddRecipeSearchVector` (hàm `recipe_search_vector`, trigger `trg_recipes_search_vector`, backfill) | `IntegrationTests/Recipes/SearchRecipesTests.cs` (13: unaccent, chữ đ, xếp hạng Title>Description, trigger khi đổi Title, GIN + trigger tồn tại, Draft, toán tử tsquery), `UnitTests/Recipes/SearchRecipesTests.cs` · FE: `/search` SSR (`app/(public)/search/{page,SearchResults,SearchPagination}.tsx`, `components/search/SearchForm.tsx` (dùng chung với trang chủ), `lib/recipes.ts`) — `__tests__/app/search/*.test.tsx`, `__tests__/components/search/SearchForm.test.tsx`, `__tests__/lib/recipes.test.ts` (18 test) | D4, D8, **D49** | ✅ (E2E: `e2e/search.spec.ts` trang chủ → /search, < 2 ký tự, kết quả rỗng; có kết quả `fixme` chờ dữ liệu) |
+| FR-SRCH-001 | Full-text search tiếng Việt | M | `GET /api/v1/recipes/search?q=` | S10 | `SearchRecipesQuery(+Handler,+Validator)` `ICacheable` (1 phút, D8), trả `relevanceScore` | `RecipeRepository.SearchPublishedRecipesAsync`: `SearchVector @@ to_tsquery('simple', unaccent(...))` tiền tố `:*`, xếp `ts_rank`; `SearchVector` shadow property + GIN index `IX_Recipes_SearchVector`; migration `AddRecipeSearchVector` (hàm `recipe_search_vector`, trigger `trg_recipes_search_vector`, backfill) | `IntegrationTests/Recipes/SearchRecipesTests.cs` (13: unaccent, chữ đ, xếp hạng Title>Description, trigger khi đổi Title, GIN + trigger tồn tại, Draft, toán tử tsquery), `UnitTests/Recipes/SearchRecipesTests.cs` · FE: `/search` SSR (`app/(public)/search/{page,SearchResults,SearchPagination}.tsx`, `components/search/SearchForm.tsx` (dùng chung với trang chủ), `lib/recipes.ts`) — `__tests__/app/search/*.test.tsx`, `__tests__/components/search/SearchForm.test.tsx`, `__tests__/lib/recipes.test.ts` (18 test) | D4, D8, **D49** | ✅ (E2E: `e2e/search.spec.ts` 4/4 pass, gồm tìm kiếm có kết quả từ DbSeeder) |
 | FR-SRCH-002 | Lọc | M | `?categoryId=&difficulty=&maxCookTime=&minServings=` | S4 | Tích hợp trong `GetRecipesQuery` (AND logic), difficulty Easy/Medium/Hard/Expert | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` (`RecipeFilters`, `RecipesPagination`, `lib/recipes.ts`) — `__tests__/app/recipes/*.test.tsx` | **D14** | ✅ (E2E Playwright chưa có) |
 | FR-SRCH-003 | Sắp xếp | M | `?sort=createdAt` / `-createdAt` / `title` / `-cookTime` | S4 | Tích hợp trong `GetRecipesQuery`, mặc định `-createdAt`, sort lạ → 400 | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` (`RecipeFilters`, `RecipesPagination`, `lib/recipes.ts`) — `__tests__/app/recipes/*.test.tsx` | D4 | ✅ (E2E Playwright chưa có) |
 | FR-SRCH-004 | Phân trang offset | M | `?page=1&pageSize=12` (max 50) | S4 | `PagedResult<T>` + COUNT trước SKIP/TAKE, pageSize > 50 clamp | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` (`RecipeFilters`, `RecipesPagination`, `lib/recipes.ts`) — `__tests__/app/recipes/*.test.tsx` | D4 | ✅ (E2E Playwright chưa có) |
@@ -259,11 +259,11 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 | FR-AUTH | 7 | 6 | 1 | 0 |
 | FR-CAT | 5 | 5 | 0 | 0 |
 | FR-RCP | 10 | 3 | 0 | 7 |
-| FR-SRCH | 4 | 4 | 0 | 0 |
+| FR-SRCH | 4 | 3 | 1 | 0 |
 | FR-FILE | 2 | 2 | 0 | 0 |
 | FR-JOB | 3 | 3 | 0 | 0 |
 | FR-OBS | 3 | 2 | 1 | 0 |
-| **Tổng** | **34** | **25** | **2** | **7** |
+| **Tổng** | **34** | **20** | **2** | **12** |
 
 > Không còn FR nào bị chặn — cả 22 mâu thuẫn trong SRS đã chốt tại `decisions.md`.
 > Cột **Quyết định** ở mỗi bảng cho biết FR đó phải đọc mục D nào trước khi code.
