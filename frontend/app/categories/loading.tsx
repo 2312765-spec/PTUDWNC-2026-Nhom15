@@ -1,33 +1,32 @@
+/**
+ * @file Skeleton loading state cho trang Danh sách danh mục.
+ * @see NFR-USE-004
+ */
+
+import React from "react";
+import {Skeleton} from "@/components/ui/Skeleton";
+
 export default function CategoriesLoading() {
   return (
-    <div
-      className="container mx-auto px-4 py-8 space-y-8 animate-pulse"
-      role="status"
+    <div 
+      className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8" 
+      role="status" 
       aria-label="Đang tải danh mục..."
     >
-      {/* Title & Description */}
-      <div className="text-center max-w-xl mx-auto space-y-3">
-        <div className="h-9 sm:h-10 w-64 bg-slate-200 dark:bg-slate-700 rounded-lg mx-auto" />
-        <div className="h-4 sm:h-5 w-80 bg-slate-200 dark:bg-slate-700 rounded mx-auto" />
+      <span className="sr-only">Đang tải danh mục...</span>
+
+      <div className="mb-8" aria-hidden="true">
+        <Skeleton className="mb-2 h-8 w-56" />
+        <Skeleton className="h-4 w-96 max-w-full" />
       </div>
 
-      {/* Category Grid Skeleton */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4" aria-hidden="true">
         {Array.from({ length: 8 }).map((_, i) => (
-          <div
-            key={i}
-            className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-4 shadow-sm"
-          >
-            {/* Category Icon / Thumbnail */}
-            <div className="h-14 w-14 rounded-2xl bg-slate-200 dark:bg-slate-800" />
-            <div className="space-y-2">
-              <div className="h-5 w-36 bg-slate-200 dark:bg-slate-700 rounded" />
-              <div className="h-4 w-full bg-slate-200 dark:bg-slate-800 rounded" />
-              <div className="h-4 w-2/3 bg-slate-200 dark:bg-slate-800 rounded" />
-            </div>
-            <div className="pt-2 flex justify-between items-center">
-              <div className="h-5 w-20 bg-slate-200 dark:bg-slate-800 rounded-full" />
-              <div className="h-4 w-12 bg-slate-200 dark:bg-slate-800 rounded" />
+          <div key={i} className="flex items-center gap-4 rounded-xl border border-border p-4 bg-white shadow-sm">
+            <Skeleton circle className="h-14 w-14 shrink-0" />
+            <div className="flex-1">
+              <Skeleton className="mb-2 h-5 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
             </div>
           </div>
         ))}
