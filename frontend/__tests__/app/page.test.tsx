@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import HomePage, { revalidate } from '@/app/page';
+import HomePage, { revalidate } from '@/app/(home)/page';
 import { ApiError, getCategories } from '@/lib/categories';
 import { getLatestRecipes } from '@/lib/recipes';
 import type { CategoryDto, PagedResult, RecipeSummaryDto } from '@/lib/types';
