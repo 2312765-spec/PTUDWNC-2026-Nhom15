@@ -8,20 +8,23 @@ const BASE_URL = __ENV.BASE_URL || 'http://localhost:5000';
 
 export const options = {
   stages: [
-    { duration: '30s', target: 50 },
-    { duration: '1m', target: 120 },
-    { duration: '1m', target: 180 },  // Vượt ngưỡng thiết kế 100 VUs
-    { duration: '30s', target: 0 },
+    { duration: '1m', target: 50 },
+    { duration: '2m', target: 100 },
+    { duration: '2m', target: 150 },
+    { duration: '2m', target: 180 }, // Vượt tải để xác định giới hạn chịu đựng
+    { duration: '1m', target: 0 },
   ],
   thresholds: {
-    http_req_failed: ['rate<0.05'], // Cho phép tỉ lệ lỗi chấp nhận được dưới stress < 5%
+    'http_req_duration': ['p(99)<=2000'],
+    'http_req_failed': ['rate<0.05'], // Cho phép tỷ lệ lỗi < 5% ở đỉnh tải cực hạn
   },
 };
 
 export default function () {
-  const res = http.get(`${BASE_URL}/api/v1/recipes?page=1&pageSize=10`);
+  const res = http.get(`${BASE_URL}/api/v1/recipes?page=1&pageSize=12`);
   check(res, {
-    'status is 200 or 429': (r) => r.status === 200 || r.status === 429,
+    'status is 200': (r) => r.status === 200,
   });
+
   sleep(0.5);
 }

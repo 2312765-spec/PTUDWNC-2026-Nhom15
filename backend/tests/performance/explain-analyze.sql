@@ -1,68 +1,84 @@
-/*
-Thực thi EXPLAIN ANALYZE cho các câu lệnh truy 
-vấn chính của Người B (Categories, Recipes, Search) 
-trong PostgreSQL, chứng minh không bị N+1 và sử dụng Index hiệu quả (đáp ứng NFR-PERF-004)*/
+-- =========================================================================================
+-- EXPLAIN ANALYZE BENCHMARK & QUERY PERFORMANCE VERIFICATION (NFR-PERF-004)
+-- Dự án: Culinary Blog (PostgreSQL 16+)
+-- =========================================================================================
 
--- ==============================================================================
--- NFR-PERF-004: KIỂM TRA HIỆU NĂNG QUERY, INDEX VÀ CHỐNG N+1
--- Hệ quản trị CSDL: PostgreSQL
--- Người thực hiện: B (Khám phá & Tìm kiếm)
--- ==============================================================================
+-- -----------------------------------------------------------------------------------------
+-- 1. Truy vấn Danh sách Danh mục (FR-CAT-001 / GET /api/v1/categories)
+-- Cột đúng: "OrderIndex" (không có "DisplayOrder", không có cột "RecipeCount").
+-- RecipeCount được tính toán động từ subquery đếm các Recipe Published chưa xóa.
+-- -----------------------------------------------------------------------------------------
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT c."Id", c."Name", c."Slug", c."Description", c."OrderIndex",
+       (SELECT COUNT(*)::int 
+        FROM "Recipes" AS r 
+        WHERE r."CategoryId" = c."Id" 
+          AND r."IsDeleted" = FALSE 
+          AND r."Status" = 1) AS "RecipeCount"
+FROM "Categories" AS c
+WHERE c."IsDeleted" = FALSE
+ORDER BY c."OrderIndex" ASC;
 
--- 1. KIỂM TRA QUERY DANH MỤC (FR-CAT-001)
--- Kỳ vọng: Dùng Index Scan / Bitmap Index scan trên Slug hoặc Id, thời gian thực thi < 2ms
-EXPLAIN ANALYZE
-SELECT "c"."Id", "c"."Name", "c"."Slug", "c"."DisplayOrder", "c"."RecipeCount"
-FROM "Categories" AS "c"
-ORDER BY "c"."DisplayOrder" ASC;
-
--- 2. KIỂM TRA QUERY LỌC RECIPES THEO TRẠNG THÁI & DANH MỤC CÓ PHÂN TRANG (FR-RCP-001)
--- Kỳ vọng: Dùng Index "IX_Recipes_CategoryId", "IX_Recipes_Status", "IX_Recipes_CreatedAt"
--- KHÔNG BỊ N+1: EF Core dùng phép chiếu Select(...) sang RecipeSummaryDto trong 1 câu SQL duy nhất
-EXPLAIN ANALYZE
-SELECT 
-    "r"."Id", 
-    "r"."Title", 
-    "r"."Slug", 
-    "r"."Description", 
-    "r"."CoverImageUrl", 
-    "r"."CookingTimeMinutes", 
-    "r"."Difficulty", 
-    "r"."CategoryId", 
-    "c"."Name" AS "CategoryName", 
-    "r"."AuthorId", 
-    "r"."CreatedAt"
-FROM "Recipes" AS "r"
-INNER JOIN "Categories" AS "c" ON "r"."CategoryId" = "c"."Id"
-WHERE "r"."Status" = 'Published' AND "r"."IsDeleted" = FALSE
-ORDER BY "r"."CreatedAt" DESC
+-- -----------------------------------------------------------------------------------------
+-- 2. Truy vấn Danh sách Công thức phân trang (FR-RCP-001 / GET /api/v1/recipes)
+-- Cột đúng: "CookTime" (không phải "CookingTimeMinutes").
+-- Ảnh đại diện: Lấy từ bảng liên kết "RecipeImages" (IsPrimary = TRUE hoặc OrderIndex nhỏ nhất).
+-- Kiểu dữ liệu "Status": smallint (1 = Published; không dùng chuỗi 'Published').
+-- -----------------------------------------------------------------------------------------
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT r."Id", r."Title", r."Slug", r."Description", r."PrepTime", r."CookTime", 
+       r."Difficulty", r."Status", r."AuthorId", r."CreatedAt",
+       (SELECT img."OriginalUrl" 
+        FROM "RecipeImages" AS img 
+        WHERE img."RecipeId" = r."Id" 
+        ORDER BY img."IsPrimary" DESC, img."OrderIndex" ASC 
+        LIMIT 1) AS "PrimaryImageUrl"
+FROM "Recipes" AS r
+WHERE r."IsDeleted" = FALSE 
+  AND r."Status" = 1
+ORDER BY r."CreatedAt" DESC
 LIMIT 12 OFFSET 0;
 
--- 3. KIỂM TRA QUERY CHI TIẾT RECIPE THEO SLUG (FR-RCP-002)
--- Kỳ vọng: Unique Index Scan trên "IX_Recipes_Slug", cost cực thấp (< 0.1ms)
-EXPLAIN ANALYZE
-SELECT "r".*
-FROM "Recipes" AS "r"
-WHERE "r"."Slug" = 'pho-bo-ha-noi-truyen-thong' AND "r"."IsDeleted" = FALSE;
+-- GHI CHÚ PHÁT HIỆN HIỆU NĂNG (NFR-PERF-004):
+-- Cột "CreatedAt" hiện chưa có Index độc lập. Khi ORDER BY "CreatedAt" DESC trên bảng lớn,
+-- PostgreSQL phải thực hiện thao tác Sort trong bộ nhớ (Sort Method: quicksort / top-N heapsort).
+-- Kiến nghị nhóm xem xét tạo thêm B-Tree Index trên ("Status", "CreatedAt" DESC) để tối ưu triệt để.
 
--- 4. KIỂM TRA QUERY TÌM KIẾM TOÀN VĂN TIẾNG VIỆT (FR-SRCH-001)
--- Kỳ vọng: Bitmap Index Scan trên GIN index "IX_Recipes_SearchVector", KHÔNG quét toàn bảng (Seq Scan)
-EXPLAIN ANALYZE
-SELECT 
-    "r"."Id", 
-    "r"."Title", 
-    "r"."Slug", 
-    "r"."Description",
-    ts_rank("r"."SearchVector", to_tsquery('simple', 'pho:*')) AS "Rank"
-FROM "Recipes" AS "r"
-WHERE "r"."Status" = 'Published' 
-  AND "r"."IsDeleted" = FALSE
-  AND "r"."SearchVector" @@ to_tsquery('simple', 'pho:*')
+-- -----------------------------------------------------------------------------------------
+-- 3. Truy vấn Chi tiết Công thức theo Slug (FR-RCP-002 / GET /api/v1/recipes/{slug})
+-- Tận dụng B-Tree Index: "IDX_Recipe_Slug" (Index Scan, Cost cực thấp < 0.3ms).
+-- -----------------------------------------------------------------------------------------
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT r."Id", r."Title", r."Slug", r."Description", r."PrepTime", r."CookTime", 
+       r."Servings", r."Difficulty", r."Status", r."AuthorId", r."PublishedAt", r."CreatedAt"
+FROM "Recipes" AS r
+WHERE r."IsDeleted" = FALSE 
+  AND r."Slug" = 'pho-bo-ha-noi'
+LIMIT 1;
+
+-- -----------------------------------------------------------------------------------------
+-- 4. Truy vấn Tìm kiếm toàn văn tiếng Việt có unaccent (FR-SRCH-001 / D49)
+-- Tận dụng GIN Index: "IDX_Recipe_Search" trên cột "SearchVector".
+-- Dùng hàm unaccent() và plainto_tsquery('simple', ...) đúng theo cấu hình D49.
+-- -----------------------------------------------------------------------------------------
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT r."Id", r."Title", r."Slug", r."Description", r."PrepTime", r."CookTime", 
+       r."Difficulty", r."Status", r."AuthorId", r."CreatedAt",
+       ts_rank(r."SearchVector", plainto_tsquery('simple', unaccent('pho'))) AS "Rank"
+FROM "Recipes" AS r
+WHERE r."IsDeleted" = FALSE
+  AND r."Status" = 1
+  AND r."SearchVector" @@ plainto_tsquery('simple', unaccent('pho'))
 ORDER BY "Rank" DESC
 LIMIT 10 OFFSET 0;
 
--- 5. BÁO CÁO PHÂN TÍCH CHỐNG LỖI N+1 (NFR-PERF-004 RESOLUTION):
--- Thay vì lặp từng Recipe để gọi Author/Category (tạo ra 1 + N câu truy vấn):
---  a) CategoryName được JOIN trực tiếp trong phép chiếu LINQ: .Select(r => new RecipeSummaryDto(..., r.Category.Name, ...))
---  b) Tên Author được gom ID theo batch và truy vấn 1 lần qua IIdentityService.GetDisplayNamesAsync(authorIds),
---     đảm bảo số lượng query cố định O(1) bất kể pageSize.
+-- -----------------------------------------------------------------------------------------
+-- 5. Đánh giá vấn đề N+1 Query trong EF Core (NFR-PERF-004)
+-- - Kiến trúc dự án tắt hoàn toàn Lazy Loading (CONS).
+-- - Trong truy vấn danh sách (FR-RCP-001, FR-CAT-001): Sử dụng LINQ Projection (.Select)
+--   giúp EF Core biên dịch việc lấy ảnh đại diện và đếm số lượng công thức thành subquery
+--   nằm trong CÙNG MỘT câu lệnh SQL đơn lẻ, triệt tiêu 100% nguy cơ phát sinh N+1 truy vấn.
+-- - Trong truy vấn chi tiết (FR-RCP-002): Eager Loading (.Include, .ThenInclude) nạp toàn bộ
+--   các tập con (Steps, Ingredients, Images) theo cơ chế batching có kiểm soát.
+-- =========================================================================================
+

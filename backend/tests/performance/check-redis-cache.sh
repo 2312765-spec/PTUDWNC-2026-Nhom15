@@ -1,43 +1,52 @@
-//Đo trực tiếp từ Redis INFO để xác minh Tỷ lệ cache hit ≥ 80% (NFR-PERF-003)
-
 #!/usr/bin/env bash
-# Đo tỷ lệ Cache Hit của Redis từ container Docker
-set -e
+# =========================================================================================
+# KIỂM TRA HIỆU QUẢ REDIS CACHE (NFR-PERF-003)
+# Tỷ lệ Cache Hit Rate yêu cầu: >= 80% trong điều kiện steady-state
+# =========================================================================================
 
-CONTAINER_NAME=${1:-ptudwnc-2026-nhom15-redis-1}
+set -euo pipefail
 
-# Lấy số liệu stats từ Redis CLI
-STATS=$(docker exec "$CONTAINER_NAME" redis-cli INFO stats 2>/dev/null || redis-cli INFO stats)
+CONTAINER_NAME="cb-redis"
+THRESHOLD=80
 
-HITS=$(echo "$STATS" | grep "keyspace_hits:" | awk -F':' '{print $2}' | tr -d '\r')
-MISSES=$(echo "$STATS" | grep "keyspace_misses:" | awk -F':' '{print $2}' | tr -d '\r')
+echo "=== ĐO TỶ LỆ CACHE HIT CỦA REDIS (CONTAINER: ${CONTAINER_NAME}) ==="
+
+# Kiểm tra container Redis có đang chạy không
+if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+    echo "[-] Lỗi: Container ${CONTAINER_NAME} không hoạt động. Hãy chạy docker compose up -d."
+    exit 1
+fi
+
+# Lấy thông số stats từ Redis CLI
+STATS=$(docker exec -i "${CONTAINER_NAME}" redis-cli INFO stats)
+
+HITS=$(echo "${STATS}" | grep "keyspace_hits:" | cut -d':' -f2 | tr -d '\r')
+MISSES=$(echo "${STATS}" | grep "keyspace_misses:" | cut -d':' -f2 | tr -d '\r')
 
 HITS=${HITS:-0}
 MISSES=${MISSES:-0}
 TOTAL=$((HITS + MISSES))
 
-echo "=================================================="
-echo "          REDIS CACHE HIT RATE VERIFIER           "
-echo "=================================================="
-echo "Keyspace Hits   : $HITS"
-echo "Keyspace Misses : $MISSES"
-echo "Total Lookups   : $TOTAL"
+echo "• Keyspace Hits   : ${HITS}"
+echo "• Keyspace Misses : ${MISSES}"
+echo "• Tổng yêu cầu    : ${TOTAL}"
 
-if [ "$TOTAL" -eq 0 ]; then
-  echo "Chưa có lượt truy vấn cache nào. Hãy chạy test k6 trước."
-  exit 0
+if [ "${TOTAL}" -eq 0 ]; then
+    echo "[-] Cảnh báo: Chưa có request nào tới Redis (Total = 0). Hãy chạy k6 load test trước."
+    exit 1
 fi
 
-# Tính tỷ lệ phần trăm (dùng awk để có số thập phân)
-HIT_RATE=$(awk -v h="$HITS" -v t="$TOTAL" 'BEGIN { printf "%.2f", (h / t) * 100 }')
-echo "Cache Hit Ratio : $HIT_RATE %"
-echo "Target NFR-PERF-003: >= 80.00 %"
+# Tính toán tỷ lệ phần trăm hit
+HIT_RATIO=$(awk "BEGIN {printf \"%.2f\", (${HITS} / ${TOTAL}) * 100}")
+echo "• Tỷ lệ Cache Hit : ${HIT_RATIO}%"
 
-PASSED=$(awk -v r="$HIT_RATE" 'BEGIN { if (r >= 80.0) print "1"; else print "0" }')
+# Kiểm tra ngưỡng >= 80% (NFR-PERF-003)
+IS_PASS=$(awk "BEGIN {print (${HIT_RATIO} >= ${THRESHOLD}) ? 1 : 0}")
 
-if [ "$PASSED" -eq "1" ]; then
-  echo "[PASS] Đạt chuẩn NFR-PERF-003 (Tỷ lệ cache hit >= 80%)"
+if [ "${IS_PASS}" -eq 1 ]; then
+    echo "[+] [PASS] Tỷ lệ Cache Hit đạt ${HIT_RATIO}% (>= ${THRESHOLD}%) theo NFR-PERF-003."
+    exit 0
 else
-  echo "[FAIL] Chưa đạt 80%. Hãy chạy k6 load-test thêm 2-3 phút để cache phủ đầy."
+    echo "[-] [FAIL] Tỷ lệ Cache Hit ${HIT_RATIO}% chưa đạt chuẩn (yêu cầu >= ${THRESHOLD}%)."
+    exit 1
 fi
-echo "=================================================="

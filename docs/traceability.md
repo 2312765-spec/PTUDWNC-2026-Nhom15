@@ -121,10 +121,11 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 
 | FR | Tên | Ưu tiên | Endpoint / Tham số | Slice | Hiện thực | Test | Quyết định | TT |
 |---|---|---|---|---|---|---|---|---|
-| FR-SRCH-001 | Full-text search tiếng Việt | M | `GET /api/v1/recipes/search?q=` | S10 | `SearchRecipesQuery(+Handler,+Validator)` `ICacheable` (1 phút, D8), trả `relevanceScore` | `RecipeRepository.SearchPublishedRecipesAsync`: `SearchVector @@ to_tsquery('simple', unaccent(...))` tiền tố `:*`, xếp `ts_rank`; `SearchVector` shadow property + GIN index `IX_Recipes_SearchVector`; migration `AddRecipeSearchVector` (hàm `recipe_search_vector`, trigger `trg_recipes_search_vector`, backfill) | `IntegrationTests/Recipes/SearchRecipesTests.cs` (13: unaccent, chữ đ, xếp hạng Title>Description, trigger khi đổi Title, GIN + trigger tồn tại, Draft, toán tử tsquery), `UnitTests/Recipes/SearchRecipesTests.cs` · FE: `/search` SSR (`app/(public)/search/{page,SearchResults,SearchPagination}.tsx`, `components/search/SearchForm.tsx` (dùng chung với trang chủ), `lib/recipes.ts`) — `__tests__/app/search/*.test.tsx`, `__tests__/components/search/SearchForm.test.tsx`, `__tests__/lib/recipes.test.ts` (18 test) | D4, D8, **D49** | ✅ (E2E: `e2e/search.spec.ts` trang chủ → /search, < 2 ký tự, kết quả rỗng; có kết quả `fixme` chờ dữ liệu) |
-| FR-SRCH-002 | Lọc | M | `?categoryId=&difficulty=&maxCookTime=&minServings=` | S4 | Tích hợp trong `GetRecipesQuery` (AND logic), difficulty Easy/Medium/Hard/Expert | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` (`RecipeFilters`, `RecipesPagination`, `lib/recipes.ts`) — `__tests__/app/recipes/*.test.tsx` | **D14** | ✅ (E2E Playwright chưa có) |
-| FR-SRCH-003 | Sắp xếp | M | `?sort=createdAt` / `-createdAt` / `title` / `-cookTime` | S4 | Tích hợp trong `GetRecipesQuery`, mặc định `-createdAt`, sort lạ → 400 | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` (`RecipeFilters`, `RecipesPagination`, `lib/recipes.ts`) — `__tests__/app/recipes/*.test.tsx` | D4 | ✅ (E2E Playwright chưa có) |
-| FR-SRCH-004 | Phân trang offset | M | `?page=1&pageSize=12` (max 50) | S4 | `PagedResult<T>` + COUNT trước SKIP/TAKE, pageSize > 50 clamp | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` (`RecipeFilters`, `RecipesPagination`, `lib/recipes.ts`) — `__tests__/app/recipes/*.test.tsx` | D4 | ✅ (E2E Playwright chưa có) |
+| FR-SRCH-001 | Full-text search tiếng Việt | M | `GET /api/v1/recipes/search?q=` | S10 | `SearchRecipesQuery(+Handler,+Validator)` `ICacheable` (1 phút, D8), trả `relevanceScore` | `RecipeRepository.SearchPublishedRecipesAsync`: `SearchVector @@ to_tsquery('simple', unaccent(...))` tiền tố `:*`, xếp `ts_rank`; `SearchVector` shadow property + GIN index `IX_Recipes_SearchVector`; migration `AddRecipeSearchVector` (hàm `recipe_search_vector`, trigger `trg_recipes_search_vector`, backfill) | `IntegrationTests/Recipes/SearchRecipesTests.cs` (13: unaccent, chữ đ, xếp hạng Title>Description, trigger khi đổi Title, GIN + trigger tồn tại, Draft, toán tử tsquery), `UnitTests/Recipes/SearchRecipesTests.cs` · FE: `/search` SSR (`app/(public)/search/{page,SearchResults,SearchPagination}.tsx`, `components/search/SearchForm.tsx` (dùng chung với trang chủ), `lib/recipes.ts`) — `__tests__/app/search/*.test.tsx`, `__tests__/components/search/SearchForm.test.tsx`, `__tests__/lib/recipes.test.ts` (18 test) | D4, D8, **D49** | ✅ (E2E: `e2e/search.spec.ts`  4/4 test pass) |
+| FR-SRCH-002 | Lọc | M | `?categoryId=&difficulty=&maxCookTime=&minServings=` | S4 | Tích hợp trong `GetRecipesQuery` (AND logic), difficulty Easy/Medium/Hard/Expert | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` (`RecipeFilters`, `RecipesPagination`, `lib/recipes.ts`) — `__tests__/app/recipes/*.test.tsx` | **D14** | ✅ (E2E:`e2e/search.spec.ts`) |
+| FR-SRCH-003 | Sắp xếp | M | `?sort=createdAt` / `-createdAt` / `title` / `-cookTime` | S4 | Tích hợp trong `GetRecipesQuery`, mặc định `-createdAt`, sort lạ → 400 | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` | D4 | ✅ (E2E: `e2e/search.spec.ts`) |
+| FR-SRCH-004 | Phân trang offset | M | `?page=1&pageSize=12` (max 50) | S4 | `PagedResult<T>` + COUNT trước SKIP/TAKE, pageSize > 50 clamp | `IntegrationTests/Recipes/GetRecipesTests.cs`, `UnitTests/Recipes/GetRecipesTests.cs` · FE: `/recipes` | D4 | ✅ (E2E: `e2e/search.spec.ts`) |
+
 
 **Điểm kiểm thử bắt buộc**
 
@@ -199,10 +200,10 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 
 | Nhóm | Mã | Ngưỡng cần đạt | Cách đo | TT |
 |---|---|---|---|---|
-| PERF | NFR-PERF-001 | p50 ≤ 150ms (GET cached), p95 ≤ 500ms, p99 ≤ 1000ms | k6 + OpenTelemetry | [x] | `tests/performance/smoke-test.js`, `load-test.js` |
-| PERF | NFR-PERF-002 | ≥ 100 concurrent users trên 2 vCPU / 4GB | k6 smoke → load → stress | [x] | `tests/performance/load-test.js` (100 VUs stage) |
-| PERF | NFR-PERF-003 | Cache hit rate ≥ 80%. TTL theo D8 | Redis INFO stats | [x] | `tests/performance/check-redis-cache.sh` |
-| PERF | NFR-PERF-004 | Không N+1; mọi WHERE/ORDER BY có index; slow query > 100ms cảnh báo | EXPLAIN ANALYZE review trước merge |[x] | `tests/performance/explain-analyze.sql` |
+| PERF | NFR-PERF-001 | Thời gian phản hồi API (p50<=150ms, p95<=500ms, p99<=1000ms) | backend/tests/performance/smoke-test.js, load-test.js (kết quả: results/perf-summary.md) | 🟡 Đang làm |
+| PERF | NFR-PERF-002 | Chịu tải >= 100 người dùng đồng thời trên 2 vCPU / 4GB | backend/tests/performance/load-test.js (kết quả: results/perf-summary.md) | 🟡 Đang làm |
+| PERF | NFR-PERF-003 | Tỷ lệ Redis cache hit >= 80% | backend/tests/performance/check-redis-cache.sh (kết quả: results/perf-summary.md) | 🟡 Đang làm |
+| PERF | NFR-PERF-004 | EXPLAIN ANALYZE các truy vấn, không N+1, dùng index | backend/tests/performance/explain-analyze.sql (kết quả: results/perf-summary.md) | 🟡 Đang làm |
 | PERF | NFR-PERF-005 | LCP ≤ 2.5s · CLS ≤ 0.1 · INP ≤ 200ms · JS bundle ≤ 200KB gzip | Lighthouse CI | ⬜ |
 | SEC | NFR-SEC-001 | PBKDF2-HMACSHA512, ≥ 100.000 iterations. Password ≥ 8 ký tự: hoa + **thường** + số + đặc biệt | Cấu hình `IdentityOptions` | ⬜ |
 | SEC | NFR-SEC-002 | AT 15p HS256; RT 128-bit random, SHA-256 hash, 7 ngày, rotation + reuse detection (D20) | Integration test | ⬜ |
@@ -247,11 +248,11 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 | FR-AUTH | 7 | 4 | 0 | 3 |
 | FR-CAT | 5 | 5 | 0 | 0 |
 | FR-RCP | 10 | 2 | 0 | 8 |
-| FR-SRCH | 4 | 3 | 1 | 0 |
+| FR-SRCH | 4 | 4 |  | 0 |
 | FR-FILE | 2 | 2 | 0 | 0 |
 | FR-JOB | 3 | 2 | 0 | 1 |
 | FR-OBS | 3 | 2 | 1 | 0 |
-| **Tổng** | **34** | **20** | **2** | **12** |
+| **Tổng** | **34** | **21** | **1** | **12** |
 
 > Không còn FR nào bị chặn — cả 22 mâu thuẫn trong SRS đã chốt tại `decisions.md`.
 > Cột **Quyết định** ở mỗi bảng cho biết FR đó phải đọc mục D nào trước khi code.
