@@ -1,0 +1,3 @@
+# False positive: khóa JWT giả trong test NFR-SEC-007 (đã thêm "gitleaks:allow" ở commit sau,
+# nhưng commit gốc vẫn nằm trong lịch sử PR nên phải bỏ qua theo fingerprint).
+1c44418a550a3901b3586968f2d0fc888ef610a5:backend/tests/CulinaryBlog.IntegrationTests/Common/JwtKeyGuardTests.cs:generic-api-key:32

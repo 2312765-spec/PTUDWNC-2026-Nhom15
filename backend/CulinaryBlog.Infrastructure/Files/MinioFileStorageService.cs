@@ -86,10 +86,19 @@ public sealed class MinioFileStorageService(IAmazonS3 s3Client, IConfiguration c
         return PublicUrl(objectKey);
     }
 
+    /// <summary>
+    /// D58 — URL trình duyệt dùng. Prod: <c>Minio:PublicBaseUrl</c> = domain của site (Nginx proxy
+    /// <c>/{bucket}/</c> tới MinIO nội bộ). Rỗng → <c>Minio:Endpoint</c> (dev: http://localhost:9000).
+    /// </summary>
     private string PublicUrl(string key)
     {
-        var endpoint = (configuration["Minio:Endpoint"] ?? throw new InvalidOperationException("Thiếu Minio:Endpoint.")).TrimEnd('/');
-        return $"{endpoint}/{BucketName}/{key}";
+        var baseUrl = configuration["Minio:PublicBaseUrl"];
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            baseUrl = configuration["Minio:Endpoint"] ?? throw new InvalidOperationException("Thiếu Minio:Endpoint.");
+        }
+
+        return $"{baseUrl.TrimEnd('/')}/{BucketName}/{key}";
     }
 
     private string ExtractKey(string fileUrl)

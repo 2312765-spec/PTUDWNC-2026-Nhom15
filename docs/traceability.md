@@ -208,27 +208,39 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 | SEC | NFR-SEC-002 | AT 15p HS256; RT 128-bit random, SHA-256 hash, 7 ngày, rotation + reuse detection (D20) | Integration test | ⬜ |
 | SEC | NFR-SEC-003 | `/auth/*` 10 req/p/IP · API chung 100 · upload 5 · 429 + Retry-After (D15) | ASP.NET Rate Limiting middleware | ⬜ |
 | SEC | NFR-SEC-004 | FluentValidation trước xử lý; magic bytes; check size trước khi read stream; filename GUID | Security test | ⬜ |
-| SEC | NFR-SEC-005 | HTTPS TLS 1.2+, HSTS, CORS allowlist (không `*`), cookie SameSite=Strict | Nginx + appsettings | ⬜ |
+| SEC | NFR-SEC-005 | HTTPS TLS 1.2+, HSTS, CORS allowlist (không `*`), cookie SameSite=Strict | Nginx + appsettings. **Đã có (CONS-009):** `nginx/nginx.prod.conf` TLS 1.2/1.3, HTTP → 301, HSTS `max-age=31536000` (API cũng gửi HSTS 1 năm sau `UseForwardedHeaders` — D60), CORS allowlist = `https://{SITE_DOMAIN}` — `ForwardedHeadersTests.cs` + `scripts/verify-prod.sh` bước 3–4. **Còn thiếu:** cookie Auth.js `SameSite=Strict` (mặc định Lax, chưa kiểm) | 🟡 |
 | SEC | NFR-SEC-006 | Authorization ở Application Layer; chỉ 2 policy `AuthorPolicy`/`AdminPolicy` (D12); audit log mọi write | ArchUnit + code review. **Đã có:** Category Create/Update/Delete kiểm tra `IsAdmin` trong handler → 403 `CATEGORY_FORBIDDEN` (**D50**, unit test `NotAdmin_ThrowsForbidden`); ảnh recipe kiểm tra owner/Admin (`RECIPE_FORBIDDEN`). **Còn thiếu:** `RecipeAuthorizationHandler` (resource ownership qua `IAuthorizationService`), double-check userId cho DELETE/PATCH publish recipe, audit log mọi write | 🟡 |
-| SEC | NFR-SEC-007 | Không secret trong Git; pre-commit hook trufflehog/gitleaks | CI | ⬜ |
+| SEC | NFR-SEC-007 | Không secret trong Git; pre-commit hook trufflehog/gitleaks | CI. **Đã có (CONS-009):** bỏ `Jwt:Key` khỏi `appsettings.json` + khóa fallback trong `Program.cs`; `JwtKeyGuard` dừng API khi thiếu/khóa < 32 byte (`JwtKeyGuardTests.cs`); secret prod qua `.env.production` (gitignore). **Còn thiếu:** pre-commit hook gitleaks · khóa cũ vẫn trong lịch sử Git (prod phải sinh khóa mới) | 🟡 |
 | USE | NFR-USE-001 | Breakpoint 320/768/1200px, Tailwind utility-first | Chrome DevTools + BrowserStack | ⬜ |
 | USE | NFR-USE-002 | WCAG 2.1 AA, contrast ≥ 4.5:1, keyboard nav đầy đủ | axe + NVDA/VoiceOver | ⬜ |
 | USE | NFR-USE-003 | RFC 7807 + inline field error + error code i18n-ready (bảng cuối `decisions.md`) | Code review | ⬜ |
 | USE | NFR-USE-004 | Skeleton, optimistic update + rollback, toast, upload progress bar | Manual + E2E | ⬜ |
-| REL | NFR-REL-001 | Uptime ≥ 99.5%, readiness probe mỗi 10s | Uptime Robot | ⬜ |
+| REL | NFR-REL-001 | Uptime ≥ 99.5%, readiness probe mỗi 10s | Uptime Robot. **Đã có:** healthcheck `api` gọi `/health/ready` mỗi 10s trong `docker-compose.prod.yml`. **Còn thiếu:** giám sát uptime bên ngoài | 🟡 |
 | REL | NFR-REL-002 | GlobalExceptionMiddleware; **Redis down → đi thẳng xuống handler, không throw** (D8); Hangfire retry 3× | Chaos test | ⬜ |
-| REL | NFR-REL-003 | WAL, pg_dump hàng ngày 03:00 (giữ 30 ngày), MinIO volume persistent, soft delete (D1) | Ops | ⬜ |
+| REL | NFR-REL-003 | WAL, pg_dump hàng ngày 03:00 (giữ 30 ngày), MinIO volume persistent, soft delete (D1) | Ops. Service `pg-backup` (crond `0 3 * * *` UTC, `scripts/pg-backup.sh`, `pg_dump -Fc`, xóa bản ≥ 30 ngày) · volume `pgdata`/`miniodata`/`pgbackups` · WAL mặc định của PostgreSQL 16 · soft delete D1. Kiểm tay 2026-10-21: dump đủ 26 bảng, bản 30 ngày bị xóa, bản 28 ngày giữ lại. Khôi phục: `docs/deployment.md` | ✅ |
 | MAINT | NFR-MAINT-001 | 0 compiler warning, SonarAnalyzer/StyleCop, ESLint + Prettier, ≥1 reviewer | CI gate | ⬜ |
 | MAINT | NFR-MAINT-002 | Unit ≥ 80% Application; mỗi endpoint ≥ 1 happy + 1 error; 5 E2E flow | Coverage report | ⬜ |
 | MAINT | NFR-MAINT-003 | README setup < 5 phút, Scalar UI `/scalar`, ADR, CHANGELOG SemVer | Review | ⬜ |
 | MAINT | NFR-MAINT-004 | Dependency Rule; CQRS không trộn read/write | ArchUnit.NET | ⬜ |
 | SCALE | NFR-SCALE-001 | Stateless; **chỉ Redis, không IMemoryCache** (D8); RedLock; Hangfire multi-worker | Review | ⬜ |
 | SCALE | NFR-SCALE-002 | Npgsql pool max 100; B-tree + GIN index | Review | ⬜ |
-| SCALE | NFR-SCALE-003 | Mỗi service 1 container; Nginx upstream pool; CDN static assets | Docker Compose | ⬜ |
+| SCALE | NFR-SCALE-003 | Mỗi service 1 container; Nginx upstream pool; CDN static assets | Docker Compose. **Đã có:** `docker-compose.prod.yml` mỗi service 1 container, Nginx `upstream` keepalive. **Còn thiếu:** CDN | 🟡 |
 | SEO | NFR-SEO-001 | JSON-LD Schema.org Recipe, pass 100% Google Rich Results Test | Rich Results Test | ⬜ |
 | SEO | NFR-SEO-002 | `<title>` ≤ 60 ký tự, meta description 150–160, OG image 1200×630, canonical, noindex cho draft/archived | Lighthouse SEO | ⬜ |
 | SEO | NFR-SEO-003 | sitemap.xml tự sinh hàng ngày + robots.txt ~~+ ping GSC~~ (bỏ — D51) | FR-JOB-003 · `frontend/app/robots.ts` | ✅ |
 | SEO | NFR-SEO-004 | `/recipes/{slug}` không dấu; **slug bất biến sau khi tạo; không có 301 redirect** (D13) | Manual | ⬜ |
+
+---
+
+## Ràng buộc triển khai (CONS — không tính vào bảng đếm FR)
+
+| CONS | Yêu cầu | File | Test | Quyết định | TT |
+|---|---|---|---|---|---|
+| CONS-009 | Docker hóa, Dockerfile multi-stage, `docker-compose.prod.yml` (SRS §6.5) — plan `docs/plans/CONS-009-docker-compose-prod.md`, hướng dẫn `docs/deployment.md` | `docker-compose.prod.yml` · `nginx/nginx.prod.conf` · `scripts/pg-backup.sh` · `.env.production.example` · `backend/CulinaryBlog.API/Dockerfile` · `frontend/Dockerfile` (+`output: 'standalone'`) · `API/Extensions/{DatabaseMigrationExtensions,JwtKeyGuard}.cs` · `Minio:PublicBaseUrl` trong `MinioFileStorageService` | `IntegrationTests/Common/{DatabaseMigrationTests (2), ForwardedHeadersTests (2), JwtKeyGuardTests (5)}.cs` · `Files/MinioFileStorageServiceTests.cs` (+3 D58) · `scripts/verify-prod.sh` 16/16 pass trên máy local 2026-10-21 (cert tự ký, `culinary.localhost`) | **D58, D59, D60**, D16, D36, D52 | ✅ |
+
+> **CONS-009 — lưu ý:** MinIO đã khóa pull ẩn danh → compose pin theo digest, server mới phải `docker load`
+> image hoặc dùng registry riêng (`MINIO_IMAGE`/`MC_IMAGE`). DataProtection key của API chưa persist (cảnh báo
+> khi khởi động) — chưa ảnh hưởng vì xác thực dùng JWT. Welcome email cần `SMTP_HOST`; để trống thì job lỗi và retry.
 
 ---
 
