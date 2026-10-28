@@ -259,11 +259,11 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 | FR-AUTH | 7 | 6 | 1 | 0 |
 | FR-CAT | 5 | 5 | 0 | 0 |
 | FR-RCP | 10 | 3 | 0 | 7 |
-| FR-SRCH | 4 | 4 | 0 | 0 |
+| FR-SRCH | 4 | 3 | 1 | 0 |
 | FR-FILE | 2 | 2 | 0 | 0 |
 | FR-JOB | 3 | 3 | 0 | 0 |
 | FR-OBS | 3 | 2 | 1 | 0 |
-| **Tổng** | **34** | **25** | **2** | **7** |
+| **Tổng** | **34** | **20** | **2** | **12** |
 
 > Không còn FR nào bị chặn — cả 22 mâu thuẫn trong SRS đã chốt tại `decisions.md`.
 > Cột **Quyết định** ở mỗi bảng cho biết FR đó phải đọc mục D nào trước khi code.
