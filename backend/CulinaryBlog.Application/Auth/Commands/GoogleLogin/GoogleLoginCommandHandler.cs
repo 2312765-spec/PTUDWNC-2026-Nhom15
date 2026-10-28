@@ -12,7 +12,8 @@ namespace CulinaryBlog.Application.Auth.Commands.GoogleLogin;
 /// FR-AUTH-003 (SRS Chương 3; D9, D5, D12, D33). Verify ID Token với Google → liên kết tài
 /// khoản đã có hoặc tự tạo mới (role Author) → sinh cặp access+refresh token (giống hệt
 /// Register/Login, D24) → nếu là tài khoản mới thì enqueue welcome email (FR-JOB-001, D56;
-/// lỗi enqueue chỉ log — D55).
+/// lỗi enqueue chỉ log — D55). Google không trả claim <c>name</c> → displayName là phần trước "@"
+/// của email (D56), để tài khoản không có tên rỗng và welcome email không bị validator chặn.
 /// </summary>
 public sealed class GoogleLoginCommandHandler(
     IGoogleTokenValidator googleTokenValidator,
@@ -37,7 +38,7 @@ public sealed class GoogleLoginCommandHandler(
 
         var (user, isNewUser) = await identityService.LoginOrRegisterWithGoogleAsync(
             googleUser.Email,
-            googleUser.Name,
+            ResolveDisplayName(googleUser),
             googleUser.Picture,
             googleUser.ProviderKey,
             cancellationToken);
@@ -51,11 +52,14 @@ public sealed class GoogleLoginCommandHandler(
 
         if (isNewUser)
         {
-            backgroundJobService.TryEnqueueWelcomeEmail(user.Email, user.DisplayName, logger);
+            backgroundJobService.TryEnqueueWelcomeEmail(user.UserId, user.Email, user.DisplayName, logger);
         }
 
         var profile = new UserProfileDto(user.UserId, user.Email, user.DisplayName, user.AvatarUrl, user.Bio, user.Roles);
 
         return new AuthResponseDto(accessToken, rawRefreshToken, accessExpiresAt, profile);
     }
+
+    private static string ResolveDisplayName(GoogleUserInfo googleUser) =>
+        string.IsNullOrWhiteSpace(googleUser.Name) ? googleUser.Email.Split('@')[0] : googleUser.Name.Trim();
 }
