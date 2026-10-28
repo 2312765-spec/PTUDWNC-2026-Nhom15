@@ -7,6 +7,16 @@ namespace CulinaryBlog.Application.Common.Interfaces;
 /// </summary>
 public interface IIdentityService
 {
+    Task<string?> GetUserDisplayNameAsync(string userId, CancellationToken cancellationToken = default);
+   
+    /// <summary>
+    /// Lấy danh sách DisplayName theo danh sách UserId (phục vụ map AuthorName cho DTO, FR-SRCH-001).
+    /// </summary>
+    Task<IReadOnlyDictionary<string, string>> GetDisplayNamesAsync(
+        IEnumerable<string> userIds,
+        CancellationToken ct = default);
+
+    
     /// <summary>
     /// Tạo user mới, gán role "Author" mặc định (FR-AUTH-001).
     /// Ném ConflictException (AUTH_EMAIL_EXISTS, 409) nếu email đã tồn tại.
@@ -76,3 +86,7 @@ public sealed record AuthenticatedUser(
     string? AvatarUrl,
     string? Bio,
     IReadOnlyList<string> Roles);
+
+
+
+
