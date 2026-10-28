@@ -3,6 +3,7 @@ using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Interfaces;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -22,7 +23,8 @@ public class RegisterCommandHandlerTests
         _jwtService,
         _refreshTokenRepository,
         _unitOfWork,
-        _backgroundJobService);
+        _backgroundJobService,
+        NullLogger<RegisterCommandHandler>.Instance);
 
     [Fact(DisplayName = "FR-AUTH-001: đăng ký thành công trả AuthResponseDto đầy đủ token (D24), auto-login")]
     public async Task Handle_Success_ReturnsFullAuthResponse()
@@ -103,5 +105,31 @@ public class RegisterCommandHandlerTests
         await CreateHandler().Handle(command, CancellationToken.None);
 
         _backgroundJobService.Received(1).EnqueueWelcomeEmail("user@example.com", "Nguyễn Văn A");
+    }
+
+    [Fact(DisplayName = "FR-JOB-001/D55: enqueue welcome email ném lỗi → đăng ký vẫn trả token, không ném lỗi")]
+    public async Task Handle_EnqueueThrows_StillReturnsAuthResponse()
+    {
+        var createdUser = new AuthenticatedUser("user-1", "user@example.com", "A", null, null, ["Author"]);
+
+        _identityService
+            .CreateUserAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(createdUser);
+        _jwtService
+            .GenerateAccessToken(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IEnumerable<string>>())
+            .Returns(("access-token", DateTime.UtcNow.AddMinutes(15)));
+        _jwtService
+            .GenerateRefreshToken()
+            .Returns(("raw-refresh-token", "hashed-refresh-token", DateTime.UtcNow.AddDays(7)));
+        _backgroundJobService
+            .When(s => s.EnqueueWelcomeEmail(Arg.Any<string>(), Arg.Any<string>()))
+            .Do(_ => throw new InvalidOperationException("Hangfire storage down"));
+
+        var result = await CreateHandler().Handle(
+            new RegisterCommand("user@example.com", "Str0ng!Pass", "A", null), CancellationToken.None);
+
+        result.AccessToken.Should().Be("access-token");
+        result.RefreshToken.Should().Be("raw-refresh-token");
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

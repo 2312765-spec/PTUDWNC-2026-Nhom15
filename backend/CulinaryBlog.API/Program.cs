@@ -13,6 +13,7 @@ using CulinaryBlog.Infrastructure.Persistence;
 using CulinaryBlog.Infrastructure.Persistence.Seeding;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -58,7 +59,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
 // ---- Xác thực JWT (CONS-004) ---------------------------------------------
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "super_secret_jwt_key_that_is_at_least_32_characters_long_for_testing!";
+// NFR-SEC-007: không có khóa mặc định — thiếu/yếu thì dừng ngay lúc khởi động.
+var jwtKey = JwtKeyGuard.GetSigningKey(builder.Configuration);
 
 builder.Services
     .AddAuthentication(options =>
@@ -69,8 +71,6 @@ builder.Services
     })
     .AddJwtBearer(options =>
     {
-        var key = builder.Configuration["Jwt:Key"] ?? "super_secret_jwt_key_that_is_at_least_32_characters_long_for_testing!";
-        
         options.RequireHttpsMetadata = false;
         options.SaveToken = true;
         var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "CulinaryBlog";
@@ -79,7 +79,7 @@ builder.Services
         options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(key)),
+            IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(jwtKey)),
 
             // CONS-004: access token stateless, PHẢI kiểm tra đủ issuer/audience/lifetime —
             // tắt các cờ này coi như chấp nhận token hết hạn/của issuer khác vô thời hạn.
@@ -109,6 +109,16 @@ builder.Services.AddCors(options => options.AddPolicy(CorsPolicy, policy => poli
     .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
     .WithHeaders("Content-Type", "Authorization", "X-Correlation-ID", "If-Match")
     .AllowCredentials()));
+
+// ---- Sau Nginx (CONS-009/D60, NFR-SEC-005) ---------------------------------
+// Prod chỉ Nginx nhận kết nối từ ngoài, nên tin mọi proxy: IP của Nginx trong mạng Docker không cố định.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+builder.Services.AddHsts(options => options.MaxAge = TimeSpan.FromDays(365));
 
 // ---- OpenAPI / Scalar (NFR-MAINT-003) ------------------------------------
 builder.Services.AddOpenApi(options =>
@@ -170,6 +180,16 @@ builder.Services.AddAppHealthChecks(builder.Configuration);
 // ===========================================================================
 var app = builder.Build();
 
+// ---- CONS-009/D59: service "migrate" của docker-compose.prod.yml ----------
+if (args.Contains(DatabaseMigrationExtensions.MigrateOnlyArgument))
+{
+    await app.Services.MigrateAndSeedRolesAsync();
+    return;
+}
+
+// 0. Scheme/IP gốc từ Nginx — phải trước mọi middleware đọc Request.Scheme/RemoteIpAddress (D60)
+app.UseForwardedHeaders();
+
 // 1. CorrelationId
 app.UseMiddleware<CorrelationIdMiddleware>();
 
@@ -196,22 +216,13 @@ app.UseAuthentication();
 
 app.UseAuthorization();
 
-// ---- Migration + seed (chỉ Development — Sprint 0, B) ---------------------
+// ---- Migration + seed (Development — prod dùng service "migrate", D59) ------
 if (app.Environment.IsDevelopment())
 {
+    await app.Services.MigrateAndSeedRolesAsync();
+
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
-    
-    if (db.Database.IsRelational())
-    {
-        await db.Database.MigrateAsync();
-    }
-    else
-    {
-        await db.Database.EnsureCreatedAsync();
-    }
-
-    await IdentityRoleSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>());
     await DbSeeder.SeedAsync(
         db,
         scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>(),

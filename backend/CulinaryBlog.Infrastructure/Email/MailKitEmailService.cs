@@ -1,50 +1,45 @@
+using CulinaryBlog.Application.Common.Email;
 using CulinaryBlog.Application.Common.Interfaces;
 using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using MimeKit;
 
 namespace CulinaryBlog.Infrastructure.Email;
 
 /// <summary>
-/// Hiện thực tối giản cho FR-AUTH-001 (bước 11 — enqueue welcome email). Nội dung email
-/// (HTML template) và retry policy tinh chỉnh (1p/5p/30p) thuộc FR-JOB-001 — chưa làm ở đây.
+/// FR-JOB-001/D57 — gửi <see cref="EmailMessage"/> qua SMTP (dev: Mailhog). Thư multipart/alternative
+/// (HTML + text). TLS <c>Auto</c>: STARTTLS khi server hỗ trợ. Có <c>Smtp:Username</c> thì đăng nhập.
+/// Không bắt lỗi: ném ra để Hangfire retry (D42), LoggingBehavior log Error.
 /// </summary>
-public sealed class MailKitEmailService(IConfiguration configuration, ILogger<MailKitEmailService> logger)
-    : IEmailService
+public sealed class MailKitEmailService(IConfiguration configuration) : IEmailService
 {
-    public async Task SendWelcomeEmailAsync(string toEmail, string displayName, CancellationToken ct = default)
+    public async Task SendAsync(EmailMessage message, CancellationToken ct = default)
     {
-        var message = new MimeMessage();
-        message.From.Add(new MailboxAddress(
+        var host = configuration["Smtp:Host"];
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            throw new InvalidOperationException("Thiếu cấu hình Smtp:Host.");
+        }
+
+        var mime = new MimeMessage();
+        mime.From.Add(new MailboxAddress(
             configuration["Smtp:FromName"] ?? "Culinary Blog",
             configuration["Smtp:FromAddress"] ?? "no-reply@culinaryblog.local"));
-        message.To.Add(new MailboxAddress(displayName, toEmail));
-        message.Subject = "Chào mừng bạn đến với Culinary Blog!";
-        message.Body = new TextPart("plain")
-        {
-            Text = $"Chào {displayName},\n\nCảm ơn bạn đã đăng ký tài khoản Culinary Blog. Chúc bạn có những trải nghiệm nấu ăn thật vui!",
-        };
+        mime.To.Add(new MailboxAddress(message.ToName, message.ToAddress));
+        mime.Subject = message.Subject;
+        mime.Body = new BodyBuilder { HtmlBody = message.HtmlBody, TextBody = message.TextBody }.ToMessageBody();
 
-        var host = configuration["Smtp:Host"]
-            ?? throw new InvalidOperationException("Thiếu cấu hình Smtp:Host.");
+        using var client = new SmtpClient();
+        await client.ConnectAsync(host, configuration.GetValue("Smtp:Port", 25), SecureSocketOptions.Auto, ct);
 
-        try
+        var username = configuration["Smtp:Username"];
+        if (!string.IsNullOrEmpty(username))
         {
-            using var client = new SmtpClient();
-            await client.ConnectAsync(
-                host,
-                configuration.GetValue("Smtp:Port", 25),
-                MailKit.Security.SecureSocketOptions.Auto,
-                ct);
-            await client.SendAsync(message, ct);
-            await client.DisconnectAsync(true, ct);
+            await client.AuthenticateAsync(username, configuration["Smtp:Password"] ?? string.Empty, ct);
         }
-        catch (Exception ex)
-        {
-            // NFR-REL-002-style: lỗi gửi mail không được làm sập job. Hangfire tự retry.
-            logger.LogWarning(ex, "Gửi welcome email tới {Email} thất bại", toEmail);
-            throw;
-        }
+
+        await client.SendAsync(mime, ct);
+        await client.DisconnectAsync(true, ct);
     }
 }

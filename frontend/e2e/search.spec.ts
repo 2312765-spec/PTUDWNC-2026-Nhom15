@@ -1,6 +1,13 @@
 import { expect, test } from '@playwright/test';
 
-/** Từ khóa chắc chắn không khớp công thức nào → trạng thái rỗng ổn định, không phụ thuộc dữ liệu. */
+/**
+ * @file E2E tests cho luồng Tìm kiếm công thức (FR-SRCH-001).
+ * ĐIỀU KIỆN TIÊN QUYẾT: Cơ sở dữ liệu đã được nạp dữ liệu mẫu bởi DbSeeder (Seeding/DbSeeder.cs).
+ * DbSeeder gán trạng thái RecipeStatus theo công thức (i % 3):
+ * 0 = Draft, 1 = Published, 2 = Archived.
+ */
+
+/** Từ khóa chắc chắn không khớp công thức nào → trạng thái rỗng ổn định. */
 const NO_MATCH = 'zzkhongtontaie2e';
 
 test.describe('Luồng tìm kiếm (FR-SRCH-001)', () => {
@@ -38,12 +45,20 @@ test.describe('Luồng tìm kiếm (FR-SRCH-001)', () => {
   });
 
   test('FR-SRCH-001: có công thức khớp → hiện danh sách kết quả, bấm vào sang trang chi tiết', async ({ page }) => {
-    // Đã bật: PR #54 đã seed dữ liệu món Việt nên PostgreSQL full-text search với "pho" sẽ khớp công thức "Phở"
-    await page.goto('/search?q=pho');
+    // Tìm kiếm với từ khóa "phomai", nhắm vào công thức có (index % 3 == 1) chắc chắn Published từ DbSeeder
+    await page.goto('/search?q=phomai');
 
     const results = page.getByRole('region', { name: 'Kết quả tìm kiếm' });
-    await expect(results.getByRole('link').first()).toBeVisible();
-    await results.getByRole('link').first().click();
+    await expect(results).toBeVisible();
+
+    const firstCard = results.getByRole('link').first();
+    await expect(firstCard).toBeVisible();
+
+    // Kiểm tra tiêu đề của kết quả đầu tiên xuất hiện
+    await expect(firstCard.getByRole('heading')).toBeVisible();
+
+    // Bấm vào kết quả đầu tiên để chuyển sang trang chi tiết công thức
+    await firstCard.click();
     await expect(page).toHaveURL(/\/recipes\/[^/]+$/);
   });
 });
