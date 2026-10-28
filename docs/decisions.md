@@ -70,6 +70,9 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D52 | Nơi lưu & phục vụ sitemap.xml | **MinIO** key cố định `seo/sitemap.xml` + Nginx proxy `/sitemap.xml` · bỏ `frontend/app/sitemap.ts` |
 | D53 | Distributed lock cho sitemap job | Hangfire **`DisableConcurrentExecution`** thay RedLock |
 | D54 | Cập nhật hồ sơ (FR-AUTH-007) | Body rỗng → 400 · field vắng/`null` = giữ nguyên, `""` = xóa (`bio`, `avatarUrl`) · `IsActive=false` → 200 · user đã xóa → 404 |
+| D55 | Enqueue welcome email lỗi (FR-JOB-001) | **Log Warning, không fail request** — register/Google login vẫn trả token |
+| D56 | Ai nhận welcome email | Đăng ký (FR-AUTH-001) **và** tài khoản Google **mới** (FR-AUTH-003) · Google liên kết tài khoản có sẵn → không gửi |
+| D57 | Nội dung & cấu hình welcome email | Link `/` + `/dashboard` từ `Seo:SiteBaseUrl` (thiếu → job lỗi) · HTML-encode `displayName` · multipart HTML + text · SMTP auth khi có `Smtp:Username` |
 
 ---
 
@@ -1463,6 +1466,71 @@ giá trị `null`, cách xóa `bio`/`avatarUrl`, user `IsActive=false` hay user 
 **Vì:** record C# với `string?` không phân biệt "vắng" và "null"; phân biệt cần tự dò JSON, không cần cho v1.
 
 **Sửa SRS:** FR-AUTH-007 — thay `fullName` theo D5, thay 422 bằng 400 (D4), bổ sung các điểm trên.
+
+---
+
+## D55 — FR-JOB-001: enqueue welcome email lỗi không làm fail request
+
+> 2026-10-21. Xem `docs/plans/FR-JOB-001-welcome-email.md`.
+
+**Nguồn:** FR-AUTH-001 bước 11 chỉ nói "đẩy email chào mừng vào Hangfire queue", không nói enqueue lỗi
+thì sao. Code hiện tại gọi `EnqueueWelcomeEmail` sau `SaveChanges` không bắt lỗi → Hangfire storage lỗi
+thì user đã được tạo nhưng client nhận 500 (đăng ký lại sẽ bị 409 email trùng).
+
+**Chốt:** `RegisterCommandHandler` và `GoogleLoginCommandHandler` bọc lời gọi enqueue trong try/catch →
+log **Warning** (kèm `UserId`, không ghi email — CONS-010), vẫn trả `AuthResponseDto` bình thường (201 / 200).
+
+**Vì:** SRS mục rủi ro phụ thuộc: Hangfire hỏng "không ảnh hưởng core functionality". Cùng cách đã chốt
+cho ảnh ở D44 ("enqueue lỗi → log warning, không làm fail request").
+
+**Sửa SRS:** FR-AUTH-001 — bổ sung luồng ngoại lệ "enqueue welcome email lỗi → vẫn đăng ký thành công".
+
+---
+
+## D56 — FR-JOB-001: ai nhận welcome email
+
+> 2026-10-21.
+
+**Nguồn:** SRS FR-JOB-001 ghi trigger "Sau FR-AUTH-001 thành công". FR-AUTH-003 (Google) cũng tự tạo
+tài khoản mới nhưng không nhắc email chào mừng. Roadmap S9 gộp FR-AUTH-003 và FR-JOB-001.
+
+**Chốt:** gửi khi **tạo tài khoản mới**: đăng ký email/mật khẩu (FR-AUTH-001) và đăng nhập Google lần
+đầu tạo user mới (FR-AUTH-003, `isNewUser = true`). Google liên kết vào tài khoản đã có, hoặc đăng nhập
+lại → **không** gửi.
+
+Google không trả claim `name` (thiếu scope `profile`) → `displayName` của tài khoản mới là phần trước
+`@` của email. Nếu để rỗng, `SendWelcomeEmailCommandValidator` chặn và job retry vô ích rồi Failed.
+
+**Vì:** với người dùng, cả hai cách đều là "đăng ký". Gửi theo `isNewUser` đảm bảo mỗi tài khoản nhận
+đúng một email.
+
+**Sửa SRS:** FR-JOB-001 — trigger "Sau FR-AUTH-001 thành công, hoặc FR-AUTH-003 tạo tài khoản mới".
+
+---
+
+## D57 — FR-JOB-001: nội dung email và cấu hình SMTP
+
+> 2026-10-21.
+
+**Nguồn:** SRS FR-JOB-001 "link đến ứng dụng" không nói URL lấy từ đâu; bảng tích hợp ngoài có
+`Smtp__Username/Password` và "SMTP với TLS" nhưng Mailhog (dev) không có TLS lẫn auth.
+
+**Chốt:**
+
+1. Link trong email: `{Seo:SiteBaseUrl}/` và `{Seo:SiteBaseUrl}/dashboard` — dùng lại key của FR-JOB-003,
+   không thêm key mới. Base URL đi qua command; validator yêu cầu URL tuyệt đối http(s) → thiếu/sai thì
+   `ValidationException`, Hangfire retry rồi Failed (giống D52).
+2. `displayName` do người dùng nhập → **luôn HTML-encode** khi đưa vào template.
+3. Email **multipart/alternative**: phần HTML + phần plain text.
+4. SMTP: có `Smtp:Username` thì `AuthenticateAsync`; TLS `SecureSocketOptions.Auto` (STARTTLS khi server
+   hỗ trợ, Mailhog thì không).
+5. Nội dung email dựng ở Application (`WelcomeEmailTemplate`); `IEmailService` ở Infrastructure chỉ gửi
+   `EmailMessage`. Job đi qua MediatR (`SendWelcomeEmailCommand`) như D44.
+
+**Vì:** một nguồn cấu hình cho URL công khai của site; chặn chèn HTML vào email; chạy được cả Mailhog
+lẫn SMTP production mà không đổi code.
+
+**Sửa SRS:** FR-JOB-001 — "link về trang chủ và `/dashboard`, gốc URL theo cấu hình site".
 
 ---
 
