@@ -8,9 +8,13 @@ namespace CulinaryBlog.Application.Common.Interfaces;
 public interface IIdentityService
 {
     Task<string?> GetUserDisplayNameAsync(string userId, CancellationToken cancellationToken = default);
-    
-    // Batch lookup để triệt tiêu hoàn toàn vấn đề N+1 khi hiển thị danh sách/tìm kiếm
-    Task<Dictionary<string, string>> GetDisplayNamesAsync(IEnumerable<string> userIds, CancellationToken cancellationToken = default);
+   
+    /// <summary>
+    /// Lấy danh sách DisplayName theo danh sách UserId (phục vụ map AuthorName cho DTO, FR-SRCH-001).
+    /// </summary>
+    Task<IReadOnlyDictionary<string, string>> GetDisplayNamesAsync(
+        IEnumerable<string> userIds,
+        CancellationToken ct = default);
 
     
     /// <summary>
@@ -82,5 +86,7 @@ public sealed record AuthenticatedUser(
     string? AvatarUrl,
     string? Bio,
     IReadOnlyList<string> Roles);
+
+
 
 

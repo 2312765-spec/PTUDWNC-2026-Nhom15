@@ -219,43 +219,29 @@ public sealed class IdentityService(UserManager<ApplicationUser> userManager) : 
 
         return new AuthenticatedUser(user.Id, user.Email!, user.DisplayName, user.AvatarUrl, user.Bio, [.. roles]);
     }
-    public async Task<Dictionary<string, string>> GetDisplayNamesAsync(
-    IEnumerable<string> userIds, 
-    CancellationToken cancellationToken = default)
-{
-    var distinctIds = userIds?
-        .Where(id => !string.IsNullOrWhiteSpace(id))
-        .Distinct()
-        .ToList() ?? new List<string>();
-
-    if (!distinctIds.Any())
+    public async Task<IReadOnlyDictionary<string, string>> GetDisplayNamesAsync(
+        IEnumerable<string> userIds,
+        CancellationToken ct = default)
     {
-        return new Dictionary<string, string>();
+        var idList = userIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct()
+            .ToList();
+
+        if (idList.Count == 0)
+        {
+            return new Dictionary<string, string>();
+        }
+
+        // D5/FR-SRCH-001: Chỉ lấy DisplayName thực tế, KHÔNG lấy UserName vì UserName = email (lộ email ra ngoài).
+        // Nếu DisplayName rỗng thì không đưa vào dictionary (DTO nhận null).
+        var users = await userManager.Users
+            .Where(u => idList.Contains(u.Id) && u.DisplayName != null && u.DisplayName != string.Empty)
+            .Select(u => new { u.Id, u.DisplayName })
+            .ToListAsync(ct);
+
+        return users.ToDictionary(u => u.Id, u => u.DisplayName);
     }
-
-    // Dùng Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions để tránh hoàn toàn xung đột Linq.Async
-    var users = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
-        userManager.Users
-            .Where(u => distinctIds.Contains(u.Id))
-            .Select(u => new 
-            { 
-                u.Id, 
-                u.DisplayName, 
-                u.UserName 
-            }),
-        cancellationToken);
-
-    var result = new Dictionary<string, string>();
-    foreach (var u in users)
-    {
-        var name = !string.IsNullOrWhiteSpace(u.DisplayName)
-            ? u.DisplayName
-            : (!string.IsNullOrWhiteSpace(u.UserName) ? u.UserName : "Tác giả");
-        result[u.Id] = name;
-    }
-
-    return result;
-}
 
 public async Task<string?> GetUserDisplayNameAsync(
         string userId,
