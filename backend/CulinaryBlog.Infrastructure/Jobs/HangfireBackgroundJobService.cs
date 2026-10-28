@@ -3,15 +3,12 @@ using Hangfire;
 
 namespace CulinaryBlog.Infrastructure.Jobs;
 
-/// <summary>
-/// FR-AUTH-001 bước 11: BackgroundJob.Enqueue — fire-and-forget qua Hangfire.
-/// Enqueue thẳng vào IEmailService (chưa có lớp WelcomeEmailJob riêng với retry
-/// policy 1p/5p/30p tùy chỉnh — đó là phần còn lại của FR-JOB-001).
-/// </summary>
+/// <summary>Ranh giới enqueue job Hangfire (fire-and-forget) — Application chỉ thấy IBackgroundJobService.</summary>
 public sealed class HangfireBackgroundJobService(IBackgroundJobClient backgroundJobClient) : IBackgroundJobService
 {
+    /// <summary>FR-JOB-001 — retry theo D42 khai báo trên <see cref="WelcomeEmailJob"/>.</summary>
     public void EnqueueWelcomeEmail(string email, string displayName) =>
-        backgroundJobClient.Enqueue<IEmailService>(s => s.SendWelcomeEmailAsync(email, displayName, CancellationToken.None));
+        backgroundJobClient.Enqueue<WelcomeEmailJob>(j => j.ExecuteAsync(email, displayName, CancellationToken.None));
 
     /// <summary>FR-FILE-002: DeleteAsync đã idempotent (không throw nếu object không tồn tại) — an toàn để Hangfire retry.</summary>
     public void EnqueueDeleteImageFile(string fileUrl) =>

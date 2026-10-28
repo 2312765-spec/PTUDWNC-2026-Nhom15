@@ -1,0 +1,12 @@
+# CONS-009 — không chép vào build context: node_modules của máy dev (có thể là bản Windows),
+# output build cũ, kết quả test, file env có secret.
+node_modules
+.next
+out
+coverage
+test-results
+playwright-report
+blob-report
+*.tsbuildinfo
+.env
+.env.*

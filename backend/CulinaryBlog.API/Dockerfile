@@ -20,13 +20,18 @@ RUN dotnet publish backend/CulinaryBlog.API/CulinaryBlog.API.csproj \
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
-ENV ASPNETCORE_URLS=http://+:8080 \
-    ASPNETCORE_ENVIRONMENT=Production
+# Image aspnet đã có sẵn ASPNETCORE_HTTP_PORTS=8080 — không đặt thêm ASPNETCORE_URLS (chỉ sinh cảnh báo ghi đè).
+ENV ASPNETCORE_ENVIRONMENT=Production
 EXPOSE 8080
+
+COPY --from=build /app/publish .
+
+# Serilog File sink ghi vào /app/logs (FR-OBS-002) — /app thuộc root nên tạo sẵn và giao cho user app, nếu
+# không sink lỗi im lặng. Đặt SAU COPY. Volume apilogs (docker-compose.prod.yml) mới tạo nhận quyền từ đây.
+RUN mkdir -p /app/logs && chown $APP_UID /app/logs
 
 # Chạy bằng user không phải root. Image aspnet:10.0 (Ubuntu 24.04) không có `adduser` nhưng đã có
 # sẵn user `app` (UID trong biến APP_UID = 1654) dành cho việc này.
 USER $APP_UID
 
-COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "CulinaryBlog.API.dll"]
