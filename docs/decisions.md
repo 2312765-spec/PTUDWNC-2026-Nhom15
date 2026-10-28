@@ -76,7 +76,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D58 | URL công khai của ảnh MinIO (CONS-009) | Cấu hình `Minio:PublicBaseUrl` (rỗng → dùng `Minio:Endpoint`) · prod = `https://{domain}`, Nginx proxy `/culinary-blog/` (GET/HEAD) tới MinIO |
 | D59 | Migration + seed role ở prod (CONS-009) | Service `migrate` một lần: `--migrate-only` = migrate + `IdentityRoleSeeder` rồi thoát · **không** chạy `DbSeeder` · `api` chờ `service_completed_successfully` |
 | D60 | Cổng prod (CONS-009, NFR-SEC-005) | **Chỉ Nginx** publish 80/443 (lệch bảng SRS §6.5) · API bật `ForwardedHeaders`, tin proxy trong mạng nội bộ |
-| D61 | og:image, độ dài description, "pass 100%" (NFR-SEO-001/002) | og:image 1200×630 sinh bằng `opengraph-image.tsx` (fallback thẻ chữ) · description bổ sung/cắt về 150–160 · Rich Results = **0 lỗi** · `/search` + `/auth/*` `noindex` · canonical không query param |
+| D61 | og:image, độ dài description, "pass 100%" (NFR-SEO-001/002) | og:image 1200×630 sinh bằng Route Handler `/recipes/{slug}/og-image` (fallback thẻ chữ) · description bổ sung/cắt về 150–160 · Rich Results = **0 lỗi** · `/search` + `/auth/*` `noindex` · canonical không query param |
 
 ---
 
@@ -1618,11 +1618,17 @@ nào ngoài recipe được index, cũng không nói canonical xử lý query pa
 
 **Chốt:**
 
-1. og:image của `/recipes/{slug}` sinh ở frontend bằng `app/(public)/recipes/[slug]/opengraph-image.tsx`
-   (`next/og`): ảnh chính crop cover + tên món + tên site, đúng 1200×630. Không có ảnh, hoặc ảnh không
-   đọc được (WebP/AVIF, lỗi mạng) → thẻ chữ thương hiệu. Backend **không** thêm biến thể ảnh.
-2. Meta description: ngắn hơn 150 ký tự → nối "Chuẩn bị X phút, nấu Y phút, Z phần · {Danh mục}.";
-   dài hơn 160 → cắt tại ranh giới từ + "…", tổng ≤ 160. Không thêm validation độ dài cho tác giả.
+1. og:image của `/recipes/{slug}` sinh ở frontend bằng Route Handler
+   `app/(public)/recipes/[slug]/og-image/route.tsx` (`next/og`), URL cố định `/recipes/{slug}/og-image`,
+   khai báo trong `openGraph.images` + `twitter.images` (kèm 1200×630) và trong `image` của JSON-LD:
+   ảnh chính crop cover + tên món + tên site. Không có ảnh, hoặc ảnh không đọc được (WebP/AVIF, lỗi
+   mạng — nhận diện bằng magic bytes) → thẻ chữ thương hiệu. Backend **không** thêm biến thể ảnh.
+   **Không** dùng file convention `opengraph-image.tsx`: ở route động, Next 16 gắn hậu tố hash đổi theo
+   mỗi bản build (`/opengraph-image-b3yc0w`) → JSON-LD không trỏ tới được, URL cũ 404 sau mỗi lần deploy.
+2. Meta description: ngắn hơn 150 ký tự → nối "Chuẩn bị X phút, nấu Y phút, Z phần · {Danh mục}."
+   (`cookTime = 0` → "không cần nấu", D19), vẫn thiếu thì nối thêm một câu giới thiệu chung; dài hơn 160
+   → cắt tại ranh giới từ + "…", tổng ≤ 160. Mô tả cực ngắn có thể vẫn dưới 150 — chấp nhận. Không thêm
+   validation độ dài cho tác giả.
 3. "Pass 100%" = Google Rich Results Test **0 lỗi**. Cảnh báo thiếu `aggregateRating`/`video` chấp nhận.
 4. `/search` → `noindex, follow`; `/auth/login`, `/auth/register` → `noindex`.
 5. Canonical luôn là đường dẫn **không query param** (`/recipes?page=2` → `/recipes`), gốc `NEXT_PUBLIC_SITE_URL`.
