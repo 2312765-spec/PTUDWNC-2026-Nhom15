@@ -8,10 +8,10 @@ internal static class WelcomeEmailEnqueueExtensions
 {
     /// <summary>
     /// Enqueue welcome email; lỗi (vd. Hangfire storage không khả dụng) chỉ log Warning — tài khoản đã
-    /// tạo, token đã cấp, nên request vẫn thành công.
+    /// tạo, token đã cấp, nên request vẫn thành công. Log <c>UserId</c>, không log email (CONS-010).
     /// </summary>
     public static void TryEnqueueWelcomeEmail(
-        this IBackgroundJobService backgroundJobService, string email, string displayName, ILogger logger)
+        this IBackgroundJobService backgroundJobService, string userId, string email, string displayName, ILogger logger)
     {
         try
         {
@@ -19,7 +19,7 @@ internal static class WelcomeEmailEnqueueExtensions
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Không enqueue được welcome email cho {Email} — bỏ qua (D55)", email);
+            logger.LogWarning(ex, "Không enqueue được welcome email cho user {UserId} — bỏ qua (D55)", userId);
         }
     }
 }

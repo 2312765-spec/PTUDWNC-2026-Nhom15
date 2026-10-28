@@ -1478,7 +1478,7 @@ thì sao. Code hiện tại gọi `EnqueueWelcomeEmail` sau `SaveChanges` không
 thì user đã được tạo nhưng client nhận 500 (đăng ký lại sẽ bị 409 email trùng).
 
 **Chốt:** `RegisterCommandHandler` và `GoogleLoginCommandHandler` bọc lời gọi enqueue trong try/catch →
-log **Warning** (kèm email), vẫn trả `AuthResponseDto` bình thường (201 / 200).
+log **Warning** (kèm `UserId`, không ghi email — CONS-010), vẫn trả `AuthResponseDto` bình thường (201 / 200).
 
 **Vì:** SRS mục rủi ro phụ thuộc: Hangfire hỏng "không ảnh hưởng core functionality". Cùng cách đã chốt
 cho ảnh ở D44 ("enqueue lỗi → log warning, không làm fail request").
@@ -1497,6 +1497,9 @@ tài khoản mới nhưng không nhắc email chào mừng. Roadmap S9 gộp FR-
 **Chốt:** gửi khi **tạo tài khoản mới**: đăng ký email/mật khẩu (FR-AUTH-001) và đăng nhập Google lần
 đầu tạo user mới (FR-AUTH-003, `isNewUser = true`). Google liên kết vào tài khoản đã có, hoặc đăng nhập
 lại → **không** gửi.
+
+Google không trả claim `name` (thiếu scope `profile`) → `displayName` của tài khoản mới là phần trước
+`@` của email. Nếu để rỗng, `SendWelcomeEmailCommandValidator` chặn và job retry vô ích rồi Failed.
 
 **Vì:** với người dùng, cả hai cách đều là "đăng ký". Gửi theo `isNewUser` đảm bảo mỗi tài khoản nhận
 đúng một email.
