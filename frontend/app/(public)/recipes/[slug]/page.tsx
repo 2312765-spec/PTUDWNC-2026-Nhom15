@@ -2,8 +2,9 @@ import { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { RecipeJsonLd } from '@/components/seo/RecipeJsonLd';
 import { getRecipeBySlug } from '@/lib/recipes';
-import { serializeJsonLd } from '@/lib/seo/jsonLd';
+import { buildRecipeMetadata } from '@/lib/seo/recipeMeta';
 
 export const revalidate = 300; // SRS 5.1: ISR 5 phút (300 giây)
 
@@ -23,33 +24,13 @@ export async function generateMetadata({
   const { slug } = await params;
   const recipe = await getRecipeBySlug(slug);
 
+  // Đuôi "| Culinary Blog" do template của app/layout.tsx thêm — không tự ghép (NFR-SEO-002)
   if (!recipe) {
-    return {
-      title: 'Không tìm thấy công thức | Culinary Blog',
-    };
+    return { title: 'Không tìm thấy công thức' };
   }
 
-  const primaryImage =
-    recipe.images.find((img) => img.isPrimary)?.originalUrl ||
-    recipe.images[0]?.originalUrl;
-
-  const isPublished = recipe.status === 1; // 1 = Published
-
-  return {
-    title: `${recipe.title} | Culinary Blog`,
-    description: recipe.description,
-    openGraph: {
-      title: recipe.title,
-      description: recipe.description,
-      type: 'article',
-      publishedTime: recipe.publishedAt || recipe.createdAt,
-      images: primaryImage ? [{ url: primaryImage }] : [],
-    },
-    // NFR-SEO: Draft hoặc Archived thì không cho Google index
-    robots: isPublished
-      ? { index: true, follow: true }
-      : { index: false, follow: false },
-  };
+  // NFR-SEO-002: title ≤ 60, description 150–160, canonical, OG, Twitter, noindex Draft/Archived (D61)
+  return buildRecipeMetadata(recipe);
 }
 
 export default async function RecipeDetailPage({
@@ -75,49 +56,10 @@ export default async function RecipeDetailPage({
     2: 'Khó',
   };
 
-  // NFR-SEO-001: Schema.org JSON-LD kiểu Recipe
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Recipe',
-    name: recipe.title,
-    image: primaryImage,
-    description: recipe.description,
-    prepTime: `PT${recipe.prepTime}M`,
-    cookTime: `PT${recipe.cookTime}M`,
-    totalTime: `PT${recipe.prepTime + recipe.cookTime}M`,
-    recipeYield: `${recipe.servings} phần`,
-    recipeCategory: recipe.category.name,
-    author: {
-      '@type': 'Person',
-      name: recipe.author.displayName,
-    },
-    nutrition: recipe.nutrition
-      ? {
-          '@type': 'NutritionInformation',
-          calories: recipe.nutrition.calories ? `${recipe.nutrition.calories} calories` : undefined,
-          proteinContent: recipe.nutrition.protein ? `${recipe.nutrition.protein}g` : undefined,
-          fatContent: recipe.nutrition.fat ? `${recipe.nutrition.fat}g` : undefined,
-          carbohydrateContent: recipe.nutrition.carbohydrates ? `${recipe.nutrition.carbohydrates}g` : undefined,
-        }
-      : undefined,
-    recipeIngredient: recipe.ingredients.map(
-      (ing) => `${ing.quantity ? ing.quantity + ' ' : ''}${ing.unit ? ing.unit + ' ' : ''}${ing.name}`
-    ),
-    recipeInstructions: recipe.steps.map((st) => ({
-      '@type': 'HowToStep',
-      name: st.title,
-      text: st.description,
-      position: st.stepNumber,
-    })),
-  };
-
   return (
     <article className="max-w-4xl mx-auto px-4 py-8">
-      {/* Schema.org JSON-LD */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
-      />
+      {/* NFR-SEO-001: Schema.org JSON-LD Recipe */}
+      <RecipeJsonLd recipe={recipe} />
 
       {/* Breadcrumb */}
       <nav className="text-sm text-gray-500 mb-6 flex items-center space-x-2">
@@ -273,7 +215,8 @@ export default async function RecipeDetailPage({
             {recipe.steps.map((st) => (
               <div
                 key={st.id}
-                className="p-5 rounded-xl border border-gray-100 bg-white shadow-sm hover:border-orange-200 transition"
+                id={`buoc-${st.stepNumber}`} // NFR-SEO-001: đích của HowToStep.url
+                className="scroll-mt-20 p-5 rounded-xl border border-gray-100 bg-white shadow-sm hover:border-orange-200 transition"
               >
                 <div className="flex items-center space-x-3 mb-3">
                   <span className="flex items-center justify-center w-8 h-8 rounded-full bg-orange-600 text-white font-bold text-sm">
