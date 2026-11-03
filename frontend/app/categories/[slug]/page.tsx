@@ -30,6 +30,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: data.category.name,
     description: data.category.description ?? `Công thức thuộc danh mục ${data.category.name}.`,
+    // D61.5: canonical không kèm ?page=
+    alternates: { canonical: `/categories/${data.category.slug}` },
   };
 }
 

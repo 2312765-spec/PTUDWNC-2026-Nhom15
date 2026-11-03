@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import RecipeCard from '@/components/recipes/RecipeCard';
 import SearchForm from '@/components/search/SearchForm';
@@ -11,6 +12,11 @@ import type { CategoryDto, RecipeSummaryDto } from '@/lib/types';
  * `revalidate`, không `no-store`.
  */
 export const revalidate = 3600;
+
+/** NFR-SEO-002 — title/description mặc định lấy từ layout; canonical tương đối theo `metadataBase`. */
+export const metadata: Metadata = {
+  alternates: { canonical: '/' },
+};
 
 const LATEST_RECIPES = 6;
 const FEATURED_CATEGORIES = 6;

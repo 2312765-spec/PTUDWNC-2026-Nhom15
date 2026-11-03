@@ -13,6 +13,8 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Công thức',
   description: 'Khám phá công thức nấu ăn, lọc theo danh mục, độ khó, thời gian nấu và khẩu phần.',
+  // D61.5: canonical không kèm ?page=/filter/sort
+  alternates: { canonical: '/recipes' },
 };
 
 type Param = string | string[] | undefined;

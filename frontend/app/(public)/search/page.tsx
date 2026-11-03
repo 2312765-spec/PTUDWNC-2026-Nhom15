@@ -25,7 +25,12 @@ async function readParams(searchParams: PageProps['searchParams']) {
 
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
   const { q } = await readParams(searchParams);
-  return { title: q ? `Tìm kiếm: ${q}` : 'Tìm kiếm công thức' };
+  return {
+    title: q ? `Tìm kiếm: ${q}` : 'Tìm kiếm công thức',
+    // D61.4: trang kết quả tìm kiếm nội bộ không lên Google, nhưng vẫn cho đi theo link tới công thức
+    alternates: { canonical: '/search' },
+    robots: { index: false, follow: true },
+  };
 }
 
 export default async function SearchPage({ searchParams }: PageProps) {
