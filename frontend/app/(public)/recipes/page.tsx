@@ -51,9 +51,9 @@ export default async function RecipesPage({ searchParams }: PageProps) {
         </p>
       </header>
 
-      <RecipeFilters key={key} initial={filters} categories={categories} />
+      <RecipeFilters key={`filters-${key}`} initial={filters} categories={categories} />
 
-      <Suspense key={key} fallback={<ResultsSkeleton />}>
+      <Suspense key={`results-${key}`} fallback={<ResultsSkeleton />}>
         <RecipeResults filters={filters} />
       </Suspense>
     </div>
