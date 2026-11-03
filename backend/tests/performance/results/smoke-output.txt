@@ -1,0 +1,79 @@
+Unable to find image 'grafana/k6:1.0.0' locally
+1.0.0: Pulling from grafana/k6
+845bc7624d00: Pulling fs layer
+f18232174bc9: Pulling fs layer
+4f4fb700ef54: Pulling fs layer
+a7b6cd1f4f49: Pulling fs layer
+4f4fb700ef54: Already exists
+845bc7624d00: Download complete
+f18232174bc9: Download complete
+f18232174bc9: Pull complete
+930e9a9f29f4: Download complete
+845bc7624d00: Pull complete
+a7b6cd1f4f49: Download complete
+a7b6cd1f4f49: Pull complete
+4f4fb700ef54: Pull complete
+Digest: sha256:f21270290d702cbf0a7d6ba5d7ed100b63bcb233b558b885ed787547b3488279
+Status: Downloaded newer image for grafana/k6:1.0.0
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{endpoint:categories}
+    ✗ 'p(95)<=500' p(95)=13.83s
+
+    http_req_duration{endpoint:detail}
+    ✓ 'p(95)<=500' p(95)=217.35ms
+
+    http_req_duration{endpoint:recipes}
+    ✓ 'p(95)<=500' p(95)=97.89ms
+
+    http_req_duration{endpoint:search}
+    ✓ 'p(95)<=500' p(95)=154.19ms
+
+    http_req_duration{type:cached}
+    ✓ 'p(50)<=150' p(50)=8.01ms
+    ✓ 'p(95)<=500' p(95)=165.51ms
+    ✗ 'p(99)<=1000' p(99)=13.9s
+
+    http_req_failed{type:cached}
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......................: 301     9.636809/s
+    checks_succeeded...................: 100.00% 301 out of 301
+    checks_failed......................: 0.00%   0 out of 301
+
+    ✓ health/ready status 200
+    ✓ categories status 200
+    ✓ recipes status 200
+    ✓ detail status 200
+    ✓ search status 200
+
+    HTTP
+    http_req_duration.......................................................: avg=256.44ms min=610.77µs med=8.07ms  max=14.2s    p(90)=41.65ms p(95)=167.49ms
+      { endpoint:categories }...............................................: avg=941.8ms  min=3.64ms   med=7.52ms  max=14.2s    p(90)=12.95ms p(95)=13.83s  
+      { endpoint:detail }...................................................: avg=31.79ms  min=610.77µs med=19.16ms max=222.19ms p(90)=44.13ms p(95)=217.35ms
+      { endpoint:recipes }..................................................: avg=29.49ms  min=4.73ms   med=8.83ms  max=470.81ms p(90)=36.08ms p(95)=97.89ms 
+      { endpoint:search }...................................................: avg=19.91ms  min=3.89ms   med=6.91ms  max=167.52ms p(90)=41.96ms p(95)=154.19ms
+      { expected_response:true }............................................: avg=256.44ms min=610.77µs med=8.07ms  max=14.2s    p(90)=41.65ms p(95)=167.49ms
+      { type:cached }.......................................................: avg=255.75ms min=610.77µs med=8.01ms  max=14.2s    p(90)=38.46ms p(95)=165.51ms
+    http_req_failed.........................................................: 0.00%  0 out of 302
+      { type:cached }.......................................................: 0.00%  0 out of 300
+    http_reqs...............................................................: 302    9.668825/s
+
+    EXECUTION
+    iteration_duration......................................................: avg=2.02s    min=1.01s    med=1.04s   max=15.68s   p(90)=1.12s   p(95)=15.67s  
+    iterations..............................................................: 75     2.401198/s
+    vus.....................................................................: 5      min=5        max=5
+    vus_max.................................................................: 5      min=5        max=5
+
+    NETWORK
+    data_received...........................................................: 1.3 MB 40 kB/s
+    data_sent...............................................................: 33 kB  1.1 kB/s
+
+
+
+time="2026-11-03T14:31:16Z" level=error msg="thresholds on metrics 'http_req_duration{endpoint:categories}, http_req_duration{type:cached}' have been crossed"

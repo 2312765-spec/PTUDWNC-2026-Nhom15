@@ -1,0 +1,136 @@
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=5067.81..5077.83 rows=4008 width=1958) (actual time=522.419..526.432 rows=8017 loops=1)
+   Sort Key: c."Name", c."Id", r."Id"
+   Sort Method: external merge  Disk: 6904kB
+   Buffers: shared hit=1049, temp read=863 written=864
+   ->  Hash Right Join  (cost=879.19..1429.45 rows=4008 width=1958) (actual time=66.941..121.500 rows=8017 loops=1)
+         Hash Cond: (r0."RecipeId" = r."Id")
+         Buffers: shared hit=1043
+         ->  Seq Scan on "RecipeImages" r0  (cost=0.00..472.50 rows=10050 width=257) (actual time=0.098..42.341 rows=10050 loops=1)
+               Filter: (NOT "IsDeleted")
+               Buffers: shared hit=372
+         ->  Hash  (cost=829.09..829.09 rows=4008 width=1701) (actual time=66.479..66.674 rows=8017 loops=1)
+               Buckets: 8192 (originally 4096)  Batches: 1 (originally 1)  Memory Usage: 5141kB
+               Buffers: shared hit=671
+               ->  Hash Right Join  (cost=11.14..829.09 rows=4008 width=1701) (actual time=0.205..51.303 rows=8017 loops=1)
+                     Hash Cond: (r."CategoryId" = c."Id")
+                     Buffers: shared hit=671
+                     ->  Seq Scan on "Recipes" r  (cost=0.00..795.62 rows=8017 width=608) (actual time=0.061..47.152 rows=8017 loops=1)
+                           Filter: ((NOT "IsDeleted") AND (NOT "IsDeleted") AND ("Status" = 1))
+                           Rows Removed by Filter: 2033
+                           Buffers: shared hit=670
+                     ->  Hash  (cost=10.70..10.70 rows=35 width=1093) (actual time=0.109..0.112 rows=8 loops=1)
+                           Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                           Buffers: shared hit=1
+                           ->  Seq Scan on "Categories" c  (cost=0.00..10.70 rows=35 width=1093) (actual time=0.090..0.092 rows=8 loops=1)
+                                 Filter: (NOT "IsDeleted")
+                                 Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=478
+ Planning Time: 17.300 ms
+ Execution Time: 532.612 ms
+(30 rows)
+
+                                                    QUERY PLAN                                                     
+-------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=815.67..815.68 rows=1 width=4) (actual time=6.017..6.021 rows=1 loops=1)
+   Buffers: shared hit=670
+   ->  Seq Scan on "Recipes" r  (cost=0.00..795.62 rows=8017 width=0) (actual time=0.032..5.433 rows=8017 loops=1)
+         Filter: ((NOT "IsDeleted") AND ("Status" = 1))
+         Rows Removed by Filter: 2033
+         Buffers: shared hit=670
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.475 ms
+ Execution Time: 6.403 ms
+(10 rows)
+
+                                                                      QUERY PLAN                                                                       
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop Left Join  (cost=979.70..1075.19 rows=12 width=865) (actual time=6.642..6.660 rows=12 loops=1)
+   Buffers: shared hit=709
+   ->  Limit  (cost=979.41..979.44 rows=12 width=608) (actual time=6.493..6.496 rows=12 loops=1)
+         Buffers: shared hit=673
+         ->  Sort  (cost=979.41..999.46 rows=8017 width=608) (actual time=6.487..6.489 rows=12 loops=1)
+               Sort Key: r."CreatedAt" DESC, r."Id"
+               Sort Method: top-N heapsort  Memory: 36kB
+               Buffers: shared hit=673
+               ->  Seq Scan on "Recipes" r  (cost=0.00..795.62 rows=8017 width=608) (actual time=0.045..3.533 rows=8017 loops=1)
+                     Filter: ((NOT "IsDeleted") AND ("Status" = 1))
+                     Rows Removed by Filter: 2033
+                     Buffers: shared hit=670
+   ->  Index Scan using "IX_RecipeImages_RecipeId" on "RecipeImages" r0  (cost=0.29..7.97 rows=1 width=257) (actual time=0.006..0.006 rows=1 loops=12)
+         Index Cond: ("RecipeId" = r."Id")
+         Filter: (NOT "IsDeleted")
+         Buffers: shared hit=36
+ Planning:
+   Buffers: shared hit=17
+ Planning Time: 0.512 ms
+ Execution Time: 6.952 ms
+(20 rows)
+
+                                                                     QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=16.92..16.92 rows=1 width=1701) (actual time=0.663..0.668 rows=1 loops=1)
+   Buffers: shared hit=5
+   ->  Sort  (cost=16.92..16.92 rows=1 width=1701) (actual time=0.659..0.663 rows=1 loops=1)
+         Sort Key: r."Id", r."CategoryId"
+         Sort Method: quicksort  Memory: 26kB
+         Buffers: shared hit=5
+         ->  Nested Loop  (cost=0.43..16.91 rows=1 width=1701) (actual time=0.617..0.626 rows=1 loops=1)
+               Buffers: shared hit=5
+               ->  Index Scan using "IX_Recipes_Slug" on "Recipes" r  (cost=0.29..8.30 rows=1 width=608) (actual time=0.416..0.423 rows=1 loops=1)
+                     Index Cond: (("Slug")::text = 'mi-quang-ga'::text)
+                     Filter: ((NOT "IsDeleted") AND (NOT "IsDeleted"))
+                     Buffers: shared hit=3
+               ->  Index Scan using "PK_Categories" on "Categories" c  (cost=0.14..8.16 rows=1 width=1093) (actual time=0.184..0.184 rows=1 loops=1)
+                     Index Cond: ("Id" = r."CategoryId")
+                     Filter: (NOT "IsDeleted")
+                     Buffers: shared hit=2
+ Planning Time: 0.216 ms
+ Execution Time: 0.819 ms
+(18 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=1036.90..1036.91 rows=1 width=4) (actual time=1.702..1.705 rows=1 loops=1)
+   Buffers: shared hit=606
+   ->  Bitmap Heap Scan on "Recipes" r  (cost=31.80..1034.56 rows=936 width=0) (actual time=0.885..1.672 rows=603 loops=1)
+         Recheck Cond: ("SearchVector" @@ to_tsquery('simple'::regconfig, unaccent('pho:*'::text)))
+         Filter: ((NOT "IsDeleted") AND (NOT "IsDeleted") AND ("Status" = 1))
+         Rows Removed by Filter: 603
+         Heap Blocks: exact=603
+         Buffers: shared hit=606
+         ->  Bitmap Index Scan on "IX_Recipes_SearchVector"  (cost=0.00..31.57 rows=1174 width=0) (actual time=0.776..0.777 rows=1206 loops=1)
+               Index Cond: ("SearchVector" @@ to_tsquery('simple'::regconfig, unaccent('pho:*'::text)))
+               Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=36
+ Planning Time: 13.894 ms
+ Execution Time: 1.960 ms
+(15 rows)
+
+                                                                     QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=1293.47..1293.49 rows=10 width=28) (actual time=3.270..3.279 rows=10 loops=1)
+   Buffers: shared hit=609
+   ->  Sort  (cost=1293.47..1295.81 rows=936 width=28) (actual time=3.266..3.272 rows=10 loops=1)
+         Sort Key: (ts_rank("SearchVector", to_tsquery('simple'::regconfig, unaccent('pho:*'::text)))) DESC, "CreatedAt" DESC, "Id"
+         Sort Method: top-N heapsort  Memory: 26kB
+         Buffers: shared hit=609
+         ->  Bitmap Heap Scan on "Recipes" r  (cost=31.80..1273.24 rows=936 width=28) (actual time=0.501..2.874 rows=603 loops=1)
+               Recheck Cond: ("SearchVector" @@ to_tsquery('simple'::regconfig, unaccent('pho:*'::text)))
+               Filter: ((NOT "IsDeleted") AND (NOT "IsDeleted") AND ("Status" = 1))
+               Rows Removed by Filter: 603
+               Heap Blocks: exact=603
+               Buffers: shared hit=606
+               ->  Bitmap Index Scan on "IX_Recipes_SearchVector"  (cost=0.00..31.57 rows=1174 width=0) (actual time=0.341..0.344 rows=1206 loops=1)
+                     Index Cond: ("SearchVector" @@ to_tsquery('simple'::regconfig, unaccent('pho:*'::text)))
+                     Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=12
+ Planning Time: 0.782 ms
+ Execution Time: 3.646 ms
+(19 rows)
+

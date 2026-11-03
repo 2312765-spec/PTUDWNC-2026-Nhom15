@@ -19,7 +19,7 @@ namespace CulinaryBlog.Infrastructure.Persistence.Seeding;
 /// </summary>
 public static class DbSeeder
 {
-    private const int _randomSeed = 20260920;
+    private const int RandomSeed = 20260920;
 
     public static async Task SeedAsync(
         CulinaryBlogDbContext db,
@@ -45,7 +45,7 @@ public static class DbSeeder
 
         var usedSlugs = (await db.Recipes.IgnoreQueryFilters().Select(r => r.Slug).ToListAsync(ct))
             .ToHashSet(StringComparer.Ordinal);
-        var faker = new Faker("vi") { Random = new Randomizer(_randomSeed) };
+        var faker = new Faker("vi") { Random = new Randomizer(RandomSeed) };
 
         var recipes = new List<Recipe>();
         for (var i = 0; i < SeedRecipeCatalog.Recipes.Count; i++)
