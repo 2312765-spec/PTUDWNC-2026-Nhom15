@@ -1,12 +1,12 @@
 /**
  * @jest-environment node
  */
-// Chỉ đọc metadata, không render — `next/cache` (app/categories/page.tsx) cần TextEncoder mà jsdom không có.
+// Chỉ đọc metadata, không render — `next/cache` (app/categories/(list)/page.tsx) cần TextEncoder mà jsdom không có.
 import { metadata as rootMetadata } from '@/app/layout';
-import { metadata as homeMetadata } from '@/app/page';
+import { metadata as homeMetadata } from '@/app/(home)/page';
 import { metadata as recipesMetadata } from '@/app/(public)/recipes/page';
 import { generateMetadata as searchMetadata } from '@/app/(public)/search/page';
-import { metadata as categoriesMetadata } from '@/app/categories/page';
+import { metadata as categoriesMetadata } from '@/app/categories/(list)/page';
 import { generateMetadata as categoryMetadata } from '@/app/categories/[slug]/page';
 import { getCategoryBySlug } from '@/lib/categories';
 import { getSiteUrl } from '@/lib/seo/site';

@@ -59,7 +59,7 @@ slice riêng).
 |---|---|---|
 | `frontend/app/layout.tsx` | dùng chung | `metadataBase`, `openGraph.siteName` + `locale: 'vi_VN'`, `twitter.card: 'summary_large_image'` mặc định |
 | `frontend/app/(public)/recipes/[slug]/page.tsx` | B | `generateMetadata` → `buildRecipeMetadata`; JSON-LD → `<RecipeJsonLd>`; `id="buoc-n"` cho từng bước; sửa title lặp |
-| `frontend/app/page.tsx`, `app/(public)/recipes/page.tsx`, `app/categories/page.tsx`, `app/categories/[slug]/page.tsx` | B | `alternates.canonical` (D61.5) |
+| `frontend/app/(home)/page.tsx`, `app/(public)/recipes/page.tsx`, `app/categories/(list)/page.tsx`, `app/categories/[slug]/page.tsx` | B | `alternates.canonical` (D61.5) |
 | `frontend/app/(public)/search/page.tsx` | B | canonical `/search` + `robots: noindex, follow` (D61.4) |
 | `frontend/app/robots.ts` | D | dùng `getSiteUrl()` |
 
