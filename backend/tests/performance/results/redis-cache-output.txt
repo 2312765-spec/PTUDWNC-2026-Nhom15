@@ -1,0 +1,6 @@
+=== ĐO TỶ LỆ CACHE HIT CỦA REDIS (CONTAINER: cb-redis) ===
+• Keyspace Hits   : 88636
+• Keyspace Misses : 141
+• Tổng lượt đọc   : 88777
+• Tỷ lệ Cache Hit : 99.84%
+[+] [PASS] Tỷ lệ Cache Hit 99.84% (>= 80%) — NFR-PERF-003.
