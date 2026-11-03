@@ -36,6 +36,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function CategoryDetailPage({ params }: PageProps) {
   const { slug } = await params;
   const data = await getCategoryBySlug(slug, 1, PAGE_SIZE);
+  // Không thêm loading.tsx cho segment này hoặc segment cha: loading.tsx bật streaming nên header 200
+  // được gửi trước notFound() → soft 404 (e2e/recipe.spec.ts kiểm tra status 404).
   if (!data) notFound();
 
   const { category, recipes } = data;

@@ -60,6 +60,8 @@ export default async function RecipeDetailPage({
   const { slug } = await params;
   const recipe = await getRecipeBySlug(slug);
 
+  // Không thêm loading.tsx cho segment này hoặc segment cha: loading.tsx bật streaming nên header 200
+  // được gửi trước notFound() → soft 404 (e2e/recipe.spec.ts kiểm tra status 404).
   if (!recipe) {
     notFound();
   }
