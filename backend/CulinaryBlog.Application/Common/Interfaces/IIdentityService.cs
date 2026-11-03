@@ -8,6 +8,14 @@ namespace CulinaryBlog.Application.Common.Interfaces;
 public interface IIdentityService
 {
     /// <summary>
+    /// Lấy DisplayName theo danh sách UserId (map AuthorName cho DTO, FR-SRCH-001).
+    /// User không tồn tại hoặc DisplayName rỗng thì không có trong kết quả. Không bao giờ trả email (D5).
+    /// </summary>
+    Task<IReadOnlyDictionary<string, string>> GetDisplayNamesAsync(
+        IEnumerable<string> userIds,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Tạo user mới, gán role "Author" mặc định (FR-AUTH-001).
     /// Ném ConflictException (AUTH_EMAIL_EXISTS, 409) nếu email đã tồn tại.
     /// Ném FluentValidation.ValidationException nếu Identity password policy fail (400, D4).

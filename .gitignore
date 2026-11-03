@@ -55,3 +55,8 @@ Thumbs.db
 
 # ---- Serilog File sink (FR-OBS-002) ----
 logs/
+
+# ---- Production (CONS-009, NFR-SEC-007) ----
+.env.production
+ssl/
+backups/

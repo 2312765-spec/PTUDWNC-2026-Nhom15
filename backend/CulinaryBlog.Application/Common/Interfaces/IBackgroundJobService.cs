@@ -6,7 +6,10 @@ namespace CulinaryBlog.Application.Common.Interfaces;
 /// </summary>
 public interface IBackgroundJobService
 {
-    /// <summary>FR-AUTH-001 bước 11 → FR-JOB-001: fire-and-forget, không chờ kết quả.</summary>
+    /// <summary>
+    /// FR-AUTH-001 bước 11 / FR-AUTH-003 tài khoản mới → FR-JOB-001 (D56): fire-and-forget, không chờ
+    /// kết quả. Có thể ném lỗi nếu Hangfire storage hỏng — bên gọi bắt và log (D55).
+    /// </summary>
     void EnqueueWelcomeEmail(string email, string displayName);
 
     /// <summary>FR-FILE-002 — xóa file MinIO bất đồng bộ khi xóa một ảnh cụ thể (D1: không dùng khi xóa cả recipe).</summary>

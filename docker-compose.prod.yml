@@ -1,0 +1,208 @@
+# Production — CONS-009, SRS §6.5. Kế hoạch: docs/plans/CONS-009-docker-compose-prod.md
+#
+#   cp .env.production.example .env.production      # điền secret — KHÔNG commit (NFR-SEC-007)
+#   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+#
+# Chỉ nginx publish cổng ra host (D60). Không có seq, mailhog (chỉ dev).
+name: culinary-blog-prod
+
+x-defaults: &defaults
+  restart: unless-stopped
+  networks: [internal]
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+x-api-env: &api-env
+  ASPNETCORE_ENVIRONMENT: Production
+  ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB:?};Username=${POSTGRES_USER:?};Password=${POSTGRES_PASSWORD:?}"
+  ConnectionStrings__Redis: "redis:6379"
+  Jwt__Key: "${JWT_KEY:?Thiếu JWT_KEY (≥ 32 ký tự ngẫu nhiên)}"
+  Cors__AllowedOrigins__0: "https://${SITE_DOMAIN:?}"
+  Minio__Endpoint: "http://minio:9000"
+  Minio__AccessKey: "${MINIO_ROOT_USER:?}"
+  Minio__SecretKey: "${MINIO_ROOT_PASSWORD:?}"
+  Minio__PublicBaseUrl: "https://${SITE_DOMAIN}"          # D58
+  Seo__SiteBaseUrl: "https://${SITE_DOMAIN}"              # FR-JOB-003
+  Smtp__Host: "${SMTP_HOST:-}"
+  Smtp__Port: "${SMTP_PORT:-587}"
+  Smtp__FromAddress: "${SMTP_FROM_ADDRESS:-no-reply@culinaryblog.local}"
+  Google__ClientId: "${AUTH_GOOGLE_ID:-}"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "${OTEL_EXPORTER_OTLP_ENDPOINT:-}"   # D36 — rỗng thì không export
+
+services:
+  nginx:
+    <<: *defaults
+    image: nginx:1.27-alpine
+    depends_on:
+      api: { condition: service_healthy }
+      frontend: { condition: service_healthy }
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro          # fullchain.pem + privkey.pem (SRS §6.5)
+    networks:
+      internal:
+        # D58 — server Next.js gọi https://${SITE_DOMAIN} (SSR + next/image) đi thẳng tới nginx trong mạng nội bộ.
+        aliases: ["${SITE_DOMAIN}"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/nginx-health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  api:
+    <<: *defaults
+    build:
+      context: .
+      dockerfile: backend/CulinaryBlog.API/Dockerfile
+    image: culinary-blog/api:prod
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+    environment: *api-env
+    volumes:
+      - apilogs:/app/logs
+    healthcheck:
+      # Image aspnet không có curl/wget — gọi /health/ready bằng /dev/tcp của bash.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/ready HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q ' 200 '"]
+      interval: 10s                    # NFR-REL-001: readiness probe mỗi 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  # D59 — migrate + seed role một lần rồi thoát. Không chạy dữ liệu mẫu (DbSeeder).
+  migrate:
+    <<: *defaults
+    image: culinary-blog/api:prod
+    restart: "no"
+    command: ["--migrate-only"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment: *api-env
+
+  frontend:
+    <<: *defaults
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: "https://${SITE_DOMAIN}/api/v1"
+        NEXT_PUBLIC_SITE_URL: "https://${SITE_DOMAIN}"
+    image: culinary-blog/frontend:prod
+    depends_on:
+      api: { condition: service_healthy }
+    environment:
+      API_INTERNAL_URL: "http://api:8080/api/v1"
+      AUTH_URL: "https://${SITE_DOMAIN}"
+      AUTH_SECRET: "${AUTH_SECRET:?Thiếu AUTH_SECRET}"
+      AUTH_TRUST_HOST: "true"
+      AUTH_GOOGLE_ID: "${AUTH_GOOGLE_ID:-}"
+      AUTH_GOOGLE_SECRET: "${AUTH_GOOGLE_SECRET:-}"
+      # D58 — tin chứng chỉ của site khi server Next.js gọi https://${SITE_DOMAIN} (cần cho cert tự ký).
+      NODE_EXTRA_CA_CERTS: /etc/ssl/site/fullchain.pem
+    volumes:
+      - ./ssl/fullchain.pem:/etc/ssl/site/fullchain.pem:ro    # chỉ chứng chỉ, KHÔNG mount privkey
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/robots.txt"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  postgres:
+    <<: *defaults
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:?}"
+      POSTGRES_USER: "${POSTGRES_USER:?}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro   # unaccent, pg_trgm (FR-SRCH-001)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    <<: *defaults
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # MinIO đã khóa pull ẩn danh trên quay.io và Docker Hub (xem traceability.md, FR-FILE). Pin theo digest
+  # để luôn ra đúng một bản; server mới cần nạp sẵn image (docker load / registry riêng) — xem README.
+  minio:
+    <<: *defaults
+    image: "${MINIO_IMAGE:-quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e}"   # RELEASE.2025-09-07T16-13-09Z
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:?}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?}"
+    volumes:
+      - miniodata:/data                # NFR-REL-003: volume persistent
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Bucket public-read (D16) — chạy một lần rồi thoát.
+  minio-init:
+    <<: *defaults
+    image: "${MC_IMAGE:-quay.io/minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727}"
+    restart: "no"
+    depends_on:
+      minio: { condition: service_healthy }
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:?}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?}"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" &&
+        mc mb --ignore-existing local/culinary-blog &&
+        mc anonymous set download local/culinary-blog
+
+  # NFR-REL-003 — pg_dump 03:00 UTC hằng ngày, giữ BACKUP_RETENTION_DAYS ngày (mặc định 30).
+  pg-backup:
+    <<: *defaults
+    image: postgres:16-alpine
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      PGHOST: postgres
+      PGDATABASE: "${POSTGRES_DB:?}"
+      PGUSER: "${POSTGRES_USER:?}"
+      PGPASSWORD: "${POSTGRES_PASSWORD:?}"
+      BACKUP_RETENTION_DAYS: "${BACKUP_RETENTION_DAYS:-30}"
+    volumes:
+      - pgbackups:/backups
+      - ./scripts/pg-backup.sh:/usr/local/bin/pg-backup.sh:ro
+    entrypoint: ["/bin/sh", "-c"]
+    # busybox crond không truyền biến môi trường cho job → ghi ra file để pg-backup.sh nạp lại.
+    command:
+      - >
+        export -p | grep -E 'PG(HOST|DATABASE|USER|PASSWORD)|BACKUP_RETENTION_DAYS' > /etc/pg-backup.env &&
+        echo '0 3 * * * sh /usr/local/bin/pg-backup.sh > /proc/1/fd/1 2>&1' | crontab - &&
+        exec crond -f -l 8
+
+networks:
+  internal:
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  pgbackups:
+  apilogs:

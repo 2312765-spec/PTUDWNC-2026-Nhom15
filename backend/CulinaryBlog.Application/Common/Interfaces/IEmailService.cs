@@ -1,8 +1,12 @@
+using CulinaryBlog.Application.Common.Email;
+
 namespace CulinaryBlog.Application.Common.Interfaces;
 
 /// <summary>HỢP ĐỒNG CHUNG — chủ sở hữu: A. FR-JOB-001.</summary>
 public interface IEmailService
 {
-    /// <summary>D12: email chào mừng KHÔNG có link kích hoạt — xác nhận email ngoài scope v1.</summary>
-    Task SendWelcomeEmailAsync(string toEmail, string displayName, CancellationToken ct = default);
+    /// <summary>
+    /// D57: chỉ gửi, không dựng nội dung. Lỗi SMTP phải ném ra để Hangfire retry (D42).
+    /// </summary>
+    Task SendAsync(EmailMessage message, CancellationToken ct = default);
 }

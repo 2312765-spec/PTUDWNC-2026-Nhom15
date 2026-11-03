@@ -3,20 +3,23 @@ using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Interfaces;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace CulinaryBlog.Application.Auth.Commands.Register;
 
 /// <summary>
 /// FR-AUTH-001, luồng chính (SRS Chương 3, bước 4-12; D5, D20, D23, D24, D25).
 /// Auto-login sau đăng ký: tạo user → gán role Author → sinh access+refresh token →
-/// lưu refresh token → enqueue welcome email (fire-and-forget) → trả AuthResponseDto.
+/// lưu refresh token → enqueue welcome email (fire-and-forget, FR-JOB-001; lỗi enqueue chỉ log — D55)
+/// → trả AuthResponseDto.
 /// </summary>
 public sealed class RegisterCommandHandler(
     IIdentityService identityService,
     IJwtService jwtService,
     IRefreshTokenRepository refreshTokenRepository,
     IUnitOfWork unitOfWork,
-    IBackgroundJobService backgroundJobService)
+    IBackgroundJobService backgroundJobService,
+    ILogger<RegisterCommandHandler> logger)
     : IRequestHandler<RegisterCommand, AuthResponseDto>
 {
     public async Task<AuthResponseDto> Handle(RegisterCommand request, CancellationToken cancellationToken)
@@ -31,11 +34,11 @@ public sealed class RegisterCommandHandler(
         var (rawRefreshToken, refreshTokenHash, refreshExpiresAt) = jwtService.GenerateRefreshToken();
 
         var refreshToken = RefreshToken.Create(user.UserId, refreshTokenHash, refreshExpiresAt, request.IpAddress);
-        
+
         await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        backgroundJobService.EnqueueWelcomeEmail(user.Email, user.DisplayName);
+        backgroundJobService.TryEnqueueWelcomeEmail(user.UserId, user.Email, user.DisplayName, logger);
 
         var profile = new UserProfileDto(user.UserId, user.Email, user.DisplayName, user.AvatarUrl, user.Bio, user.Roles);
 

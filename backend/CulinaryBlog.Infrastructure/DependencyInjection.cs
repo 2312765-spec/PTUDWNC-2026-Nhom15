@@ -113,6 +113,9 @@ public static class DependencyInjection
             .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(connectionString)));
         services.AddScoped<IBackgroundJobService, HangfireBackgroundJobService>();
 
+        // FR-JOB-001 — welcome email (D42, D55–D57).
+        services.AddScoped<WelcomeEmailJob>();
+
         // 9. FR-JOB-002 — resize ảnh (D40–D44). Resizer không giữ trạng thái → singleton.
         services.AddSingleton<IImageResizer>(new SkiaImageResizer());
         services.AddScoped<ResizeRecipeImageJob>();

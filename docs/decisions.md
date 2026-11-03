@@ -70,6 +70,12 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D52 | Nơi lưu & phục vụ sitemap.xml | **MinIO** key cố định `seo/sitemap.xml` + Nginx proxy `/sitemap.xml` · bỏ `frontend/app/sitemap.ts` |
 | D53 | Distributed lock cho sitemap job | Hangfire **`DisableConcurrentExecution`** thay RedLock |
 | D54 | Cập nhật hồ sơ (FR-AUTH-007) | Body rỗng → 400 · field vắng/`null` = giữ nguyên, `""` = xóa (`bio`, `avatarUrl`) · `IsActive=false` → 200 · user đã xóa → 404 |
+| D55 | Enqueue welcome email lỗi (FR-JOB-001) | **Log Warning, không fail request** — register/Google login vẫn trả token |
+| D56 | Ai nhận welcome email | Đăng ký (FR-AUTH-001) **và** tài khoản Google **mới** (FR-AUTH-003) · Google liên kết tài khoản có sẵn → không gửi |
+| D57 | Nội dung & cấu hình welcome email | Link `/` + `/dashboard` từ `Seo:SiteBaseUrl` (thiếu → job lỗi) · HTML-encode `displayName` · multipart HTML + text · SMTP auth khi có `Smtp:Username` |
+| D58 | URL công khai của ảnh MinIO (CONS-009) | Cấu hình `Minio:PublicBaseUrl` (rỗng → dùng `Minio:Endpoint`) · prod = `https://{domain}`, Nginx proxy `/culinary-blog/` (GET/HEAD) tới MinIO |
+| D59 | Migration + seed role ở prod (CONS-009) | Service `migrate` một lần: `--migrate-only` = migrate + `IdentityRoleSeeder` rồi thoát · **không** chạy `DbSeeder` · `api` chờ `service_completed_successfully` |
+| D60 | Cổng prod (CONS-009, NFR-SEC-005) | **Chỉ Nginx** publish 80/443 (lệch bảng SRS §6.5) · API bật `ForwardedHeaders`, tin proxy trong mạng nội bộ |
 
 ---
 
@@ -1463,6 +1469,140 @@ giá trị `null`, cách xóa `bio`/`avatarUrl`, user `IsActive=false` hay user 
 **Vì:** record C# với `string?` không phân biệt "vắng" và "null"; phân biệt cần tự dò JSON, không cần cho v1.
 
 **Sửa SRS:** FR-AUTH-007 — thay `fullName` theo D5, thay 422 bằng 400 (D4), bổ sung các điểm trên.
+
+---
+
+## D55 — FR-JOB-001: enqueue welcome email lỗi không làm fail request
+
+> 2026-10-21. Xem `docs/plans/FR-JOB-001-welcome-email.md`.
+
+**Nguồn:** FR-AUTH-001 bước 11 chỉ nói "đẩy email chào mừng vào Hangfire queue", không nói enqueue lỗi
+thì sao. Code hiện tại gọi `EnqueueWelcomeEmail` sau `SaveChanges` không bắt lỗi → Hangfire storage lỗi
+thì user đã được tạo nhưng client nhận 500 (đăng ký lại sẽ bị 409 email trùng).
+
+**Chốt:** `RegisterCommandHandler` và `GoogleLoginCommandHandler` bọc lời gọi enqueue trong try/catch →
+log **Warning** (kèm `UserId`, không ghi email — CONS-010), vẫn trả `AuthResponseDto` bình thường (201 / 200).
+
+**Vì:** SRS mục rủi ro phụ thuộc: Hangfire hỏng "không ảnh hưởng core functionality". Cùng cách đã chốt
+cho ảnh ở D44 ("enqueue lỗi → log warning, không làm fail request").
+
+**Sửa SRS:** FR-AUTH-001 — bổ sung luồng ngoại lệ "enqueue welcome email lỗi → vẫn đăng ký thành công".
+
+---
+
+## D56 — FR-JOB-001: ai nhận welcome email
+
+> 2026-10-21.
+
+**Nguồn:** SRS FR-JOB-001 ghi trigger "Sau FR-AUTH-001 thành công". FR-AUTH-003 (Google) cũng tự tạo
+tài khoản mới nhưng không nhắc email chào mừng. Roadmap S9 gộp FR-AUTH-003 và FR-JOB-001.
+
+**Chốt:** gửi khi **tạo tài khoản mới**: đăng ký email/mật khẩu (FR-AUTH-001) và đăng nhập Google lần
+đầu tạo user mới (FR-AUTH-003, `isNewUser = true`). Google liên kết vào tài khoản đã có, hoặc đăng nhập
+lại → **không** gửi.
+
+Google không trả claim `name` (thiếu scope `profile`) → `displayName` của tài khoản mới là phần trước
+`@` của email. Nếu để rỗng, `SendWelcomeEmailCommandValidator` chặn và job retry vô ích rồi Failed.
+
+**Vì:** với người dùng, cả hai cách đều là "đăng ký". Gửi theo `isNewUser` đảm bảo mỗi tài khoản nhận
+đúng một email.
+
+**Sửa SRS:** FR-JOB-001 — trigger "Sau FR-AUTH-001 thành công, hoặc FR-AUTH-003 tạo tài khoản mới".
+
+---
+
+## D57 — FR-JOB-001: nội dung email và cấu hình SMTP
+
+> 2026-10-21.
+
+**Nguồn:** SRS FR-JOB-001 "link đến ứng dụng" không nói URL lấy từ đâu; bảng tích hợp ngoài có
+`Smtp__Username/Password` và "SMTP với TLS" nhưng Mailhog (dev) không có TLS lẫn auth.
+
+**Chốt:**
+
+1. Link trong email: `{Seo:SiteBaseUrl}/` và `{Seo:SiteBaseUrl}/dashboard` — dùng lại key của FR-JOB-003,
+   không thêm key mới. Base URL đi qua command; validator yêu cầu URL tuyệt đối http(s) → thiếu/sai thì
+   `ValidationException`, Hangfire retry rồi Failed (giống D52).
+2. `displayName` do người dùng nhập → **luôn HTML-encode** khi đưa vào template.
+3. Email **multipart/alternative**: phần HTML + phần plain text.
+4. SMTP: có `Smtp:Username` thì `AuthenticateAsync`; TLS `SecureSocketOptions.Auto` (STARTTLS khi server
+   hỗ trợ, Mailhog thì không).
+5. Nội dung email dựng ở Application (`WelcomeEmailTemplate`); `IEmailService` ở Infrastructure chỉ gửi
+   `EmailMessage`. Job đi qua MediatR (`SendWelcomeEmailCommand`) như D44.
+
+**Vì:** một nguồn cấu hình cho URL công khai của site; chặn chèn HTML vào email; chạy được cả Mailhog
+lẫn SMTP production mà không đổi code.
+
+**Sửa SRS:** FR-JOB-001 — "link về trang chủ và `/dashboard`, gốc URL theo cấu hình site".
+
+---
+
+## D58 — CONS-009: URL công khai của ảnh MinIO
+
+> 2026-10-21. Xem `docs/plans/CONS-009-docker-compose-prod.md`.
+
+**Nguồn:** SRS §6.5 chạy MinIO trong mạng Docker (`http://minio:9000`), nhưng `MinioFileStorageService`
+ghép URL ảnh trả cho trình duyệt từ chính `Minio:Endpoint` — địa chỉ nội bộ đó trình duyệt không mở được.
+SRS không nói ảnh được phục vụ ra Internet bằng địa chỉ nào.
+
+**Chốt:**
+
+1. Thêm cấu hình `Minio:PublicBaseUrl`. Có giá trị → URL ảnh = `{PublicBaseUrl}/{bucket}/{key}`;
+   rỗng → giữ hành vi cũ (`Minio:Endpoint`), dev không đổi (`http://localhost:9000`).
+2. Prod: `PublicBaseUrl = https://{domain}`. Nginx `location /culinary-blog/` proxy tới MinIO, chỉ cho GET/HEAD.
+3. Tách key từ URL vẫn theo `/{bucket}/` → xóa/resize được ảnh dù URL ghép từ địa chỉ nào.
+4. Server Next.js (SSR/ISR và tối ưu ảnh `next/image`) gọi chính domain của site: trong compose, container
+   `nginx` có network alias = `SITE_DOMAIN`, frontend tin chứng chỉ qua `NODE_EXTRA_CA_CERTS`. Vì domain đó
+   phân giải ra IP nội bộ, bật `images.dangerouslyAllowLocalIP` — `remotePatterns` chỉ cho phép host của
+   chính dự án (`localhost:9000`, domain site) nên không mở thêm đường SSRF.
+
+**Vì:** ảnh cùng origin với site → không cần domain/chứng chỉ riêng cho MinIO, MinIO không lộ ra Internet (D60).
+
+**Sửa SRS:** §6.5 — thêm "ảnh MinIO phục vụ qua Nginx tại `/{bucket}/`".
+
+---
+
+## D59 — CONS-009: migration và seed role ở Production
+
+> 2026-10-21.
+
+**Nguồn:** SRS không nói migration chạy lúc nào ở prod. `Program.cs` chỉ migrate + seed role trong
+`IsDevelopment()` → DB prod trống bảng, register/login lỗi 500 (thiếu role — xem `IdentityRoleSeeder`).
+
+**Chốt:**
+
+1. API nhận tham số `--migrate-only`: migrate + seed 2 role (`Author`, `Admin`) rồi thoát, không mở cổng.
+2. `docker-compose.prod.yml` có service `migrate` (cùng image API) chạy lệnh đó một lần; `api`
+   `depends_on: migrate: condition: service_completed_successfully`.
+3. **Không** chạy `DbSeeder` (dữ liệu mẫu) ở prod.
+4. Development dùng chung hàm `MigrateAndSeedRolesAsync`, rồi chạy thêm `DbSeeder` như cũ.
+
+**Vì:** migrate lúc API khởi động thì khi scale nhiều instance, các instance cùng migrate một lúc.
+Tách thành bước riêng cũng làm lỗi migration hiện rõ (service `migrate` exit ≠ 0, `api` không lên).
+
+**Sửa SRS:** §6.5 — thêm bước migration trước khi API khởi động.
+
+---
+
+## D60 — CONS-009: chỉ Nginx publish cổng ở Production
+
+> 2026-10-21.
+
+**Nguồn:** bảng service SRS §6.5 ghi cổng 5432/6379/9000/8080/3000 cho cả production — publish ra host
+nghĩa là DB, Redis, MinIO mở ra Internet, và API đi vòng được qua Nginx (bỏ qua HTTPS — NFR-SEC-005).
+
+**Chốt:**
+
+1. Prod chỉ `nginx` publish `80` và `443`. Các service còn lại chỉ nằm trong mạng nội bộ của compose.
+2. API bật `UseForwardedHeaders` (`X-Forwarded-For`, `X-Forwarded-Proto`) ở đầu pipeline và **xóa danh
+   sách proxy tin cậy mặc định** (chỉ có loopback) — địa chỉ của Nginx trong mạng Docker thay đổi mỗi lần tạo
+   lại container. An toàn vì API không nhận kết nối nào ngoài Nginx (mục 1).
+3. HSTS của API đặt `max-age=31536000` (giống Nginx, NFR-SEC-005).
+
+**Vì:** NFR-SEC-005 (mọi traffic qua HTTPS) và nguyên tắc không lộ hạ tầng. Thiếu forwarded headers thì
+sau Nginx scheme luôn là `http` (HSTS không gửi) và IP client trong log luôn là IP của Nginx (CONS-010).
+
+**Sửa SRS:** §6.5 — cột cổng của production chỉ còn Nginx 80/443.
 
 ---
 
