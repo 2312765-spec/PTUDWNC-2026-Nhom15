@@ -1,0 +1,35 @@
+#!/bin/sh
+# NFR-SEC-007 — chặn commit có chứa secret (gitleaks quét các file đã `git add`).
+#
+# Bật một lần cho mỗi bản clone:
+#   git config core.hooksPath .githooks
+#   chmod +x .githooks/pre-commit        # macOS/Linux
+# Cài gitleaks: Windows `winget install Gitleaks.Gitleaks` · macOS `brew install gitleaks`.
+#
+# Báo nhầm: sửa .gitleaks.toml cho đúng phạm vi. Chỉ khi thật sự bất khả kháng mới dùng
+# SKIP_GITLEAKS=1 git commit ... và phải nói rõ với reviewer trong PR.
+
+if [ "${SKIP_GITLEAKS:-}" = "1" ]; then
+  echo "pre-commit: SKIP_GITLEAKS=1 — bỏ qua quét secret." >&2
+  exit 0
+fi
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: chưa cài gitleaks nên không quét được secret (NFR-SEC-007)." >&2
+  echo "  Windows: winget install Gitleaks.Gitleaks   |   macOS: brew install gitleaks" >&2
+  exit 1
+fi
+
+root=$(git rev-parse --show-toplevel) || exit 1
+
+gitleaks git --pre-commit --staged --redact --no-banner --config "$root/.gitleaks.toml"
+status=$?
+
+if [ "$status" -ne 0 ]; then
+  echo "" >&2
+  echo "pre-commit: phát hiện secret trong thay đổi sắp commit — commit bị chặn." >&2
+  echo "  Gỡ secret khỏi file (dùng User Secrets / biến môi trường), rồi git add lại." >&2
+  echo "  Nếu secret đã từng được push: coi như lộ, phải đổi (rotate) ngay." >&2
+fi
+
+exit "$status"

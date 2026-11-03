@@ -1,0 +1,20 @@
+# NFR-SEC-007 — quét secret trước khi commit. Dùng bởi .githooks/pre-commit.
+# Chạy tay: gitleaks dir . --config .gitleaks.toml --redact
+title = "Culinary Blog — gitleaks"
+
+[extend]
+useDefault = true
+
+# Chỉ bỏ qua thứ KHÔNG BAO GIỜ vào Git: artifact build, log chạy test, file env cục bộ (đã nằm trong
+# .gitignore). Tuyệt đối không allowlist theo nội dung hay theo thư mục mã nguồn — secret thật lọt
+# vào đó là đúng thứ hook này phải chặn.
+[[allowlists]]
+description = "Artifact build, log và file env cục bộ (đã gitignore)"
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)\.next/''',
+  '''(^|/)(bin|obj)/''',
+  '''(^|/)logs/''',
+  '''(^|/)\.env\.local$''',
+  '''(^|/)\.env\.[^/]+\.local$''',
+]

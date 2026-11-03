@@ -148,6 +148,9 @@ Mỗi handler một file. Endpoint group `{Entity}Endpoints.cs`.
 # Hạ tầng dev (postgres, redis, minio, seq, mailhog)
 docker compose up -d
 
+# Hook quét secret (NFR-SEC-007) — bật một lần cho mỗi bản clone, cần cài gitleaks
+git config core.hooksPath .githooks
+
 # Backend
 dotnet restore
 dotnet build                                          # phải 0 warning (NFR-MAINT-001)
