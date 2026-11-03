@@ -2,6 +2,8 @@ import type { NextConfig } from 'next';
 
 type RemotePattern = NonNullable<NonNullable<NextConfig['images']>['remotePatterns']>[number];
 
+const isDev = process.env.NODE_ENV !== 'production';
+
 /**
  * CONS-009/D58 — prod: ảnh MinIO đi qua Nginx cùng domain với site (`{site}/culinary-blog/...`).
  * Đọc lúc `next build` (Dockerfile nhận NEXT_PUBLIC_SITE_URL qua build arg).
@@ -36,6 +38,15 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost', port: '9000', pathname: '/culinary-blog/**' },
       ...siteImagePattern(),
+      // DEV-SEED: Cho phép placehold.co hiển thị ảnh dữ liệu mẫu khi chạy dev/test
+      ...(isDev
+        ? [
+            {
+              protocol: 'https' as const,
+              hostname: 'placehold.co',
+            },
+          ]
+        : []),
     ],
   },
 
