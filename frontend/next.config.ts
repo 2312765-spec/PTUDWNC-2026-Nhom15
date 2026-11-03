@@ -21,6 +21,15 @@ function siteImagePattern(): RemotePattern[] {
   ];
 }
 
+/**
+ * DbSeeder (chỉ chạy ở Development) gắn ảnh placeholder `https://placehold.co/...png`.
+ * Không mở domain bên ngoài này cho image optimizer ở production.
+ */
+function seedImagePattern(): RemotePattern[] {
+  if (process.env.NODE_ENV === 'production') return [];
+  return [{ protocol: 'https', hostname: 'placehold.co' }];
+}
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
@@ -36,6 +45,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost', port: '9000', pathname: '/culinary-blog/**' },
       ...siteImagePattern(),
+      ...seedImagePattern(),
     ],
   },
 
