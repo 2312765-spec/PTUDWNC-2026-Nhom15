@@ -199,10 +199,10 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 
 | Nhóm | Mã | Ngưỡng cần đạt | Cách đo | TT |
 |---|---|---|---|---|
-| PERF | NFR-PERF-001 | p50 ≤ 150ms (GET cached), p95 ≤ 500ms, p99 ≤ 1000ms | k6 + OpenTelemetry | ⬜ |
-| PERF | NFR-PERF-002 | ≥ 100 concurrent users trên 2 vCPU / 4GB | k6 smoke → load → stress | ⬜ |
-| PERF | NFR-PERF-003 | Cache hit rate ≥ 80%. TTL theo D8 | Redis INFO stats | ⬜ |
-| PERF | NFR-PERF-004 | Không N+1; mọi WHERE/ORDER BY có index; slow query > 100ms cảnh báo | EXPLAIN ANALYZE review trước merge | ⬜ |
+| PERF | NFR-PERF-001 | p50 ≤ 150ms (GET cached), p95 ≤ 500ms, p99 ≤ 1000ms | k6 `smoke-test.js`, `load-test.js` — `backend/tests/performance/results/perf-summary.md` (2026-11-03): 100 VU cache nóng p50 8,4 / p95 39,7 / p99 100,9 ms. **Còn thiếu:** cache trống `/categories` p99 13,9 s (stampede, xem PERF-004); chưa đo write operations | 🟡 |
+| PERF | NFR-PERF-002 | ≥ 100 concurrent users trên 2 vCPU / 4GB | k6 `load-test.js` (100 VU, 295 req/s, 0% lỗi) + `stress-test.js` (180 VU, 575 req/s, p99 425 ms, 0% lỗi) — `backend/tests/performance/results/perf-summary.md` (2026-11-03). **Còn thiếu:** chỉ API bị giới hạn 2 vCPU / 4 GB, PostgreSQL + Redis chạy ngoài giới hạn | 🟡 |
+| PERF | NFR-PERF-003 | Cache hit rate ≥ 80%. TTL theo D8 | `check-redis-cache.sh` (reset sau làm nóng, đo trong load test) — `backend/tests/performance/results/perf-summary.md` (2026-11-03): **99,84%** (88.636 hit / 141 miss) | ✅ |
+| PERF | NFR-PERF-004 | Không N+1; mọi WHERE/ORDER BY có index; slow query > 100ms cảnh báo | `explain-analyze.sql` (SQL thật của EF Core, 10.050 recipes từ `seed-perf-data.sql`) — `backend/tests/performance/results/perf-summary.md` (2026-11-03). Không N+1; slug/search dùng index. **Còn thiếu:** `/categories` 532 ms (Include toàn bộ recipe + ảnh để đếm `recipeCount`); thiếu index `CreatedAt` cho ORDER BY; chưa có cảnh báo slow query | 🟡 |
 | PERF | NFR-PERF-005 | LCP ≤ 2.5s · CLS ≤ 0.1 · INP ≤ 200ms · JS bundle ≤ 200KB gzip | Lighthouse CI | ⬜ |
 | SEC | NFR-SEC-001 | PBKDF2-HMACSHA512, ≥ 100.000 iterations. Password ≥ 8 ký tự: hoa + **thường** + số + đặc biệt | Cấu hình `IdentityOptions` | ⬜ |
 | SEC | NFR-SEC-002 | AT 15p HS256; RT 128-bit random, SHA-256 hash, 7 ngày, rotation + reuse detection (D20) | Integration test | ⬜ |

@@ -1,0 +1,221 @@
+{
+    "metrics": {
+        "http_req_waiting": {
+            "min": 0,
+            "med": 20.964534,
+            "max": 2925.697699,
+            "p(90)": 129.88372880000006,
+            "p(95)": 192.62106139999995,
+            "avg": 52.564624274499984
+        },
+        "iteration_duration": {
+            "avg": 732.5488939176453,
+            "min": 508.011253,
+            "med": 604.3418485,
+            "max": 4862.460768,
+            "p(90)": 1102.6424625,
+            "p(95)": 1331.639212
+        },
+        "checks": {
+            "passes": 276264,
+            "fails": 0,
+            "value": 1
+        },
+        "data_received": {
+            "count": 1135320079,
+            "rate": 2363640.734312214
+        },
+        "iterations": {
+            "count": 69066,
+            "rate": 143.78959200633267
+        },
+        "http_req_duration": {
+            "avg": 57.2980597400504,
+            "min": 0.188796,
+            "med": 22.703744,
+            "max": 2932.968174,
+            "p(90)": 144.83399760000003,
+            "p(95)": 212.49925139999982
+        },
+        "data_sent": {
+            "count": 30133681,
+            "rate": 62735.78456315667
+        },
+        "http_req_failed{type:cached}": {
+            "passes": 0,
+            "fails": 276264,
+            "thresholds": {
+                "rate<0.05": false
+            },
+            "value": 0
+        },
+        "http_req_blocked": {
+            "avg": 0.026701711769496553,
+            "min": 0.000705,
+            "med": 0.007695,
+            "max": 358.954367,
+            "p(90)": 0.019555,
+            "p(95)": 0.028327599999999977
+        },
+        "http_req_receiving": {
+            "min": -26.488378,
+            "med": 0.398176,
+            "max": 773.26525,
+            "p(90)": 11.189619600000002,
+            "p(95)": 22.14955499999998,
+            "avg": 4.6795239195229525
+        },
+        "vus": {
+            "value": 1,
+            "min": 1,
+            "max": 180
+        },
+        "http_reqs": {
+            "count": 276265,
+            "rate": 575.1604499410635
+        },
+        "http_req_sending": {
+            "med": 0.025938,
+            "max": 96.246452,
+            "p(90)": 0.0765056,
+            "p(95)": 0.10578819999999994,
+            "avg": 0.053911546026459894,
+            "min": -18.838121
+        },
+        "http_req_connecting": {
+            "avg": 0.010450136582629,
+            "min": 0,
+            "med": 0,
+            "max": 357.189112,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 276265,
+            "value": 0
+        },
+        "http_req_tls_handshaking": {
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0
+        },
+        "http_req_duration{type:cached}": {
+            "avg": 57.298007057198994,
+            "min": 0.188796,
+            "med": 22.703602500000002,
+            "max": 2932.968174,
+            "p(90)": 144.83440470000005,
+            "p(95)": 212.50003704999963,
+            "thresholds": {
+                "p(99)<=2000": false
+            }
+        },
+        "vus_max": {
+            "max": 180,
+            "value": 180,
+            "min": 180
+        },
+        "http_req_duration{expected_response:true}": {
+            "p(90)": 144.83399760000003,
+            "p(95)": 212.49925139999982,
+            "avg": 57.2980597400504,
+            "min": 0.188796,
+            "med": 22.703744,
+            "max": 2932.968174
+        }
+    },
+    "setup_data": {
+        "slugs": [
+            "sinh-to-bo",
+            "mi-quang-ga",
+            "thit-kho-trung",
+            "banh-khot",
+            "nem-lui-hue",
+            "cha-gio-chay",
+            "cha-ca-la-vong",
+            "tom-rim-man-ngot",
+            "banh-da-lon",
+            "suon-xao-chua-ngot",
+            "rau-cu-xao-thap-cam",
+            "che-ba-mau",
+            "bun-bo-hue",
+            "goi-ngo-sen-tom-thit",
+            "banh-flan-nuong-mini",
+            "tra-sua-tran-chau",
+            "khoai-lang-lac-pho-mai",
+            "banh-trang-tron-perf-8098",
+            "mi-quang-ga-perf-8806",
+            "thit-kho-trung-perf-9311",
+            "tra-sua-tran-chau-perf-8144",
+            "dau-hu-sot-ca-chua-perf-7988",
+            "bap-xao-bo-perf-9849",
+            "banh-flan-nuong-mini-perf-8942",
+            "sua-chua-nep-cam-perf-4677",
+            "tra-tac-mat-ong-perf-6337",
+            "muc-nuong-sa-te-perf-7032",
+            "sua-chua-nep-cam-perf-7077",
+            "sua-chua-nep-cam-perf-9127",
+            "bun-cha-ha-noi-perf-4269",
+            "sup-cua-perf-9586",
+            "sua-chua-nep-cam-perf-9727",
+            "ca-kho-to-perf-3908",
+            "banh-khot-perf-6912",
+            "ga-kho-gung-perf-6209",
+            "com-chien-chay-perf-8453",
+            "che-chuoi-nuoc-cot-dua-perf-5328",
+            "nuoc-sam-bi-dao-perf-793",
+            "bap-xao-bo-perf-7949",
+            "mi-quang-ga-perf-9856",
+            "ca-phe-trung-perf-7484",
+            "sua-chua-nep-cam-perf-3827",
+            "bun-rieu-cua-perf-573",
+            "cha-gio-re-perf-8071",
+            "com-chien-chay-perf-8153",
+            "bo-luc-lac-perf-9301",
+            "banh-canh-cua-perf-3381",
+            "ca-phe-trung-perf-6134",
+            "mi-quang-ga-perf-4606",
+            "banh-bot-loc-perf-8347"
+        ]
+    },
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "categories status 200": {
+                    "path": "::categories status 200",
+                    "id": "db8643591ddf08fd48e91fba4da96ef7",
+                    "passes": 69066,
+                    "fails": 0,
+                    "name": "categories status 200"
+                },
+                "recipes status 200": {
+                    "name": "recipes status 200",
+                    "path": "::recipes status 200",
+                    "id": "71482a2b42d9b49e3a68969cda9dd1b2",
+                    "passes": 69066,
+                    "fails": 0
+                },
+                "detail status 200": {
+                    "name": "detail status 200",
+                    "path": "::detail status 200",
+                    "id": "4b99591b6f850cc5704a9b8fd757eb6a",
+                    "passes": 69066,
+                    "fails": 0
+                },
+                "search status 200": {
+                    "name": "search status 200",
+                    "path": "::search status 200",
+                    "id": "644a0e6ab046e4cf31ebf297a7476450",
+                    "passes": 69066,
+                    "fails": 0
+                }
+            }
+    }
+}

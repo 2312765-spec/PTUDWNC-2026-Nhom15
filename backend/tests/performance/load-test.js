@@ -1,32 +1,23 @@
-/*Tăng dần tải lên ≥ 100 Virtual Users (VUs) đồng thời 
-trên cấu hình 2 vCPU / 4GB, duy trì tải ổn định 
-mà p95 vẫn ≤ 500ms (đáp ứng NFR-PERF-002 và NFR-PERF-001) */
-
-import http from 'k6/http';
-import { check, group, sleep } from 'k6';
-
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:5000';
+// Load (NFR-PERF-001 + NFR-PERF-002): tăng lên 100 VU đồng thời, giữ 3 phút.
+// Đạt khi các ngưỡng NFR-PERF-001 vẫn giữ được dưới tải 100 người dùng.
+import { sleep } from 'k6';
+import { CACHED_GET_THRESHOLDS, browse, loadSlugs } from './common.js';
 
 export const options = {
   stages: [
-    { duration: '30s', target: 20 },  // Ramp-up nhẹ lên 20 VUs
-    { duration: '1m', target: 100 },   // NFR-PERF-002: Đạt 100 người dùng đồng thời
-    { duration: '3m', target: 100 },   // Duy trì tải 100 VUs liên tục trong 3 phút
-    { duration: '30s', target: 0 },    // Ramp-down về 0
+    { duration: '30s', target: 20 },  // khởi động
+    { duration: '1m', target: 100 },  // lên 100 VU (NFR-PERF-002)
+    { duration: '3m', target: 100 },  // giữ 100 VU
+    { duration: '30s', target: 0 },   // hạ tải
   ],
-  thresholds: {
-    // Đảm bảo dưới tải 100 người dùng, hệ thống vẫn giữ chuẩn NFR-PERF-001
-    'http_req_duration{type:cached}': ['p(50)<=150', 'p(95)<=500', 'p(99)<=1000'],
-    http_req_failed: ['rate<0.01'], // Lỗi < 1%
-  },
+  thresholds: CACHED_GET_THRESHOLDS,
 };
 
-export default function () {
-  const catRes = http.get(`${BASE_URL}/api/v1/categories`, { tags: { type: 'cached' } });
-  check(catRes, { 'status is 200': (r) => r.status === 200 });
+export function setup() {
+  return loadSlugs();
+}
 
-  const recRes = http.get(`${BASE_URL}/api/v1/recipes?page=1&pageSize=10`, { tags: { type: 'cached' } });
-  check(recRes, { 'status is 200': (r) => r.status === 200 });
-
+export default function (data) {
+  browse(data);
   sleep(1);
 }

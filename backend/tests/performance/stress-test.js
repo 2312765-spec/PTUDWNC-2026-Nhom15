@@ -1,30 +1,27 @@
-//Kiểm tra giới hạn chịu đựng vượt mức
-//(lên 150–200 VUs) để quan sát cơ chế xử lý khi quá tải.
-
-import http from 'k6/http';
-import { check, sleep } from 'k6';
-
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:5000';
+// Stress (NFR-PERF-002): vượt mức 100 VU lên 180 VU để tìm giới hạn chịu tải.
+// Ngưỡng nới hơn load test — mục tiêu là quan sát điểm bắt đầu suy giảm, không phải đạt SLA.
+import { sleep } from 'k6';
+import { browse, loadSlugs } from './common.js';
 
 export const options = {
   stages: [
     { duration: '1m', target: 50 },
     { duration: '2m', target: 100 },
     { duration: '2m', target: 150 },
-    { duration: '2m', target: 180 }, // Vượt tải để xác định giới hạn chịu đựng
+    { duration: '2m', target: 180 },
     { duration: '1m', target: 0 },
   ],
   thresholds: {
-    'http_req_duration': ['p(99)<=2000'],
-    'http_req_failed': ['rate<0.05'], // Cho phép tỷ lệ lỗi < 5% ở đỉnh tải cực hạn
+    'http_req_duration{type:cached}': ['p(99)<=2000'],
+    'http_req_failed{type:cached}': ['rate<0.05'],
   },
 };
 
-export default function () {
-  const res = http.get(`${BASE_URL}/api/v1/recipes?page=1&pageSize=12`);
-  check(res, {
-    'status is 200': (r) => r.status === 200,
-  });
+export function setup() {
+  return loadSlugs();
+}
 
+export default function (data) {
+  browse(data);
   sleep(0.5);
 }
