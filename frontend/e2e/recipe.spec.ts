@@ -52,5 +52,15 @@ test.describe('Chi tiết công thức (FR-RCP-002)', () => {
     const response = await page.goto('/recipes/khong-ton-tai-e2e');
 
     expect(response?.status()).toBe(404);
+    await expect(page.getByRole('heading', { level: 1, name: 'Không tìm thấy công thức' })).toBeVisible();
+  });
+});
+
+test.describe('Chi tiết danh mục (FR-CAT-002)', () => {
+  test('FR-CAT-002: slug không tồn tại → 404', async ({ page }) => {
+    const response = await page.goto('/categories/khong-ton-tai-e2e');
+
+    expect(response?.status()).toBe(404);
+    await expect(page.getByRole('heading', { level: 1, name: 'Không tìm thấy danh mục' })).toBeVisible();
   });
 });
