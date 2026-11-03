@@ -110,6 +110,17 @@ builder.Services.AddCors(options => options.AddPolicy(CorsPolicy, policy => poli
     .WithHeaders("Content-Type", "Authorization", "X-Correlation-ID", "If-Match")
     .AllowCredentials()));
 
+// ---- Rate limiting + forwarded headers (NFR-SEC-003, D15) ------------------
+// Testing mặc định tắt (RateLimiting:Enabled) để các test khác không chạm giới hạn của nhau.
+var rateLimiting = builder.Configuration.GetSection(RateLimitingOptions.SectionName).Get<RateLimitingOptions>()
+                   ?? new RateLimitingOptions();
+var rateLimitingEnabled = rateLimiting.IsEnabled(builder.Environment);
+if (rateLimitingEnabled)
+{
+    builder.Services.AddAppRateLimiting(rateLimiting);
+}
+builder.Services.AddAppForwardedHeaders(builder.Configuration);
+
 // ---- OpenAPI / Scalar (NFR-MAINT-003) ------------------------------------
 builder.Services.AddOpenApi(options =>
 {
@@ -170,6 +181,9 @@ builder.Services.AddAppHealthChecks(builder.Configuration);
 // ===========================================================================
 var app = builder.Build();
 
+// 0. Đọc IP thật của máy khách từ X-Forwarded-For (chỉ tin mạng nội bộ) — rate limit và log cần IP đúng.
+app.UseForwardedHeaders();
+
 // 1. CorrelationId
 app.UseMiddleware<CorrelationIdMiddleware>();
 
@@ -191,6 +205,12 @@ else
 }
 
 app.UseCors(CorsPolicy);
+
+// NFR-SEC-003/D15 — sau CORS để 429 vẫn có header CORS; trước xác thực để chặn brute force sớm.
+if (rateLimitingEnabled)
+{
+    app.UseMiddleware<RateLimitingMiddleware>();
+}
 
 app.UseAuthentication();
 
