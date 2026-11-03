@@ -1,5 +1,4 @@
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.HttpOverrides;
 
 namespace CulinaryBlog.API.Extensions;
 
@@ -130,39 +129,14 @@ public sealed class RequestRateLimiter(RateLimitingOptions options) : IDisposabl
 
 public static class RateLimitingExtensions
 {
-    /// <summary>Mạng được tin để đọc X-Forwarded-For (Nginx, frontend trong Docker) — mặc định chỉ dải riêng.</summary>
-    private static readonly string[] DefaultTrustedNetworks =
-        ["127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"];
-
+    /// <summary>
+    /// Đăng ký bộ đếm. IP máy khách lấy từ <c>RemoteIpAddress</c> sau <c>UseForwardedHeaders</c> (D60, Program.cs):
+    /// không có bước đó thì sau Nginx mọi người dùng chung một bộ đếm.
+    /// </summary>
     public static IServiceCollection AddAppRateLimiting(this IServiceCollection services, RateLimitingOptions options)
     {
         services.AddSingleton(options);
         services.AddSingleton<RequestRateLimiter>();
-        return services;
-    }
-
-    /// <summary>
-    /// Sau Nginx, <c>RemoteIpAddress</c> là IP của Nginx — nếu không đọc X-Forwarded-For thì mọi người dùng
-    /// chung một bộ đếm và 10 req/phút/IP thành 10 req/phút cho cả site. Chỉ tin header khi request đến từ
-    /// mạng nội bộ (<c>ForwardedHeaders:KnownNetworks</c>) và lấy đúng một hop gần nhất (ForwardLimit = 1) để
-    /// client không giả mạo IP bằng header tự gửi.
-    /// </summary>
-    public static IServiceCollection AddAppForwardedHeaders(this IServiceCollection services, IConfiguration configuration)
-    {
-        var networks = configuration.GetSection("ForwardedHeaders:KnownNetworks").Get<string[]>() ?? DefaultTrustedNetworks;
-
-        services.Configure<ForwardedHeadersOptions>(options =>
-        {
-            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-            options.ForwardLimit = 1;
-            options.KnownIPNetworks.Clear();
-            options.KnownProxies.Clear();
-            foreach (var network in networks)
-            {
-                options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
-            }
-        });
-
         return services;
     }
 }

@@ -156,7 +156,7 @@ describe('jwtCallback — FR-AUTH-007 (trigger update)', () => {
   });
 });
 
-describe('authorizedCallback — FR-AUTH-006/D58: chặn /dashboard/* khi chưa đăng nhập', () => {
+describe('authorizedCallback — FR-AUTH-006/D61: chặn /dashboard/* khi chưa đăng nhập', () => {
   const session = { profile, accessToken: 'access-1', expires: '2026-12-31T00:00:00Z' } as Session;
   const run = (auth: Session | null, url: string) =>
     authorizedCallback({ auth, request: { nextUrl: new URL(url, 'http://localhost:3000') } });

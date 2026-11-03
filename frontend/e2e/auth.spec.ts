@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 /**
- * E2E luồng xác thực — CLAUDE.md mục 7 (5 luồng: register, login, …), FR-AUTH-001/002, D58.
+ * E2E luồng xác thực — CLAUDE.md mục 7 (5 luồng: register, login, …), FR-AUTH-001/002, D61.
  *
  * Rate limit /auth/* là 10 req/phút/IP (NFR-SEC-003, D15) và Next.js gọi API từ một IP, nên file
  * này giữ tổng số request auth dưới ngưỡng: chạy tuần tự, mỗi test đúng một lần đăng ký/đăng nhập.
@@ -15,7 +15,7 @@ function uniqueEmail(prefix: string): string {
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Xác thực (FR-AUTH-001/002, D58)', () => {
+test.describe('Xác thực (FR-AUTH-001/002, D61)', () => {
   const login = { email: uniqueEmail('e2e-login'), displayName: 'Người dùng E2E' };
 
   test.beforeAll(async () => {
@@ -64,7 +64,7 @@ test.describe('Xác thực (FR-AUTH-001/002, D58)', () => {
     await expect(page).toHaveURL(/\/auth\/login/);
   });
 
-  test('D58: chưa đăng nhập vào /dashboard/profile → chuyển về đăng nhập, đăng nhập xong quay lại đúng trang', async ({
+  test('D61: chưa đăng nhập vào /dashboard/profile → chuyển về đăng nhập, đăng nhập xong quay lại đúng trang', async ({
     page,
   }) => {
     await page.goto('/dashboard/profile');
@@ -79,7 +79,7 @@ test.describe('Xác thực (FR-AUTH-001/002, D58)', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Hồ sơ của tôi' })).toBeVisible();
   });
 
-  test('D58: chưa đăng nhập vào /dashboard → chuyển về /auth/login kèm callbackUrl', async ({ page }) => {
+  test('D61: chưa đăng nhập vào /dashboard → chuyển về /auth/login kèm callbackUrl', async ({ page }) => {
     await page.goto('/dashboard');
 
     await expect(page).toHaveURL(/\/auth\/login\?callbackUrl=%2Fdashboard$/);

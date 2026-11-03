@@ -53,7 +53,7 @@ export async function jwtCallback({
 }
 
 /**
- * Callback `authorized` của Auth.js — chạy trong proxy.ts cho mỗi request (FR-AUTH-006, D58).
+ * Callback `authorized` của Auth.js — chạy trong proxy.ts cho mỗi request (FR-AUTH-006, D61).
  * Chỉ chặn `/dashboard/*` (kể cả `/dashboard/profile`) khi chưa đăng nhập; phiên đã hỏng
  * (session.error, FR-AUTH-004) coi như chưa đăng nhập. Chỉ để UX — backend vẫn tự kiểm tra
  * quyền ở Application Layer (permissions.md mục 4). Kiểm tra role là việc của từng trang.

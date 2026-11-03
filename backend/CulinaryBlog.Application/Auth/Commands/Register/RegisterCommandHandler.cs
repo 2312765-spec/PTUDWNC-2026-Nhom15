@@ -38,7 +38,7 @@ public sealed class RegisterCommandHandler(
         await refreshTokenRepository.AddAsync(refreshToken, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        backgroundJobService.TryEnqueueWelcomeEmail(user.Email, user.DisplayName, logger);
+        backgroundJobService.TryEnqueueWelcomeEmail(user.UserId, user.Email, user.DisplayName, logger);
 
         var profile = new UserProfileDto(user.UserId, user.Email, user.DisplayName, user.AvatarUrl, user.Bio, user.Roles);
 
