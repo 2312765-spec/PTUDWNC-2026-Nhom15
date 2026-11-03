@@ -34,6 +34,15 @@ describe("NFR-USE-004: 404 Not Found Pages", () => {
     });
   });
 
+  it("NFR-USE-002: không lồng <main> (app/layout.tsx đã có <main id=\"main\">)", () => {
+    const recipe = render(<RecipeNotFound />);
+    expect(recipe.container.querySelector("main")).toBeNull();
+    recipe.unmount();
+
+    const category = render(<CategoryNotFound />);
+    expect(category.container.querySelector("main")).toBeNull();
+  });
+
   describe("CategoryNotFound Component", () => {
     it("render đúng tiêu đề và thông điệp tiếng Việt thân thiện", () => {
       render(<CategoryNotFound />);

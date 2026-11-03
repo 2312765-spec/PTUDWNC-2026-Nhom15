@@ -8,8 +8,9 @@ import React from "react";
 import Link from "next/link";
 
 export default function CategoryNotFound() {
+  // Không dùng <main>: app/layout.tsx đã bọc mọi trang trong <main id="main"> (NFR-USE-002).
   return (
-    <main className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-4 py-16 text-center sm:px-6">
+    <div className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-4 py-16 text-center sm:px-6">
       {/* Icon trang trí */}
       <div 
         className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-brand-50 text-brand-600 border border-brand-200"
@@ -57,6 +58,6 @@ export default function CategoryNotFound() {
           Về trang chủ
         </Link>
       </div>
-    </main>
+    </div>
   );
 }
