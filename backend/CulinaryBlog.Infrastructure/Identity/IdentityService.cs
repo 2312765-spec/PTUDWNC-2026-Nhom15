@@ -10,7 +10,6 @@ namespace CulinaryBlog.Infrastructure.Identity;
 /// </summary>
 public sealed class IdentityService(UserManager<ApplicationUser> userManager) : IIdentityService
 {
-        
         public async Task<AuthenticatedUser> CreateUserAsync(
         string email,
         string password,
@@ -219,6 +218,7 @@ public sealed class IdentityService(UserManager<ApplicationUser> userManager) : 
 
         return new AuthenticatedUser(user.Id, user.Email!, user.DisplayName, user.AvatarUrl, user.Bio, [.. roles]);
     }
+
     public async Task<IReadOnlyDictionary<string, string>> GetDisplayNamesAsync(
         IEnumerable<string> userIds,
         CancellationToken ct = default)
@@ -242,26 +242,4 @@ public sealed class IdentityService(UserManager<ApplicationUser> userManager) : 
 
         return users.ToDictionary(u => u.Id, u => u.DisplayName);
     }
-
-public async Task<string?> GetUserDisplayNameAsync(
-        string userId,
-        CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(userId))
-        {
-            return null;
-        }
-
-        var user = await userManager.FindByIdAsync(userId);
-        if (user is null)
-        {
-            return null;
-        }
-
-        return !string.IsNullOrWhiteSpace(user.DisplayName)
-            ? user.DisplayName
-            : (!string.IsNullOrWhiteSpace(user.UserName) ? user.UserName : null);
-    }
-    
-   
 }

@@ -9,7 +9,7 @@ public sealed record ResizedImageSet(byte[] Medium, byte[] Thumbnail);
 /// </summary>
 public interface IImageResizer
 {
-    const string OutputContentType = "image/webp";
+    public const string OutputContentType = "image/webp";
 
     /// <summary>
     /// Trả <c>null</c> khi không xử lý được và thử lại cũng vô ích: định dạng không decode được

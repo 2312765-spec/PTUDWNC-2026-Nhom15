@@ -1,3 +1,4 @@
+using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Application.Recipes.Queries.SearchRecipes;
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Enums;
@@ -5,14 +6,13 @@ using CulinaryBlog.Domain.Interfaces;
 using FluentAssertions;
 using NSubstitute;
 using Xunit;
-using CulinaryBlog.Application.Common.Interfaces;
 
 namespace CulinaryBlog.UnitTests.Recipes;
 
 public sealed class SearchRecipesTests
 {
     private readonly SearchRecipesQueryValidator _validator = new();
-    
+
     [Theory(DisplayName = "FR-SRCH-001/D4: Từ khóa rỗng hoặc < 2 ký tự → 400 VALIDATION_ERROR")]
     [InlineData("")]
     [InlineData(" ")]
@@ -56,13 +56,12 @@ public sealed class SearchRecipesTests
     public async Task Handler_KeepsRankOrderAndMapsRelevanceScore()
     {
         var repository = Substitute.For<IRecipeRepository>();
-        var identityService = Substitute.For<IIdentityService>(); 
+        var identityService = Substitute.For<IIdentityService>();
         var best = Recipe.Create(title: "Phở bò", slug: "pho-bo", status: RecipeStatus.Published);
         var other = Recipe.Create(title: "Bún bò", slug: "bun-bo", status: RecipeStatus.Published);
         IReadOnlyList<(Recipe Recipe, float Rank)> hits = [(best, 0.9f), (other, 0.2f)];
         repository.SearchPublishedRecipesAsync("pho", 1, 10, Arg.Any<CancellationToken>()).Returns((hits, 2));
 
-        
         var result = await new SearchRecipesQueryHandler(repository, identityService)
             .Handle(new SearchRecipesQuery("pho", 1, 10), CancellationToken.None);
 
@@ -71,8 +70,7 @@ public sealed class SearchRecipesTests
         result.TotalCount.Should().Be(2);
     }
 
-
-   [Fact(DisplayName = "FR-SRCH-001: map đúng tên tác giả từ IIdentityService")]
+    [Fact(DisplayName = "FR-SRCH-001: map đúng tên tác giả từ IIdentityService")]
     public async Task Handle_WhenAuthorExists_MapsAuthorNameToDto()
     {
         // Arrange
@@ -80,21 +78,20 @@ public sealed class SearchRecipesTests
         var identityService = Substitute.For<IIdentityService>();
 
         var recipe = Recipe.Create(title: "Phở bò", slug: "pho-bo", status: RecipeStatus.Published);
-        var authorKey = !string.IsNullOrWhiteSpace(recipe.AuthorId) ? recipe.AuthorId : "author-123";
 
         IReadOnlyList<(Recipe Recipe, float Rank)> hits = [(recipe, 1.0f)];
         repository.SearchPublishedRecipesAsync("pho", 1, 10, Arg.Any<CancellationToken>())
             .Returns((hits, 1));
 
         identityService.GetDisplayNamesAsync(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>())
-            .Returns(new Dictionary<string, string> { [authorKey] = "Đầu bếp Gordon" });
+            .Returns(new Dictionary<string, string> { [recipe.AuthorId] = "Đầu bếp Gordon" });
 
         var handler = new SearchRecipesQueryHandler(repository, identityService);
 
-        
+        // Act
         var result = await handler.Handle(new SearchRecipesQuery("pho", 1, 10), CancellationToken.None);
 
-        // Assert (sử dụng FluentAssertions như các test khác trong file)
+        // Assert
         result.Items.Should().HaveCount(1);
         result.Items[0].AuthorName.Should().Be("Đầu bếp Gordon");
     }
@@ -145,5 +142,4 @@ public sealed class SearchRecipesTests
         result.Items.Should().BeEmpty();
         await identityService.DidNotReceive().GetDisplayNamesAsync(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>());
     }
-    
 }
