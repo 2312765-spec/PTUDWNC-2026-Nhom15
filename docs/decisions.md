@@ -73,6 +73,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D55 | Enqueue welcome email lỗi (FR-JOB-001) | **Log Warning, không fail request** — register/Google login vẫn trả token |
 | D56 | Ai nhận welcome email | Đăng ký (FR-AUTH-001) **và** tài khoản Google **mới** (FR-AUTH-003) · Google liên kết tài khoản có sẵn → không gửi |
 | D57 | Nội dung & cấu hình welcome email | Link `/` + `/dashboard` từ `Seo:SiteBaseUrl` (thiếu → job lỗi) · HTML-encode `displayName` · multipart HTML + text · SMTP auth khi có `Smtp:Username` |
+| D58 | Route trang hồ sơ & chặn route chưa đăng nhập (FR-AUTH-006/007) | Trang hồ sơ ở **`/dashboard/profile`**, không có `/profile` · `proxy.ts` chặn `/dashboard/*` khi chưa đăng nhập → `/auth/login?callbackUrl=<đường dẫn nội bộ>` · chỉ để UX, backend vẫn tự kiểm tra |
 
 ---
 
@@ -1528,6 +1529,31 @@ lại → **không** gửi.
 lẫn SMTP production mà không đổi code.
 
 **Sửa SRS:** FR-JOB-001 — "link về trang chủ và `/dashboard`, gốc URL theo cấu hình site".
+
+---
+
+## D58 — FR-AUTH-006/007: route trang hồ sơ và chặn route chưa đăng nhập
+
+> 2026-11-03. Xem `docs/plans/lab08-ke-hoach-chinh-sua-cac-lab.md` (Việc 2).
+
+**Nguồn:** SRS mục 5.1 liệt kê trang `/profile` (CSR, bắt buộc đăng nhập); `permissions.md`,
+`team-assignment.md`, `roadmap.md` chép theo. Code thực tế (FR-AUTH-006/007) đặt trang ở
+`/dashboard/profile`, nằm trong nhóm `/dashboard/*` mà SRS 5.1 cũng ghi là CSR. Thêm vào đó,
+`proxy.ts` chỉ refresh token, chưa có gì chặn người chưa đăng nhập vào `/dashboard/*`.
+
+**Chốt:**
+
+1. Trang hồ sơ ở **`/dashboard/profile`**. Không tạo `/profile` (kể cả redirect).
+2. Callback `authorized` của Auth.js (`lib/auth/callbacks.ts`), chạy trong `proxy.ts`: chưa
+   đăng nhập hoặc phiên hỏng (`session.error`) vào `/dashboard` hoặc `/dashboard/*` → redirect 307
+   `/auth/login?callbackUrl=<pathname+search>`. Chỉ nhận đường dẫn nội bộ (`safeCallbackUrl`).
+3. Chỉ kiểm tra "đã đăng nhập chưa". Kiểm tra role (Author/Admin/Owner) là việc của từng trang,
+   và backend vẫn là nơi chặn thật (NFR-SEC-006).
+
+**Vì:** giữ mọi trang cần đăng nhập dưới một tiền tố để một quy tắc chặn là đủ; không đổi code đã
+chạy và có test (header, dashboard, FR-AUTH-006/007 đều đang trỏ `/dashboard/profile`).
+
+**Sửa SRS:** mục 5.1 — đổi `/profile` thành `/dashboard/profile`.
 
 ---
 

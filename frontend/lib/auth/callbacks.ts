@@ -53,6 +53,32 @@ export async function jwtCallback({
 }
 
 /**
+ * Callback `authorized` của Auth.js — chạy trong proxy.ts cho mỗi request (FR-AUTH-006, D58).
+ * Chỉ chặn `/dashboard/*` (kể cả `/dashboard/profile`) khi chưa đăng nhập; phiên đã hỏng
+ * (session.error, FR-AUTH-004) coi như chưa đăng nhập. Chỉ để UX — backend vẫn tự kiểm tra
+ * quyền ở Application Layer (permissions.md mục 4). Kiểm tra role là việc của từng trang.
+ *
+ * Tự dựng redirect thay vì trả `false`: Auth.js sẽ gắn callbackUrl là URL tuyệt đối, mà
+ * `safeCallbackUrl` chỉ nhận đường dẫn nội bộ nên sẽ bỏ nó và quay về /dashboard.
+ */
+export function authorizedCallback({
+  auth,
+  request,
+}: {
+  auth: Session | null;
+  request: { nextUrl: URL };
+}): boolean | Response {
+  const { pathname, search } = request.nextUrl;
+  const isProtected = pathname === '/dashboard' || pathname.startsWith('/dashboard/');
+  if (!isProtected) return true;
+  if (auth?.profile && !auth.error) return true;
+
+  const loginUrl = new URL('/auth/login', request.nextUrl);
+  loginUrl.searchParams.set('callbackUrl', `${pathname}${search}`);
+  return Response.redirect(loginUrl, 307);
+}
+
+/**
  * Callback `session` — thứ duy nhất client nhìn thấy. NFR-SEC-002: refreshToken chỉ ở trong
  * JWT cookie (httpOnly, mã hóa), không bao giờ chép sang Session.
  */
