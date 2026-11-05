@@ -28,9 +28,17 @@ Theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và [SemVer](https
   qua `components/seo/RecipeJsonLd.tsx`; meta description 150–160 ký tự, canonical, Open Graph, Twitter
   `summary_large_image`; og:image 1200×630 sinh tại `/recipes/{slug}/og-image` (ảnh chính hoặc thẻ chữ);
   `metadataBase` = `NEXT_PUBLIC_SITE_URL`; canonical không query param; `/search` `noindex` (D61).
+- NFR-PERF-005: Lighthouse CI (`frontend/lighthouserc.json`, `npm run lhci`, job CI `lighthouse`) đo 6 trang
+  public, preset mobile, trung vị 3 lần: LCP ≤ 2500ms, CLS ≤ 0.1, TBT ≤ 200ms (thay INP), JS ≤ 200KB (D64).
+
+### Changed
+- NFR-PERF-005: JS mỗi trang public giảm 20KB — axios không còn bị tải trên trang public
+  (`lib/problem-details.ts`). Bỏ skeleton `loading.tsx` của `/` và `/categories` (làm trễ LCP — D64.6).
+- FR-CAT-005: nút xóa danh mục trên `/categories` chỉ hiện với Admin (trước đây hiện cả với Guest).
 
 ### Fixed
 - NFR-SEO-002: title trang chi tiết công thức bị lặp đuôi `| Culinary Blog | Culinary Blog`.
+- FR-CAT-001: `/categories` thành SSR khi build image production không có API — nay giữ ISR 3600.
 
 ### Security
 - NFR-SEC-007: bỏ `Jwt:Key` khỏi `appsettings.json` và khóa dự phòng hardcode trong `Program.cs`. API dừng

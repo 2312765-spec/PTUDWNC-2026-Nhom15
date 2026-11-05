@@ -126,6 +126,21 @@ JS giảm đúng 20KB mọi trang (số đo xác định, không phụ thuộc m
 (CPU laptop chênh > 2 lần trong cùng phiên; container gần như 0% CPU), TBT cùng một trang lệch
 132 ↔ 399ms. Máy local không đủ ổn định để kết luận ngưỡng ±200ms → cần số đo trên runner CI.
 
+### Đo trên CI (runner `ubuntu-latest`)
+
+| Lần | Commit | Kết quả |
+|---|---|---|
+| 1 | `2d35f54` | Không đo được — pull `quay.io/minio/minio` bị `unauthorized` → đổi sang `adobe/s3mock` (`58c2707`) |
+| 2 | `58c2707` | 5/6 đạt; `/` LCP **2569ms** (> 2500) |
+| 3 | `0e7bc5a` | **6/6 đạt cả 4 assert** (run 42028354689) — sau tối ưu 2 |
+
+### Tối ưu 2 — bỏ `loading.tsx` của trang ISR (D64.6)
+
+HTML prerender của `/` chứa skeleton (`<template id="B:0">`, 109 `animate-pulse`); nội dung thật
+nằm trong `<div hidden id="S:0">`, tráo vào bằng `$RC` (React gom ~300ms) → `h1` (phần tử LCP) vẽ sau
+JS. Bỏ `app/(home)/loading.tsx` và `app/categories/(list)/loading.tsx`; build lại: HTML tĩnh hai
+trang không còn ranh giới Suspense.
+
 ### Phụ: `/categories` ISR khi build không có API
 
 `next build` không có API (image prod) làm `/categories` thành ƒ (SSR) vì `noStore()`. Sửa: lúc
