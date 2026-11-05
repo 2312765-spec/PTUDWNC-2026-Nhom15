@@ -131,6 +131,10 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 builder.Services.AddHsts(options => options.MaxAge = TimeSpan.FromDays(365));
 
+// D67 — mặc định chỉ Development ném BadHttpRequestException; Testing/Production trả 400 rỗng.
+// Bật mọi môi trường để GlobalExceptionMiddleware trả RFC 7807 thống nhất (CONS-005), vd. 413 FILE_SIZE_EXCEEDED.
+builder.Services.Configure<RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
+
 // ---- OpenAPI / Scalar (NFR-MAINT-003) ------------------------------------
 builder.Services.AddOpenApi(options =>
 {
@@ -200,6 +204,9 @@ if (args.Contains(DatabaseMigrationExtensions.MigrateOnlyArgument))
 
 // 0. Scheme/IP gốc từ Nginx — phải trước mọi middleware đọc Request.Scheme/RemoteIpAddress (D60)
 app.UseForwardedHeaders();
+
+// 0b. CSP cho mọi response API, kể cả response lỗi (NFR-SEC-004/D68)
+app.UseMiddleware<SecurityHeadersMiddleware>();
 
 // 1. CorrelationId
 app.UseMiddleware<CorrelationIdMiddleware>();
