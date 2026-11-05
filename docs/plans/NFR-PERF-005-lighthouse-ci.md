@@ -67,6 +67,9 @@ hiện tại (backend Development chạy sẵn) → ghi số đo nền vào mụ
 - Job CI dựng cả backend → thêm ~6–10 phút.
 - Điểm Lighthouse trên runner dao động → 3 lần chạy, trung vị.
 - API Development cần secret `Jwt:Key` (`JwtKeyGuard`) → đặt biến môi trường khóa giả trong job CI.
+- **Đã gặp (CI lần 1):** pull `quay.io/minio/minio` → `unauthorized` (MinIO khóa pull ẩn danh, xem
+  ghi chú FR-FILE trong `traceability.md`). Job dùng `adobe/s3mock:5.2.3` ở cổng 9000 thay MinIO —
+  cùng lựa chọn với `IntegrationTests/Common/S3MockContainer.cs`.
 
 ## 8. Kết quả đo
 
