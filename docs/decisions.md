@@ -1759,7 +1759,7 @@ manifest"; `minio/minio` trên Docker Hub trả "unauthorized". Máy dev clone m
    khớp ảnh public D16. Không có console web.
 2. **Code không đổi.** `MinioFileStorageService` chỉ dùng S3 API chuẩn (AWSSDK.S3, path-style) —
    tên lớp và khóa cấu hình `Minio:*` giữ nguyên.
-3. **Prod (`docker-compose.prod.yml`) chưa đổi** — vẫn MinIO pin digest + `MINIO_IMAGE`/`docker load`
+3. **(Đã đóng bởi D66 — prod dùng RustFS.)** **Prod (`docker-compose.prod.yml`) chưa đổi** — vẫn MinIO pin digest + `MINIO_IMAGE`/`docker load`
    (`docs/deployment.md` mục 3). **Rủi ro mở:** server mới không pull được image; cần quyết định thay
    thế cho prod (ứng viên còn pull tự do: RustFS, SeaweedFS) ở việc riêng. S3Mock **không** dùng cho prod
    (không phân quyền, không thiết kế cho dữ liệu thật).
@@ -1769,6 +1769,35 @@ tách quyết định prod (cần thử kỹ) khỏi việc gỡ chặn dev.
 
 **Sửa SRS:** §6.5 — ghi chú môi trường dev/test dùng S3-compatible mock; MinIO (hoặc thay thế S3
 tương thích) cho production.
+
+---
+
+## D66 — CONS-009: S3 production = RustFS (đóng D65.3)
+
+> 2026-11-05. Plan: `plans/CONS-009-prod-rustfs.md`.
+
+**Nguồn:** D65.3 — server mới không dựng được `docker-compose.prod.yml` vì image MinIO (kể cả digest
+ghim) đã bị gỡ; cách `docker load` chỉ chạy khi còn máy giữ cache. Kiểm 2026-11-05: nhóm **chưa có**
+server prod thật (`SITE_DOMAIN=culinary.localhost`, không có workflow deploy) → không có dữ liệu cần chuyển.
+
+**Chốt:**
+
+1. **Service `minio` của prod chạy `rustfs/rustfs:1.0.3`** (bản 1.0 chính thức, 17/10/2026; ghi đè qua
+   `S3_IMAGE`). Giữ tên service + cổng 9000 → `nginx.prod.conf`, `Minio__Endpoint` không đổi; khóa vẫn
+   lấy từ `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` → `.env.production` cũ dùng được. Volume mới `s3data`.
+2. **`minio-init` = `amazon/aws-cli:2.38.0`** (thay `mc`, cũng bị gỡ): `head-bucket || create-bucket`
+   rồi `put-bucket-policy` **chỉ `s3:GetObject` cho `*`** — đúng D16 (ảnh public), chạy lại không lỗi.
+3. Chọn RustFS thay SeaweedFS: RustFS thay thẳng MinIO (S3 API, bucket policy chuẩn, `/health`),
+   SeaweedFS cấu hình quyền ẩn danh bằng file identity riêng. `adobe/s3mock` chỉ cho dev/test (D65).
+
+**Kiểm chứng:** RustFS + aws-cli độc lập (GET ẩn danh 200, PUT/LIST ẩn danh 403, còn sau restart);
+stack prod trên máy: `scripts/verify-prod.sh` bước 1–8 đạt (gồm 2 kiểm tra mới: PUT và LIST ẩn danh qua
+Nginx → 403), API `/health` Healthy, job sitemap ghi `seo/sitemap.xml` vào RustFS qua
+`MinioFileStorageService` và Nginx đọc lại 200.
+
+**Vì:** server mới dựng được chỉ bằng image công khai; giữ nguyên code và cấu hình Nginx/API.
+
+**Sửa SRS:** §6.5 — object storage production "S3 tương thích (RustFS)" thay "MinIO".
 
 ---
 
