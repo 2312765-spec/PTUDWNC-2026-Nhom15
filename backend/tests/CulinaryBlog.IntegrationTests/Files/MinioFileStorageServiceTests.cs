@@ -77,6 +77,19 @@ public sealed class MinioFileStorageServiceTests : IAsyncLifetime
         responseStream.ToArray().Should().BeEquivalentTo(bytes);
     }
 
+    [Fact(DisplayName = "NFR-SEC-004: tên file '../../../etc/passwd' bị bỏ qua — key là {folder}/{Guid}{đuôi theo magic bytes}")]
+    public async Task UploadAsync_PathTraversalFileName_KeyIsGuidUnderFolder()
+    {
+        using var content = new MemoryStream(JpegBytes());
+
+        var url = await _sut.UploadAsync(content, "../../../etc/passwd", "image/jpeg", "recipes/test-recipe", CancellationToken.None);
+
+        ExtractKey(url).Should().MatchRegex(@"^recipes/test-recipe/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\.jpg$");
+        var keys = (await _s3.ListObjectsV2Async(new ListObjectsV2Request { BucketName = BucketName }))
+            .S3Objects?.Select(o => o.Key) ?? [];
+        keys.Should().NotContain(k => k.Contains("passwd") || k.Contains(".."));
+    }
+
     [Fact(DisplayName = "FR-JOB-002: DownloadAsync tải đúng nội dung object đã upload lên MinIO")]
     public async Task DownloadAsync_UploadedObject_ReturnsSameBytes()
     {
