@@ -1,5 +1,6 @@
 import type { JWT } from 'next-auth/jwt';
 import { logout } from '@/lib/auth/api';
+import { getClientIp } from '@/lib/auth/client-ip';
 import { isAccessTokenExpiring, refreshAccessToken } from '@/lib/auth/refresh';
 
 /**
@@ -22,7 +23,7 @@ export async function revokeRefreshToken(token: JWT): Promise<void> {
     }
 
     if (!current.accessToken || !current.refreshToken) return;
-    await logout({ refreshToken: current.refreshToken }, current.accessToken);
+    await logout({ refreshToken: current.refreshToken }, current.accessToken, await getClientIp());
   } catch (error) {
     console.warn('FR-AUTH-005: không thu hồi được refresh token ở backend.', error);
   }

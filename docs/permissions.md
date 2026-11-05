@@ -159,7 +159,7 @@ Từ SRS mục 5.1. Middleware Next.js chặn ở tầng route, backend vẫn ph
 | `/dashboard/recipes/new` | CSR | Author/Admin | → `/auth/login` |
 | `/dashboard/recipes/[id]/edit` | CSR | **Owner** hoặc Admin | → `/403` |
 | `/dashboard/categories` | CSR | **Admin** | → `/403` |
-| `/profile` | CSR | Đăng nhập | → `/auth/login` |
+| `/dashboard/profile` | CSR | Đăng nhập | → `/auth/login?callbackUrl=` (D62) |
 
 > **Không tin frontend.** Middleware Next.js chỉ để UX. Mọi kiểm tra quyền thật
 > nằm ở backend Application Layer.

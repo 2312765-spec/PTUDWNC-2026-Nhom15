@@ -5,7 +5,8 @@
  * render, backend đã rotation mà RT mới không được lưu → lần sau gửi RT cũ → reuse detection
  * (D35) đăng xuất người dùng khỏi mọi thiết bị. Chạy ở đây thì cookie mới đi kèm response.
  *
- * Chỉ lo refresh — KHÔNG chặn route (bảo vệ /dashboard, /profile là việc riêng).
+ * FR-AUTH-006/D62 — callback `authorized` (lib/auth/callbacks.ts) cũng chạy ở đây để chặn
+ * /dashboard/* khi chưa đăng nhập. Chỉ để UX, backend vẫn tự kiểm tra quyền.
  */
 export { auth as proxy } from '@/auth';
 

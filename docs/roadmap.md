@@ -107,7 +107,7 @@ warning · architecture test pass · ném thử `ValidationException` ra endpoin
   `RevokedAt != null` → revoke cả token family + log WARNING + 401.
 - Kiểm tra `IsActive == false` → 403 `AUTH_ACCOUNT_DISABLED` ở cả login và refresh (D11).
 - Lockout 5 lần / 15 phút → **423 `AUTH_ACCOUNT_LOCKED`** (D17).
-- Frontend: `/auth/login`, `/auth/register`, `/profile`, Auth.js v5 session,
+- Frontend: `/auth/login`, `/auth/register`, `/dashboard/profile` (D62), Auth.js v5 session,
   axios interceptor tự refresh khi 401.
 
 **Xong khi:** đăng ký → nhận token · đăng nhập → nhận token · access token hết hạn →

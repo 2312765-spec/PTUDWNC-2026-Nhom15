@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from 'axios';
 import { apiClient } from '@/lib/api-client';
 import type { AuthResponse, UserProfile } from '@/lib/types';
 
@@ -16,13 +17,25 @@ function serverBaseUrl(): string | undefined {
   return typeof window === 'undefined' ? process.env.API_INTERNAL_URL : undefined;
 }
 
-/** FR-AUTH-001 — 201 trả AuthResponseDto đầy đủ (D24, auto-login). */
-export async function register(body: RegisterRequest): Promise<AuthResponse> {
+/**
+ * Config axios cho lời gọi từ server. NFR-SEC-003/D63: `clientIp` (lib/auth/client-ip.ts) đi
+ * vào X-Forwarded-For để API rate limit theo người dùng, không theo IP container frontend.
+ */
+function serverConfig(clientIp?: string): AxiosRequestConfig | undefined {
   const baseURL = serverBaseUrl();
+  if (!baseURL && !clientIp) return undefined;
+  return {
+    ...(baseURL ? { baseURL } : {}),
+    ...(clientIp ? { headers: { 'X-Forwarded-For': clientIp } } : {}),
+  };
+}
+
+/** FR-AUTH-001 — 201 trả AuthResponseDto đầy đủ (D24, auto-login). */
+export async function register(body: RegisterRequest, clientIp?: string): Promise<AuthResponse> {
   const { data } = await apiClient.post<AuthResponse>(
     '/auth/register',
     body,
-    baseURL ? { baseURL } : undefined,
+    serverConfig(clientIp),
   );
   return data;
 }
@@ -34,13 +47,8 @@ export interface LoginRequest {
 }
 
 /** FR-AUTH-002 — 200 trả AuthResponseDto, cùng shape với register (D24). */
-export async function login(body: LoginRequest): Promise<AuthResponse> {
-  const baseURL = serverBaseUrl();
-  const { data } = await apiClient.post<AuthResponse>(
-    '/auth/login',
-    body,
-    baseURL ? { baseURL } : undefined,
-  );
+export async function login(body: LoginRequest, clientIp?: string): Promise<AuthResponse> {
+  const { data } = await apiClient.post<AuthResponse>('/auth/login', body, serverConfig(clientIp));
   return data;
 }
 
@@ -50,13 +58,11 @@ export interface GoogleLoginRequest {
 }
 
 /** FR-AUTH-003 — 200 trả AuthResponseDto, cùng shape với register/login (D24). */
-export async function googleLogin(body: GoogleLoginRequest): Promise<AuthResponse> {
-  const baseURL = serverBaseUrl();
-  const { data } = await apiClient.post<AuthResponse>(
-    '/auth/google',
-    body,
-    baseURL ? { baseURL } : undefined,
-  );
+export async function googleLogin(
+  body: GoogleLoginRequest,
+  clientIp?: string,
+): Promise<AuthResponse> {
+  const { data } = await apiClient.post<AuthResponse>('/auth/google', body, serverConfig(clientIp));
   return data;
 }
 
@@ -69,12 +75,11 @@ export interface RefreshRequest {
  * FR-AUTH-004 — 200 trả AuthResponseDto với cặp token MỚI (D24, rotation). RT cũ bị thu hồi
  * ngay; gửi lại RT cũ sẽ kích hoạt reuse detection (D35) — gọi qua refreshAccessToken().
  */
-export async function refresh(body: RefreshRequest): Promise<AuthResponse> {
-  const baseURL = serverBaseUrl();
+export async function refresh(body: RefreshRequest, clientIp?: string): Promise<AuthResponse> {
   const { data } = await apiClient.post<AuthResponse>(
     '/auth/refresh',
     body,
-    baseURL ? { baseURL } : undefined,
+    serverConfig(clientIp),
   );
   return data;
 }
@@ -88,11 +93,15 @@ export interface LogoutRequest {
  * FR-AUTH-005 — 204 No Content. Endpoint yêu cầu access token hợp lệ (D47-1) và idempotent:
  * token không tồn tại / của user khác / đã revoke vẫn trả 204.
  */
-export async function logout(body: LogoutRequest, accessToken: string): Promise<void> {
-  const baseURL = serverBaseUrl();
+export async function logout(
+  body: LogoutRequest,
+  accessToken: string,
+  clientIp?: string,
+): Promise<void> {
+  const config = serverConfig(clientIp);
   await apiClient.post('/auth/logout', body, {
-    ...(baseURL ? { baseURL } : {}),
-    headers: { Authorization: `Bearer ${accessToken}` },
+    ...config,
+    headers: { ...config?.headers, Authorization: `Bearer ${accessToken}` },
   });
 }
 

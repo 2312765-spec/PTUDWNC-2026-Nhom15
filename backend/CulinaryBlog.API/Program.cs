@@ -110,6 +110,17 @@ builder.Services.AddCors(options => options.AddPolicy(CorsPolicy, policy => poli
     .WithHeaders("Content-Type", "Authorization", "X-Correlation-ID", "If-Match")
     .AllowCredentials()));
 
+// ---- Rate limiting (NFR-SEC-003, D15) ---------------------------------------
+// Testing mặc định tắt (RateLimiting:Enabled) để các test khác không chạm giới hạn của nhau.
+// IP máy khách do UseForwardedHeaders bên dưới (D60) cung cấp — không có nó thì sau Nginx cả site chung một bộ đếm.
+var rateLimiting = builder.Configuration.GetSection(RateLimitingOptions.SectionName).Get<RateLimitingOptions>()
+                   ?? new RateLimitingOptions();
+var rateLimitingEnabled = rateLimiting.IsEnabled(builder.Environment);
+if (rateLimitingEnabled)
+{
+    builder.Services.AddAppRateLimiting(rateLimiting);
+}
+
 // ---- Sau Nginx (CONS-009/D60, NFR-SEC-005) ---------------------------------
 // Prod chỉ Nginx nhận kết nối từ ngoài, nên tin mọi proxy: IP của Nginx trong mạng Docker không cố định.
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -211,6 +222,12 @@ else
 }
 
 app.UseCors(CorsPolicy);
+
+// NFR-SEC-003/D15 — sau CORS để 429 vẫn có header CORS; trước xác thực để chặn brute force sớm.
+if (rateLimitingEnabled)
+{
+    app.UseMiddleware<RateLimitingMiddleware>();
+}
 
 app.UseAuthentication();
 

@@ -3,7 +3,7 @@
  */
 import type { Session, User } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
-import { jwtCallback, sessionCallback } from '@/lib/auth/callbacks';
+import { authorizedCallback, jwtCallback, sessionCallback } from '@/lib/auth/callbacks';
 import { isAccessTokenExpiring, refreshAccessToken } from '@/lib/auth/refresh';
 
 jest.mock('@/lib/auth/refresh', () => ({
@@ -153,5 +153,53 @@ describe('jwtCallback — FR-AUTH-007 (trigger update)', () => {
     const result = await jwtCallback({ token: {}, trigger: 'update', session: { profile: { displayName: 'Ma' } } });
 
     expect(result.profile).toBeUndefined();
+  });
+});
+
+describe('authorizedCallback — FR-AUTH-006/D62: chặn /dashboard/* khi chưa đăng nhập', () => {
+  const session = { profile, accessToken: 'access-1', expires: '2026-12-31T00:00:00Z' } as Session;
+  const run = (auth: Session | null, url: string) =>
+    authorizedCallback({ auth, request: { nextUrl: new URL(url, 'http://localhost:3000') } });
+
+  it.each(['/', '/recipes', '/recipes/pho-bo', '/categories', '/search', '/auth/login', '/auth/register'])(
+    'FR-AUTH-006: trang công khai %s → cho qua dù chưa đăng nhập',
+    (path) => {
+      expect(run(null, path)).toBe(true);
+    },
+  );
+
+  it.each(['/dashboard', '/dashboard/profile', '/dashboard/recipes/new', '/dashboard/categories'])(
+    'FR-AUTH-006: đã đăng nhập → %s cho qua',
+    (path) => {
+      expect(run(session, path)).toBe(true);
+    },
+  );
+
+  it('FR-AUTH-006: chưa đăng nhập vào /dashboard/profile → redirect /auth/login kèm callbackUrl nội bộ', () => {
+    const result = run(null, '/dashboard/profile?tab=edit');
+
+    expect(result).toBeInstanceOf(Response);
+    const res = result as Response;
+    expect(res.status).toBe(307);
+    const location = new URL(res.headers.get('location') as string);
+    expect(location.pathname).toBe('/auth/login');
+    expect(location.searchParams.get('callbackUrl')).toBe('/dashboard/profile?tab=edit');
+  });
+
+  it('FR-AUTH-004/006: phiên đã hỏng (session.error) coi như chưa đăng nhập → redirect', () => {
+    const result = run({ ...session, error: 'RefreshTokenError' } as Session, '/dashboard');
+
+    expect(result).toBeInstanceOf(Response);
+    expect((result as Response).status).toBe(307);
+  });
+
+  it('FR-AUTH-006: không có profile trong phiên → redirect', () => {
+    const result = run({ expires: '2026-12-31T00:00:00Z' } as Session, '/dashboard/profile');
+
+    expect(result).toBeInstanceOf(Response);
+  });
+
+  it('FR-AUTH-006: đường dẫn chỉ giống tiền tố (/dashboardx) không bị coi là /dashboard', () => {
+    expect(run(null, '/dashboardx')).toBe(true);
   });
 });

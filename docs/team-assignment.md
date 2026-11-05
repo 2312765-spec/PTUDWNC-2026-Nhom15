@@ -35,17 +35,17 @@ hoặc chỉ làm frontend.
 | Backend | Frontend |
 |---|---|
 | `ApplicationUser` + `RefreshToken` entity | `/auth/login`, `/auth/register` |
-| ASP.NET Core Identity, seed role + Admin | `/profile` — xem/sửa hồ sơ |
+| ASP.NET Core Identity, seed role + Admin | `/dashboard/profile` — xem/sửa hồ sơ (D62) |
 | `JwtService` — AT 15p HS256, RT 128-bit SHA-256 hash | Auth.js v5 session provider |
 | Token rotation + **reuse detection** (revoke cả family) | Axios interceptor tự refresh khi 401 |
 | Google OAuth — verify ID Token, **liên kết** email trùng | Nút "Đăng nhập với Google" |
-| Lockout 5 lần/15 phút → 423 | Middleware bảo vệ route `/dashboard`, `/profile` |
+| Lockout 5 lần/15 phút → 423 | Middleware bảo vệ route `/dashboard/*` (gồm `/dashboard/profile`, D62) |
 | `IEmailService` + `WelcomeEmailJob` (Hangfire) | Form validation với React Hook Form + Zod |
 | **Rate limiting, CORS, HSTS, secrets** (S12) | |
 
 **Sở hữu file:** `Application/Auth/**` · `Infrastructure/Identity/**`, `Infrastructure/Jwt/**`,
 `Infrastructure/Email/**` · `API/Endpoints/AuthEndpoints.cs` ·
-`frontend/app/auth/**`, `frontend/app/profile/**`, `frontend/lib/auth.ts`
+`frontend/app/auth/**`, `frontend/app/dashboard/profile/**`, `frontend/lib/auth.ts`
 
 **Bốn bẫy dễ sập:**
 1. Message đăng nhập sai phải **generic** — lộ "email này chưa đăng ký" là lỗ hổng User Enumeration.
@@ -176,7 +176,7 @@ hoặc chỉ làm frontend.
 
 | Người | Việc |
 |---|---|
-| **A** | S2 — Identity, JWT, refresh rotation + reuse detection, 6 endpoint + `/auth/login`, `/auth/register`, `/profile` |
+| **A** | S2 — Identity, JWT, refresh rotation + reuse detection, 6 endpoint + `/auth/login`, `/auth/register`, `/dashboard/profile` |
 | **B** | S3 — Category CRUD + `SlugHelper` + **`CachingBehavior`/`CacheInvalidationBehavior`** + `/categories`, `/categories/[slug]`, `/dashboard/categories` |
 | **C** | **Domain layer trước:** `Recipe.Create/Update/Publish/Archive` + unit test đầy đủ (không cần DB, không cần auth) → rồi `CreateRecipeCommand`, `UpdateRecipeCommand`, `RecipeAuthorizationHandler` |
 | **D** | S8 backend — `IFileStorageService`, `MinioFileStorageService`, validation 3 lớp, 3 endpoint ảnh |

@@ -1,6 +1,7 @@
 import { AxiosError } from 'axios';
 import type { JWT } from 'next-auth/jwt';
 import { refresh } from '@/lib/auth/api';
+import { getClientIp } from '@/lib/auth/client-ip';
 import type { AuthResponse } from '@/lib/types';
 
 /** Refresh sớm hơn hạn thật một chút — tránh token hết hạn giữa đường tới backend. */
@@ -48,14 +49,14 @@ function pruneExpired(now: number): void {
 }
 
 /** Gộp các lần refresh trùng RT: cùng một promise khi đang chạy và trong REFRESH_RESULT_TTL_MS sau đó. */
-function refreshOnce(refreshToken: string): Promise<AuthResponse> {
+function refreshOnce(refreshToken: string, clientIp: string | undefined): Promise<AuthResponse> {
   pruneExpired(Date.now());
 
   const existing = cache.get(refreshToken);
   if (existing) return existing.promise;
 
   const entry: RefreshEntry = {
-    promise: refresh({ refreshToken }).then(
+    promise: refresh({ refreshToken }, clientIp).then(
       (response) => {
         entry.settledAt = Date.now();
         return response;
@@ -91,7 +92,8 @@ export async function refreshAccessToken(token: JWT): Promise<JWT> {
   }
 
   try {
-    const response = await refreshOnce(token.refreshToken);
+    // D63: refresh chạy trong proxy.ts — IP người dùng để API không gộp mọi phiên vào một bộ đếm.
+    const response = await refreshOnce(token.refreshToken, await getClientIp());
     return {
       ...token,
       profile: response.user,
