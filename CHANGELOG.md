@@ -15,6 +15,21 @@ Theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và [SemVer](https
 - Architecture test kiểm tra Dependency Rule (CONS-001).
 - Tài liệu: `docs/decisions.md` (22 quyết định chốt mâu thuẫn SRS), `traceability.md`,
   `permissions.md`, `roadmap.md`, `team-assignment.md`.
+- FR-RCP-008: quản lý ảnh công thức — 3 endpoint `POST /recipes/{id}/images` (multipart),
+  `PATCH .../images/{imageId}` (`altText`, `isPrimary`, `orderIndex`), `DELETE .../images/{imageId}` (D22, D27).
+  Ảnh đầu tiên tự động primary; xóa ảnh primary thì ảnh kế lên thay. Validation size → MIME → magic bytes
+  (JPEG/PNG/WebP/AVIF, D28); upload/đổi primary đồng thời an toàn (khóa dòng Recipe). Frontend: component
+  upload + thanh tiến độ, gallery kéo-thả sắp xếp (cả bàn phím), đặt ảnh chính, xóa (`components/upload/`).
+- FR-FILE-001/002: `IFileStorageService` + `MinioFileStorageService` (AWSSDK.S3, path-style) — key
+  `recipes/{recipeId}/{Guid}{đuôi theo magic bytes}`, bucket đọc công khai (D16). Xóa ảnh xóa file qua Hangfire
+  (gồm cả biến thể medium/thumbnail — D43), idempotent; xóa recipe là soft delete, không xóa file (D1).
+- FR-JOB-002: `ResizeRecipeImageJob` (Hangfire, retry 3 lần) sinh biến thể WebP medium 800×600 và thumbnail
+  300×300 bằng SkiaSharp sau upload (D40–D46): không phóng to, bỏ EXIF, giới hạn 40 megapixel.
+- FR-OBS-001: health check `/health` (Postgres + Redis + S3), `/health/live`, `/health/ready` (Postgres + Redis).
+- FR-OBS-002: Serilog structured log — `CorrelationId` (`X-Correlation-ID`), `RequestPath`, `UserId`; cảnh báo
+  request/handler chậm > 500ms; sink Console JSON + file rolling + Seq (dev).
+- FR-OBS-003 (một phần): OpenTelemetry trace (ASP.NET Core, HttpClient, Npgsql) + metric HTTP, export OTLP khi
+  có endpoint (D36–D38). Metric `CulinaryBlog.Recipes` (D39) chờ handler tạo/publish công thức (FR-RCP-003/005).
 - FR-JOB-003 / NFR-SEO-003: Hangfire recurring `SitemapGenerationJob` (02:00 UTC, retry 2 lần,
   `DisableConcurrentExecution`) sinh `sitemap.xml` (trang tĩnh + category + recipe Published) lên MinIO
   `seo/sitemap.xml`; Nginx phục vụ `/sitemap.xml`; `frontend/app/robots.ts`. Cấu hình mới `Seo:SiteBaseUrl`.
@@ -29,7 +44,7 @@ Theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và [SemVer](https
   `summary_large_image`; og:image 1200×630 sinh tại `/recipes/{slug}/og-image` (ảnh chính hoặc thẻ chữ);
   `metadataBase` = `NEXT_PUBLIC_SITE_URL`; canonical không query param; `/search` `noindex` (D61).
 - NFR-PERF-005: Lighthouse CI (`frontend/lighthouserc.json`, `npm run lhci`, job CI `lighthouse`) đo 6 trang
-  public, preset mobile, trung vị 3 lần: LCP ≤ 2500ms, CLS ≤ 0.1, TBT ≤ 200ms (thay INP), JS ≤ 200KB (D64).
+  public, preset mobile, trung vị 5 lần: LCP ≤ 2500ms, CLS ≤ 0.1, TBT ≤ 200ms (thay INP), JS ≤ 200KB (D64).
 
 ### Changed
 - NFR-PERF-005: JS mỗi trang public giảm 20KB — axios không còn bị tải trên trang public
@@ -44,6 +59,8 @@ Theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và [SemVer](https
 - FR-CAT-001: `/categories` thành SSR khi build image production không có API — nay giữ ISR 3600.
 - CONS-005: response lỗi của API trả `Content-Type: application/problem+json` (trước đây bị ghi đè thành
   `application/json`). Lỗi bind request (JSON hỏng, thiếu tham số) trả RFC 7807 thay vì 400 rỗng / 500 (D67).
+- CONS-009: `scripts/verify-prod.sh` bước 9 báo lỗi sai khi volume `apilogs` còn log của lần chạy trước —
+  nay kiểm thẳng image (container tạm không gắn volume).
 
 ### Security
 - NFR-SEC-004: upload ảnh giới hạn 6MB ở tầng HTTP — vượt → 413 `FILE_SIZE_EXCEEDED`, không nhận hết body (D67).

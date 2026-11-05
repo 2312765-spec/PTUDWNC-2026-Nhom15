@@ -108,7 +108,10 @@ step "9. Log file của API (FR-OBS-002)"
 logs="$(MSYS_NO_PATHCONV=1 "${COMPOSE[@]}" exec -T api bash -c 'ls /app/logs' 2>/dev/null | tr -d '\r')"
 today="culinaryblog-$(date -u +%Y%m%d).json"
 echo "$logs" | grep -qx "$today" && ok "đang ghi $today" || fail "không thấy $today trong /app/logs"
-[ "$(echo "$logs" | grep -cv "^$today$")" = "0" ] && ok "image không mang log của máy dev" || fail "có file log lạ: $(echo "$logs" | grep -v "^$today$" | tr '\n' ' ')"
+# Kiểm thẳng image (container tạm, KHÔNG gắn volume apilogs): volume giữ log các lần chạy trước là bình thường,
+# chỉ image chứa log mới là lỗi (log của máy dev lọt vào lúc build).
+baked="$(MSYS_NO_PATHCONV=1 docker run --rm --entrypoint sh culinary-blog/api:prod -c 'ls -A /app/logs 2>/dev/null' | tr -d '\r')"
+[ -z "$baked" ] && ok "image không mang log của máy dev" || fail "image chứa file log: $(echo "$baked" | tr '\n' ' ')"
 
 echo
 if [ "$FAILED" = "0" ]; then

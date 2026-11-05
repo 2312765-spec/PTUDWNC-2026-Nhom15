@@ -11,7 +11,7 @@
         "http://localhost:3000/categories/mon-khai-vi",
         "http://localhost:3000/search?q=ga"
       ],
-      "numberOfRuns": 3
+      "numberOfRuns": 5
     },
     "assert": {
       "aggregationMethod": "median-run",
