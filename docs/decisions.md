@@ -1720,7 +1720,7 @@ không có người bấm — nên **không có INP**. Next 16 cũng không còn
 2. **Bundle → `resource-summary:script:size` ≤ 204800 byte** mỗi trang: tổng JS tải qua mạng
    (transfer size, đã nén) mà Lighthouse ghi nhận khi mở trang.
 3. **Preset mobile** (mặc định Lighthouse: 4G chậm, CPU ×4) — đúng cách Google đánh giá Core Web
-   Vitals. Mỗi URL chạy 3 lần, assert theo trung vị.
+   Vitals. Mỗi URL chạy **5** lần, assert theo trung vị (ban đầu 3 — đổi theo mục 7).
 4. **Trang đo:** 6 trang public — `/`, `/recipes`, `/recipes/{slug}`, `/categories`,
    `/categories/{slug}`, `/search?q=`. Không đo `/dashboard/*` (CSR sau đăng nhập) và `/auth/*`.
 5. Báo cáo lưu filesystem + artifact CI, **không** đẩy lên `temporary-public-storage` (công khai).
@@ -1730,6 +1730,11 @@ không có người bấm — nên **không có INP**. Next 16 cũng không còn
    vẽ sau khi JS chạy. Đã bỏ `app/(home)/loading.tsx`, `app/categories/(list)/loading.tsx`. Đổi lại:
    chuyển trang client sang hai trang này không có skeleton nếu RSC chưa prefetch xong (`<Link>` prefetch
    sẵn route tĩnh nên thường tức thì). NFR-USE-004 cho trang SSR/CSR không bị ảnh hưởng.
+7. **5 lần đo mỗi URL thay vì 3** (bổ sung 2026-11-06). PR chỉ sửa tài liệu + script ops (không đụng
+   frontend) vẫn đỏ: `/search` TBT **202ms** (> 200) trên runner, trong khi cùng code frontend đã xanh ở
+   lần chạy trước — dao động đo, không phải hiệu năng giảm. Trung vị 5 lần ổn định hơn 3; **ngưỡng giữ
+   nguyên** theo SRS (không nới). Đổi lại job dài thêm ~3 phút. `/search` vẫn sát ngưỡng TBT — nếu còn
+   đỏ với 5 lần thì đó là tín hiệu thật, cần giảm việc của main thread trên trang này.
 
 **Vì:** giữ đúng ý SRS (Core Web Vitals + giới hạn JS) bằng chỉ số Lighthouse thực sự đo được;
 không đặt một assert không bao giờ có dữ liệu.

@@ -44,7 +44,7 @@ Theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và [SemVer](https
   `summary_large_image`; og:image 1200×630 sinh tại `/recipes/{slug}/og-image` (ảnh chính hoặc thẻ chữ);
   `metadataBase` = `NEXT_PUBLIC_SITE_URL`; canonical không query param; `/search` `noindex` (D61).
 - NFR-PERF-005: Lighthouse CI (`frontend/lighthouserc.json`, `npm run lhci`, job CI `lighthouse`) đo 6 trang
-  public, preset mobile, trung vị 3 lần: LCP ≤ 2500ms, CLS ≤ 0.1, TBT ≤ 200ms (thay INP), JS ≤ 200KB (D64).
+  public, preset mobile, trung vị 5 lần: LCP ≤ 2500ms, CLS ≤ 0.1, TBT ≤ 200ms (thay INP), JS ≤ 200KB (D64).
 
 ### Changed
 - NFR-PERF-005: JS mỗi trang public giảm 20KB — axios không còn bị tải trên trang public

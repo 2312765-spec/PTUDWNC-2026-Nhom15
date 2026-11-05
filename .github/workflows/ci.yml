@@ -62,7 +62,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
 
-  # NFR-PERF-005/D64 — Core Web Vitals trên 6 trang public, preset mobile, 3 lần/URL.
+  # NFR-PERF-005/D64 — Core Web Vitals trên 6 trang public, preset mobile, 5 lần/URL (D64.7).
   # Cần backend thật có seed: API chạy Development (tự migrate + DbSeeder).
   lighthouse:
     name: Lighthouse CI (NFR-PERF-005)
