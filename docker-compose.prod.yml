@@ -140,39 +140,41 @@ services:
       timeout: 3s
       retries: 5
 
-  # MinIO đã khóa pull ẩn danh trên quay.io và Docker Hub (xem traceability.md, FR-FILE). Pin theo digest
-  # để luôn ra đúng một bản; server mới cần nạp sẵn image (docker load / registry riêng) — xem README.
+  # S3 = RustFS (D66) — MinIO đã gỡ mọi image công khai, kể cả digest từng ghim (D65). Giữ tên service
+  # "minio" và cổng 9000 để nginx.prod.conf và Minio__Endpoint không đổi; khóa vẫn là MINIO_ROOT_*.
   minio:
     <<: *defaults
-    image: "${MINIO_IMAGE:-quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e}"   # RELEASE.2025-09-07T16-13-09Z
-    command: ["server", "/data"]
+    image: "${S3_IMAGE:-rustfs/rustfs:1.0.3}"
     environment:
-      MINIO_ROOT_USER: "${MINIO_ROOT_USER:?}"
-      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?}"
+      RUSTFS_ACCESS_KEY: "${MINIO_ROOT_USER:?}"
+      RUSTFS_SECRET_KEY: "${MINIO_ROOT_PASSWORD:?}"
     volumes:
-      - miniodata:/data                # NFR-REL-003: volume persistent
+      - s3data:/data                   # NFR-REL-003: volume persistent (/data của image thuộc user rustfs)
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "-fs", "http://localhost:9000/health"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Bucket public-read (D16) — chạy một lần rồi thoát.
+  # Bucket + policy chỉ cho GET ẩn danh (D16): ảnh/sitemap đọc công khai, PUT/LIST ẩn danh → 403.
+  # Dùng aws-cli thay mc (image mc của MinIO cũng bị gỡ). Chạy một lần rồi thoát; chạy lại không lỗi.
   minio-init:
     <<: *defaults
-    image: "${MC_IMAGE:-quay.io/minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727}"
+    image: amazon/aws-cli:2.38.0
     restart: "no"
     depends_on:
       minio: { condition: service_healthy }
     environment:
-      MINIO_ROOT_USER: "${MINIO_ROOT_USER:?}"
-      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?}"
+      AWS_ACCESS_KEY_ID: "${MINIO_ROOT_USER:?}"
+      AWS_SECRET_ACCESS_KEY: "${MINIO_ROOT_PASSWORD:?}"
+      AWS_DEFAULT_REGION: us-east-1
     entrypoint: ["/bin/sh", "-c"]
     command:
       - >
-        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" &&
-        mc mb --ignore-existing local/culinary-blog &&
-        mc anonymous set download local/culinary-blog
+        S3="aws --endpoint-url http://minio:9000 s3api" &&
+        { $$S3 head-bucket --bucket culinary-blog 2>/dev/null || $$S3 create-bucket --bucket culinary-blog; } &&
+        $$S3 put-bucket-policy --bucket culinary-blog --policy
+        '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":["*"]},"Action":["s3:GetObject"],"Resource":["arn:aws:s3:::culinary-blog/*"]}]}'
 
   # NFR-REL-003 — pg_dump 03:00 UTC hằng ngày, giữ BACKUP_RETENTION_DAYS ngày (mặc định 30).
   pg-backup:
@@ -203,6 +205,6 @@ networks:
 volumes:
   pgdata:
   redisdata:
-  miniodata:
+  s3data:
   pgbackups:
   apilogs:

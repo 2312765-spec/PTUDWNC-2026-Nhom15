@@ -35,6 +35,9 @@ Theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và [SemVer](https
 - NFR-PERF-005: JS mỗi trang public giảm 20KB — axios không còn bị tải trên trang public
   (`lib/problem-details.ts`). Bỏ skeleton `loading.tsx` của `/` và `/categories` (làm trễ LCP — D64.6).
 - FR-CAT-005: nút xóa danh mục trên `/categories` chỉ hiện với Admin (trước đây hiện cả với Guest).
+- CONS-009: MinIO đã gỡ mọi image công khai → S3 dev/CI dùng `adobe/s3mock` (D65), S3 production dùng
+  RustFS 1.0.3, bucket + policy chỉ-GET-ẩn-danh tạo bằng `amazon/aws-cli` (D66). Giữ tên service `minio`,
+  cổng 9000 và biến `MINIO_ROOT_*`; image ghi đè qua `S3_IMAGE` (bỏ `MINIO_IMAGE`/`MC_IMAGE`).
 
 ### Fixed
 - NFR-SEO-002: title trang chi tiết công thức bị lặp đuôi `| Culinary Blog | Culinary Blog`.

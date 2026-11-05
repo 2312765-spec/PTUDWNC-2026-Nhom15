@@ -1,7 +1,8 @@
 # Triển khai Production — `docker-compose.prod.yml`
 
 > CONS-009 · NFR-SEC-005 · NFR-SEC-007 · NFR-REL-003. Quyết định: D58 (URL ảnh), D59 (migration),
-> D60 (cổng). Kế hoạch: `docs/plans/CONS-009-docker-compose-prod.md`. Dev xem `docker-compose.yml`.
+> D60 (cổng), D66 (S3 = RustFS). Kế hoạch: `docs/plans/CONS-009-docker-compose-prod.md`,
+> `docs/plans/CONS-009-prod-rustfs.md`. Dev xem `docker-compose.yml`.
 
 ## Kiến trúc
 
@@ -14,6 +15,9 @@ Internet ──► nginx :80  ── 301 ──► :443
                └─ /                → frontend:3000
 mạng internal: postgres · redis · minio · minio-init · migrate · api · frontend · pg-backup
 ```
+
+Service `minio` chạy **RustFS** (S3 tương thích MinIO — D66); giữ tên service để Nginx và cấu hình
+`Minio:*` của API không đổi. `minio-init` (aws-cli) tạo bucket `culinary-blog` + policy chỉ cho GET ẩn danh.
 
 Chỉ `nginx` publish cổng ra host (D60). Thứ tự khởi động: postgres/redis/minio healthy →
 `minio-init` + `migrate` chạy xong → `api` healthy (`/health/ready`) → `frontend` healthy → `nginx`.
@@ -49,25 +53,23 @@ MSYS_NO_PATHCONV=1 openssl req -x509 -newkey rsa:2048 -nodes -days 30 \
 (`MSYS_NO_PATHCONV=1` chỉ cần trên Git Bash Windows.) Trình duyệt sẽ cảnh báo cert tự ký — bình thường.
 Server Next.js tin cert này qua `NODE_EXTRA_CA_CERTS` (D58).
 
-### 3. Image MinIO
+### 3. Image S3
 
-MinIO đã khóa pull ẩn danh trên cả quay.io và Docker Hub. Compose pin theo digest
-(`RELEASE.2025-09-07T16-13-09Z`). Máy đã từng pull thì dùng được luôn; server mới:
+Mặc định `rustfs/rustfs:1.0.3` và `amazon/aws-cli:2.38.0` — pull công khai, không cần chuẩn bị gì
+(MinIO đã gỡ mọi image công khai — D65/D66). Dùng registry riêng thì đặt `S3_IMAGE` trong `.env.production`.
 
-```bash
-# Trên máy đã có image
-docker save quay.io/minio/minio quay.io/minio/mc -o minio-images.tar
-# Trên server
-docker load -i minio-images.tar
-```
-
-Hoặc đẩy lên registry riêng rồi đặt `MINIO_IMAGE` / `MC_IMAGE` trong `.env.production`.
+**Chuyển ảnh từ bản cũ chạy MinIO** (chỉ khi đã có dữ liệu thật trong volume `miniodata` — kiểm
+2026-11-05 nhóm chưa có server prod): dựng stack mới (volume `s3data`), rồi trên máy còn image MinIO
+chạy MinIO cũ tạm thời với volume `miniodata` trong cùng mạng, và
+`aws s3 sync s3://culinary-blog s3://culinary-blog` từ endpoint cũ sang `http://minio:9000`
+(hai lần `aws` với `--endpoint-url` khác nhau, qua thư mục tạm). Kiểm tra số object hai bên rồi mới xóa
+volume `miniodata`.
 
 ## Chạy
 
 ```bash
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build --wait
-./scripts/verify-prod.sh          # smoke test 8 bước
+./scripts/verify-prod.sh          # smoke test 9 bước
 ```
 
 Mở `https://culinary.localhost`. Migration + 2 role (`Author`, `Admin`) do service `migrate` tạo
@@ -94,9 +96,10 @@ $P exec pg-backup sh -c '. /etc/pg-backup.env && pg_restore --clean --if-exists 
 $P start api
 ```
 
-MinIO (ảnh) nằm trong volume `miniodata` — sao lưu bằng snapshot volume hoặc `mc mirror`.
+Ảnh nằm trong volume `s3data` (RustFS) — sao lưu bằng snapshot volume hoặc
+`aws --endpoint-url http://minio:9000 s3 sync s3://culinary-blog <thư mục>` (chạy qua service `minio-init`).
 
 ## Ngoài phạm vi
 
 Tự gia hạn chứng chỉ (certbot), OTel Collector/Tempo/Prometheus (chỉ có sẵn biến
-`OTEL_EXPORTER_OTLP_ENDPOINT`), MinIO distributed, nhiều instance API, CDN, CI deploy tự động.
+`OTEL_EXPORTER_OTLP_ENDPOINT`), S3 nhiều node, nhiều instance API, CDN, CI deploy tự động.

@@ -58,35 +58,40 @@ code="$("${CURL[@]}" -o /dev/null -w '%{http_code}' -H 'Content-Type: applicatio
 
 step "7. Ảnh công khai qua Nginx (D58)"
 # Upload qua API cần recipe (FR-RCP-003, chưa có) → ghi thẳng ảnh PNG 1×1 vào bucket để kiểm tra đường đọc.
-mc_run() {
-  "${COMPOSE[@]}" run --rm -T minio-init \
-    "mc alias set local http://minio:9000 \"\$MINIO_ROOT_USER\" \"\$MINIO_ROOT_PASSWORD\" >/dev/null && $1" >/dev/null 2>&1
+# D66 — service minio-init là amazon/aws-cli (entrypoint sh -c), dùng lại để ghi/xóa ảnh thử.
+s3_run() {
+  "${COMPOSE[@]}" run --rm -T minio-init "aws --endpoint-url http://minio:9000 $1" >/dev/null 2>&1
 }
 key="verify/dot-$(date +%s).png"
 png='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
-if mc_run "echo $png | base64 -d | mc pipe --attr Content-Type=image/png local/culinary-blog/$key"; then
+if "${COMPOSE[@]}" run --rm -T minio-init \
+     "echo $png | base64 -d | aws --endpoint-url http://minio:9000 s3 cp - s3://culinary-blog/$key --content-type image/png" \
+     >/dev/null 2>&1; then
   code="$("${CURL[@]}" -o /dev/null -w '%{http_code}' "$BASE/culinary-blog/$key")"
   [ "$code" = "200" ] && ok "GET /culinary-blog/$key 200" || fail "GET ảnh công khai trả $code"
   code="$("${CURL[@]}" -o /dev/null -w '%{http_code}' -X PUT --data x "$BASE/culinary-blog/$key")"
   [ "$code" = "403" ] && ok "PUT qua Nginx bị chặn (403)" || fail "PUT trả $code (phải 403)"
+  # Policy chỉ cho s3:GetObject — không lộ danh sách file của bucket
+  code="$("${CURL[@]}" -o /dev/null -w '%{http_code}' "$BASE/culinary-blog/")"
+  [ "$code" = "403" ] && ok "LIST bucket ẩn danh bị chặn (403)" || fail "LIST bucket trả $code (phải 403)"
   # Server Next.js tải ảnh qua https://$DOMAIN → alias nginx + NODE_EXTRA_CA_CERTS + dangerouslyAllowLocalIP.
   image_url="$(printf '%s' "$BASE/culinary-blog/$key" | sed 's#:#%3A#g; s#/#%2F#g')"
   read -r code ctype < <("${CURL[@]}" -o /dev/null -w '%{http_code} %{content_type}\n' \
     "$BASE/_next/image?url=$image_url&w=64&q=75" | tr -d '\r')
   [ "$code" = "200" ] && [[ "$ctype" == image/* ]] && ok "next/image tối ưu được ảnh ($ctype)" || fail "next/image trả $code $ctype"
-  mc_run "mc rm local/culinary-blog/$key" || true
+  s3_run "s3 rm s3://culinary-blog/$key" || true
 else
-  fail "không ghi được ảnh thử vào MinIO"
+  fail "không ghi được ảnh thử vào S3"
 fi
 
 step "8. Trang web + sitemap"
 code="$("${CURL[@]}" -o /dev/null -w '%{http_code}' "$BASE/")"
 [ "$code" = "200" ] && ok "trang chủ 200" || fail "trang chủ trả $code"
-# Job sitemap chạy 02:00 UTC (FR-JOB-003) — trước lần chạy đầu MinIO trả 404 NoSuchKey (XML).
-# Chỉ kiểm tra request tới được MinIO, không bị Next.js nuốt.
+# Job sitemap chạy 02:00 UTC (FR-JOB-003) — trước lần chạy đầu S3 trả 404 NoSuchKey (XML).
+# Chỉ kiểm tra request tới được S3, không bị Next.js nuốt.
 read -r code ctype < <("${CURL[@]}" -o /dev/null -w '%{http_code} %{content_type}\n' "$BASE/sitemap.xml" | tr -d '\r')
 case "$code $ctype" in
-  "200 application/xml"*|"404 application/xml"*) ok "/sitemap.xml đi tới MinIO ($code)";;
+  "200 application/xml"*|"404 application/xml"*) ok "/sitemap.xml đi tới S3 ($code)";;
   *) fail "/sitemap.xml trả $code $ctype";;
 esac
 

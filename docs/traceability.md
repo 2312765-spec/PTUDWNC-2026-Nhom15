@@ -238,10 +238,12 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 |---|---|---|---|---|---|
 | CONS-009 | Docker hóa, Dockerfile multi-stage, `docker-compose.prod.yml` (SRS §6.5) — plan `docs/plans/CONS-009-docker-compose-prod.md`, hướng dẫn `docs/deployment.md` | `docker-compose.prod.yml` · `nginx/nginx.prod.conf` · `scripts/pg-backup.sh` · `.env.production.example` · `backend/CulinaryBlog.API/Dockerfile` · `frontend/Dockerfile` (+`output: 'standalone'`) · `API/Extensions/{DatabaseMigrationExtensions,JwtKeyGuard}.cs` · `Minio:PublicBaseUrl` trong `MinioFileStorageService` | `IntegrationTests/Common/{DatabaseMigrationTests (2), ForwardedHeadersTests (2), JwtKeyGuardTests (5)}.cs` · `Files/MinioFileStorageServiceTests.cs` (+3 D58) · `scripts/verify-prod.sh` 16/16 pass trên máy local 2026-10-21 (cert tự ký, `culinary.localhost`) | **D58, D59, D60**, D16, D36, D52 | ✅ |
 
-> **CONS-009 — lưu ý:** MinIO đã khóa pull ẩn danh → compose pin theo digest, server mới phải `docker load`
-> image hoặc dùng registry riêng (`MINIO_IMAGE`/`MC_IMAGE`). **Kiểm 2026-11-05: chính digest đó cũng đã
-> bị gỡ khỏi quay.io** — chỉ máy còn cache mới dựng được; thay thế S3 cho prod là rủi ro mở (D65.3).
-> Dev/CI đã chuyển sang `adobe/s3mock` (D65). DataProtection key của API chưa persist (cảnh báo
+> **CONS-009 — S3 (2026-11-05):** MinIO đã gỡ mọi image công khai, kể cả digest prod từng ghim. Prod
+> chuyển sang **RustFS 1.0.3** + `minio-init` bằng `amazon/aws-cli` (**D66**, plan
+> `plans/CONS-009-prod-rustfs.md`) — `verify-prod.sh` bước 1–8 đạt (thêm PUT/LIST ẩn danh → 403), job
+> sitemap ghi vào RustFS qua `MinioFileStorageService`. Dev/CI dùng `adobe/s3mock` (D65). Bước 9 của
+> `verify-prod.sh` báo "file log lạ" khi dùng lại volume `apilogs` từ lần chạy trước (log cũ nằm trong
+> volume, không phải trong image) — hạn chế của bước kiểm tra, chưa sửa. DataProtection key của API chưa persist (cảnh báo
 > khi khởi động) — chưa ảnh hưởng vì xác thực dùng JWT. Welcome email cần `SMTP_HOST`; để trống thì job lỗi và retry.
 
 ---
