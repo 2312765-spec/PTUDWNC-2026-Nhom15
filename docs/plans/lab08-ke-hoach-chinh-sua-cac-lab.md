@@ -81,18 +81,18 @@ Việc 2 và 3 theo quy trình CLAUDE.md: viết test fail trước, rồi mới
 | Việc | Kết quả |
 |---|---|
 | 1 | Unit Auth 97/97, integration Logout+Profile 55/55, build 0 warning. FR-AUTH-006 → ✅ |
-| 2 | Chốt route `/dashboard/profile` (D61). `authorizedCallback` chặn `/dashboard/*`; Jest 361/361, `tsc` + lint sạch |
+| 2 | Chốt route `/dashboard/profile` (D62). `authorizedCallback` chặn `/dashboard/*`; Jest 361/361, `tsc` + lint sạch |
 | 3 | `RateLimitingMiddleware` theo D15; `RateLimitingTests` 11/11. Thêm `UseForwardedHeaders` để đếm theo IP thật sau Nginx |
-| 4 | `e2e/auth.spec.ts` 5/5 pass trên stack thật (register, login, sai mật khẩu, 2 ca chặn route D61) |
+| 4 | `e2e/auth.spec.ts` 5/5 pass trên stack thật (register, login, sai mật khẩu, 2 ca chặn route D62) |
 | 5 | nginx HTTPS + HSTS (kiểm bằng container), `CorsTests` 6/6, `.gitleaks.toml` + `.githooks/pre-commit` |
 
 Toàn bộ backend: unit 284, kiến trúc 10 (1 skip có sẵn), integration 275 — đều pass.
 
 **Còn treo:** chứng chỉ TLS thật + `docker-compose.prod.yml`; chạy hook gitleaks thật khi có git; bước CI quét secret;
 `Jwt:Key` mặc định nằm trong `appsettings.json`/`Program.cs`; request từ Next.js server tới API (`API_INTERNAL_URL`)
-chưa chuyển tiếp IP người dùng nên bị tính chung một IP (xem báo cáo).
+chưa chuyển tiếp IP người dùng nên bị tính chung một IP — đã xử lý ở D63 (review PR #62).
 
 **Merge với `main` (2026-11-03):** main đã dùng D58–D60 cho CONS-009, nên quyết định chốt route profile được
-đánh lại thành **D61**. Main cũng đã có `nginx/nginx.prod.conf` (TLS + HSTS), `ForwardedHeaders` (D60) và
+đánh lại thành **D62** (lần đầu là D61; main đã dùng D61 cho NFR-SEO ở #61). Main cũng đã có `nginx/nginx.prod.conf` (TLS + HSTS), `ForwardedHeaders` (D60) và
 `JwtKeyGuard` (bỏ `Jwt:Key` mặc định) — các phần trùng của lab08 (nginx, forwarded headers, ghi chú `Jwt:Key`) đã bỏ,
 chỉ giữ rate limiting, test CORS, E2E auth, gitleaks + hook.

@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 
 /**
- * NFR-SEC-003/D62 — IP thật của người dùng, để gửi kèm các lời gọi server → API (authorize,
+ * NFR-SEC-003/D63 — IP thật của người dùng, để gửi kèm các lời gọi server → API (authorize,
  * refresh, logout). Các lời gọi đó đi qua API_INTERNAL_URL, không qua Nginx, nên thiếu IP này
  * thì API chỉ thấy IP container frontend: cả site chung một bộ đếm 10 req/phút của /auth/*.
  *

@@ -13,7 +13,7 @@ import type { AuthResponse } from '@/lib/types';
 import { networkError, problemError } from '../../utils/problem';
 
 jest.mock('@/lib/auth/api', () => ({ refresh: jest.fn() }));
-// D62 — IP người dùng đi kèm mọi lời gọi server → API.
+// D63 — IP người dùng đi kèm mọi lời gọi server → API.
 const CLIENT_IP = '203.0.113.7';
 jest.mock('@/lib/auth/client-ip', () => ({ getClientIp: async () => '203.0.113.7' }));
 const mockRefresh = refresh as jest.MockedFunction<typeof refresh>;

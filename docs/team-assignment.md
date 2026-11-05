@@ -35,11 +35,11 @@ hoặc chỉ làm frontend.
 | Backend | Frontend |
 |---|---|
 | `ApplicationUser` + `RefreshToken` entity | `/auth/login`, `/auth/register` |
-| ASP.NET Core Identity, seed role + Admin | `/dashboard/profile` — xem/sửa hồ sơ (D61) |
+| ASP.NET Core Identity, seed role + Admin | `/dashboard/profile` — xem/sửa hồ sơ (D62) |
 | `JwtService` — AT 15p HS256, RT 128-bit SHA-256 hash | Auth.js v5 session provider |
 | Token rotation + **reuse detection** (revoke cả family) | Axios interceptor tự refresh khi 401 |
 | Google OAuth — verify ID Token, **liên kết** email trùng | Nút "Đăng nhập với Google" |
-| Lockout 5 lần/15 phút → 423 | Middleware bảo vệ route `/dashboard/*` (gồm `/dashboard/profile`, D61) |
+| Lockout 5 lần/15 phút → 423 | Middleware bảo vệ route `/dashboard/*` (gồm `/dashboard/profile`, D62) |
 | `IEmailService` + `WelcomeEmailJob` (Hangfire) | Form validation với React Hook Form + Zod |
 | **Rate limiting, CORS, HSTS, secrets** (S12) | |
 

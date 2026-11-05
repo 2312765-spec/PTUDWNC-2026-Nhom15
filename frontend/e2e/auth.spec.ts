@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
 
 /**
- * E2E luồng xác thực — CLAUDE.md mục 7 (5 luồng: register, login, …), FR-AUTH-001/002, D61.
+ * E2E luồng xác thực — CLAUDE.md mục 7 (5 luồng: register, login, …), FR-AUTH-001/002, D62.
  *
  * Rate limit /auth/* (NFR-SEC-003, D15) đếm theo IP, mà khi chạy local mọi request đều từ
- * 127.0.0.1 (Development nâng ngưỡng lên 100/phút — D62). File này vẫn giữ ít request auth: chạy
+ * 127.0.0.1 (Development nâng ngưỡng lên 100/phút — D63). File này vẫn giữ ít request auth: chạy
  * tuần tự, mỗi test đúng một lần đăng ký/đăng nhập, để chạy được cả với ngưỡng thật 10/phút.
  */
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1';
@@ -16,7 +16,7 @@ function uniqueEmail(prefix: string): string {
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Xác thực (FR-AUTH-001/002, D61)', () => {
+test.describe('Xác thực (FR-AUTH-001/002, D62)', () => {
   const login = { email: uniqueEmail('e2e-login'), displayName: 'Người dùng E2E' };
 
   test.beforeAll(async () => {
@@ -65,7 +65,7 @@ test.describe('Xác thực (FR-AUTH-001/002, D61)', () => {
     await expect(page).toHaveURL(/\/auth\/login/);
   });
 
-  test('D61: chưa đăng nhập vào /dashboard/profile → chuyển về đăng nhập, đăng nhập xong quay lại đúng trang', async ({
+  test('D62: chưa đăng nhập vào /dashboard/profile → chuyển về đăng nhập, đăng nhập xong quay lại đúng trang', async ({
     page,
   }) => {
     await page.goto('/dashboard/profile');
@@ -80,7 +80,7 @@ test.describe('Xác thực (FR-AUTH-001/002, D61)', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Hồ sơ của tôi' })).toBeVisible();
   });
 
-  test('D61: chưa đăng nhập vào /dashboard → chuyển về /auth/login kèm callbackUrl', async ({ page }) => {
+  test('D62: chưa đăng nhập vào /dashboard → chuyển về /auth/login kèm callbackUrl', async ({ page }) => {
     await page.goto('/dashboard');
 
     await expect(page).toHaveURL(/\/auth\/login\?callbackUrl=%2Fdashboard$/);

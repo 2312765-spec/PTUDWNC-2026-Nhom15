@@ -11,20 +11,20 @@ function requestHeaders(init: Record<string, string>) {
   return new Headers(init) as unknown as Awaited<ReturnType<typeof headers>>;
 }
 
-describe('getClientIp — NFR-SEC-003/D62', () => {
-  it('D62: lấy X-Real-IP do Nginx ghi', async () => {
+describe('getClientIp — NFR-SEC-003/D63', () => {
+  it('D63: lấy X-Real-IP do Nginx ghi', async () => {
     mockHeaders.mockResolvedValue(requestHeaders({ 'x-real-ip': ' 203.0.113.7 ' }));
 
     await expect(getClientIp()).resolves.toBe('203.0.113.7');
   });
 
-  it('D62: KHÔNG tin X-Forwarded-For (phần đầu chuỗi do client tự gửi)', async () => {
+  it('D63: KHÔNG tin X-Forwarded-For (phần đầu chuỗi do client tự gửi)', async () => {
     mockHeaders.mockResolvedValue(requestHeaders({ 'x-forwarded-for': '1.2.3.4, 203.0.113.7' }));
 
     await expect(getClientIp()).resolves.toBeUndefined();
   });
 
-  it('D62: ngoài request scope (headers() ném lỗi) → undefined, không làm hỏng lời gọi API', async () => {
+  it('D63: ngoài request scope (headers() ném lỗi) → undefined, không làm hỏng lời gọi API', async () => {
     mockHeaders.mockRejectedValue(new Error('headers was called outside a request scope'));
 
     await expect(getClientIp()).resolves.toBeUndefined();

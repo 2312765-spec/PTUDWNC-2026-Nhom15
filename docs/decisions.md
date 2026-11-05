@@ -76,8 +76,8 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D58 | URL công khai của ảnh MinIO (CONS-009) | Cấu hình `Minio:PublicBaseUrl` (rỗng → dùng `Minio:Endpoint`) · prod = `https://{domain}`, Nginx proxy `/culinary-blog/` (GET/HEAD) tới MinIO |
 | D59 | Migration + seed role ở prod (CONS-009) | Service `migrate` một lần: `--migrate-only` = migrate + `IdentityRoleSeeder` rồi thoát · **không** chạy `DbSeeder` · `api` chờ `service_completed_successfully` |
 | D60 | Cổng prod (CONS-009, NFR-SEC-005) | **Chỉ Nginx** publish 80/443 (lệch bảng SRS §6.5) · API bật `ForwardedHeaders`, tin proxy trong mạng nội bộ |
-| D61 | Route trang hồ sơ & chặn route chưa đăng nhập (FR-AUTH-006/007) | Trang hồ sơ ở **`/dashboard/profile`**, không có `/profile` · `proxy.ts` chặn `/dashboard/*` khi chưa đăng nhập → `/auth/login?callbackUrl=<đường dẫn nội bộ>` · chỉ để UX, backend vẫn tự kiểm tra |
-| D62 | IP để rate limit khi request đi qua Next.js (NFR-SEC-003) | Server Next.js gửi `X-Forwarded-For` = `X-Real-IP` do Nginx ghi · Nginx đặt `proxy_set_header` ở mức server (location `/api/` không khai báo riêng) · Dev ngưỡng cao |
+| D62 | Route trang hồ sơ & chặn route chưa đăng nhập (FR-AUTH-006/007) | Trang hồ sơ ở **`/dashboard/profile`**, không có `/profile` · `proxy.ts` chặn `/dashboard/*` khi chưa đăng nhập → `/auth/login?callbackUrl=<đường dẫn nội bộ>` · chỉ để UX, backend vẫn tự kiểm tra |
+| D63 | IP để rate limit khi request đi qua Next.js (NFR-SEC-003) | Server Next.js gửi `X-Forwarded-For` = `X-Real-IP` do Nginx ghi · Nginx đặt `proxy_set_header` ở mức server (location `/api/` không khai báo riêng) · Dev ngưỡng cao |
 
 ---
 
@@ -1608,7 +1608,7 @@ sau Nginx scheme luôn là `http` (HSTS không gửi) và IP client trong log lu
 
 ---
 
-## D61 — FR-AUTH-006/007: route trang hồ sơ và chặn route chưa đăng nhập
+## D62 — FR-AUTH-006/007: route trang hồ sơ và chặn route chưa đăng nhập
 
 > 2026-11-03. Xem `docs/plans/lab08-ke-hoach-chinh-sua-cac-lab.md` (Việc 2).
 
@@ -1633,7 +1633,7 @@ chạy và có test (header, dashboard, FR-AUTH-006/007 đều đang trỏ `/das
 
 ---
 
-## D62 — NFR-SEC-003: IP để rate limit khi request đi vòng qua Next.js
+## D63 — NFR-SEC-003: IP để rate limit khi request đi vòng qua Next.js
 
 > 2026-11-05. Phát hiện khi review PR #62 (lab08).
 

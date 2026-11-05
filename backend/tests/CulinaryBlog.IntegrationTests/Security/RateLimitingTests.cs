@@ -104,7 +104,7 @@ public sealed class RateLimitingTests
         response.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
     }
 
-    [Fact(DisplayName = "NFR-SEC-003/D62: đếm theo X-Forwarded-For — Next.js chuyển IP người dùng, mỗi IP một bộ đếm")]
+    [Fact(DisplayName = "NFR-SEC-003/D63: đếm theo X-Forwarded-For — Next.js chuyển IP người dùng, mỗi IP một bộ đếm")]
     public async Task ForwardedFor_EachClientIpHasOwnCounter()
     {
         await using var factory = new RateLimitApiFactory();

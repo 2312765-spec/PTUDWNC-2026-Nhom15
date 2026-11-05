@@ -25,7 +25,7 @@ public readonly record struct RateLimitDecision(bool Allowed, int Limit, long Re
 /// NFR-SEC-003/D15 — bộ đếm rate limit. Nhóm Auth/Upload dùng Fixed Window, nhóm General dùng
 /// Sliding Window (D15). Không xếp hàng chờ (QueueLimit = 0): vượt là từ chối ngay bằng 429.
 /// Tự gọi <see cref="PartitionedRateLimiter"/> thay vì <c>UseRateLimiter()</c> có sẵn: D15 đòi
-/// <c>X-RateLimit-*</c> trên MỌI response, mà <c>UseRateLimiter</c> chỉ cho can thiệp lúc từ chối (D62).
+/// <c>X-RateLimit-*</c> trên MỌI response, mà <c>UseRateLimiter</c> chỉ cho can thiệp lúc từ chối (D63).
 /// </summary>
 public sealed class RequestRateLimiter(RateLimitingOptions options) : IDisposable
 {

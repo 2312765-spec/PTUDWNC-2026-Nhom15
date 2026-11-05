@@ -17,7 +17,7 @@ jest.mock('@/lib/auth/api', () => ({
   login: jest.fn(),
   googleLogin: jest.fn(),
 }));
-// D62 — IP người dùng đi kèm mọi lời gọi server → API.
+// D63 — IP người dùng đi kèm mọi lời gọi server → API.
 const CLIENT_IP = '203.0.113.7';
 jest.mock('@/lib/auth/client-ip', () => ({ getClientIp: async () => '203.0.113.7' }));
 const mockRegister = register as jest.MockedFunction<typeof register>;

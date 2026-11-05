@@ -27,7 +27,7 @@ public static class RateLimitingExtensions
     /// <summary>
     /// Đăng ký bộ đếm. IP máy khách lấy từ <c>RemoteIpAddress</c> sau <c>UseForwardedHeaders</c> (D60, Program.cs):
     /// không có bước đó thì sau Nginx mọi người dùng chung một bộ đếm. Request server → API của Next.js
-    /// (đăng nhập, refresh, logout) không qua Nginx — frontend tự gửi <c>X-Forwarded-For</c> (D62).
+    /// (đăng nhập, refresh, logout) không qua Nginx — frontend tự gửi <c>X-Forwarded-For</c> (D63).
     /// </summary>
     public static IServiceCollection AddAppRateLimiting(this IServiceCollection services, RateLimitingOptions options)
     {

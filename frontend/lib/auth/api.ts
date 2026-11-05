@@ -18,7 +18,7 @@ function serverBaseUrl(): string | undefined {
 }
 
 /**
- * Config axios cho lời gọi từ server. NFR-SEC-003/D62: `clientIp` (lib/auth/client-ip.ts) đi
+ * Config axios cho lời gọi từ server. NFR-SEC-003/D63: `clientIp` (lib/auth/client-ip.ts) đi
  * vào X-Forwarded-For để API rate limit theo người dùng, không theo IP container frontend.
  */
 function serverConfig(clientIp?: string): AxiosRequestConfig | undefined {

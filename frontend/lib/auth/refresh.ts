@@ -92,7 +92,7 @@ export async function refreshAccessToken(token: JWT): Promise<JWT> {
   }
 
   try {
-    // D62: refresh chạy trong proxy.ts — IP người dùng để API không gộp mọi phiên vào một bộ đếm.
+    // D63: refresh chạy trong proxy.ts — IP người dùng để API không gộp mọi phiên vào một bộ đếm.
     const response = await refreshOnce(token.refreshToken, await getClientIp());
     return {
       ...token,
