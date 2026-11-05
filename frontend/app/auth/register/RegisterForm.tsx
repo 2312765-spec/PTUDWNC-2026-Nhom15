@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Button, Input, useToast } from '@/components/ui';
-import { toProblemDetails, type ProblemDetails } from '@/lib/api-client';
+import { toProblemDetails, type ProblemDetails } from '@/lib/problem-details';
 import type { RegisterRequest } from '@/lib/auth/api';
 import { passwordRules, registerSchema, type RegisterFormValues } from '@/lib/auth/schemas';
 import { cn } from '@/lib/utils';

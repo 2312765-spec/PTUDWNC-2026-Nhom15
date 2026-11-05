@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { unstable_noStore as noStore } from 'next/cache';
 import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 import Link from 'next/link';
-import { DeleteCategoryButton } from '@/components/categories/DeleteCategoryButton';
-import { Badge, Card, CardBody, CardFooter } from '@/components/ui';
+import { AdminDeleteCategoryButton } from '@/components/categories/AdminDeleteCategoryButton';
+import { Badge, Card, CardBody } from '@/components/ui';
 import { getCategories } from '@/lib/categories';
 
 /**
@@ -65,13 +65,11 @@ export default async function CategoriesPage() {
                   </CardBody>
                 </Link>
                 {/* FR-CAT-005 — nằm ngoài <Link> để không lồng phần tử tương tác (nút trong thẻ a). */}
-                <CardFooter className="flex justify-end p-2">
-                  <DeleteCategoryButton
-                    categoryId={category.id}
-                    categoryName={category.name}
-                    recipeCount={category.recipeCount}
-                  />
-                </CardFooter>
+                <AdminDeleteCategoryButton
+                  categoryId={category.id}
+                  categoryName={category.name}
+                  recipeCount={category.recipeCount}
+                />
               </Card>
             </li>
           ))}

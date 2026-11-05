@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button, Input, Textarea } from '@/components/ui';
-import { toProblemDetails } from '@/lib/api-client';
+import { toProblemDetails } from '@/lib/problem-details';
 import { profileSchema, type ProfileFormValues } from '@/lib/auth/schemas';
 import { useUpdateProfile } from '@/lib/hooks/useUpdateProfile';
 import type { UserProfile } from '@/lib/types';

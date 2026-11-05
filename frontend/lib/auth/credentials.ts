@@ -1,5 +1,5 @@
 import { CredentialsSignin, type User } from 'next-auth';
-import { toProblemDetails, type ProblemDetails } from '@/lib/api-client';
+import { toProblemDetails, type ProblemDetails } from '@/lib/problem-details';
 import { googleLogin, login, register } from '@/lib/auth/api';
 import { getClientIp } from '@/lib/auth/client-ip';
 import type { AuthResponse } from '@/lib/types';

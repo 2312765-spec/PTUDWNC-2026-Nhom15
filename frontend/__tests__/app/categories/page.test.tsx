@@ -11,8 +11,8 @@ jest.mock('@/lib/categories', () => ({
   ...jest.requireActual('@/lib/categories'),
   getCategories: jest.fn(),
 }));
-jest.mock('@/components/categories/DeleteCategoryButton', () => ({
-  DeleteCategoryButton: () => null,
+jest.mock('@/components/categories/AdminDeleteCategoryButton', () => ({
+  AdminDeleteCategoryButton: () => null,
 }));
 
 const mockGetCategories = getCategories as jest.Mock;
