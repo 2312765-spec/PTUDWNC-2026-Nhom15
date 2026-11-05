@@ -13,6 +13,9 @@ import type { AuthResponse } from '@/lib/types';
 import { networkError, problemError } from '../../utils/problem';
 
 jest.mock('@/lib/auth/api', () => ({ refresh: jest.fn() }));
+// D62 — IP người dùng đi kèm mọi lời gọi server → API.
+const CLIENT_IP = '203.0.113.7';
+jest.mock('@/lib/auth/client-ip', () => ({ getClientIp: async () => '203.0.113.7' }));
 const mockRefresh = refresh as jest.MockedFunction<typeof refresh>;
 
 const NOW = Date.parse('2026-09-30T10:00:00Z');
@@ -87,7 +90,7 @@ describe('refreshAccessToken — FR-AUTH-004', () => {
 
     const result = await refreshAccessToken(token);
 
-    expect(mockRefresh).toHaveBeenCalledWith({ refreshToken: token.refreshToken });
+    expect(mockRefresh).toHaveBeenCalledWith({ refreshToken: token.refreshToken }, CLIENT_IP);
     expect(result).toMatchObject({
       accessToken: 'new-access-1',
       refreshToken: 'new-refresh-1',

@@ -3,8 +3,9 @@ import { expect, test } from '@playwright/test';
 /**
  * E2E luồng xác thực — CLAUDE.md mục 7 (5 luồng: register, login, …), FR-AUTH-001/002, D61.
  *
- * Rate limit /auth/* là 10 req/phút/IP (NFR-SEC-003, D15) và Next.js gọi API từ một IP, nên file
- * này giữ tổng số request auth dưới ngưỡng: chạy tuần tự, mỗi test đúng một lần đăng ký/đăng nhập.
+ * Rate limit /auth/* (NFR-SEC-003, D15) đếm theo IP, mà khi chạy local mọi request đều từ
+ * 127.0.0.1 (Development nâng ngưỡng lên 100/phút — D62). File này vẫn giữ ít request auth: chạy
+ * tuần tự, mỗi test đúng một lần đăng ký/đăng nhập, để chạy được cả với ngưỡng thật 10/phút.
  */
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1';
 const PASSWORD = 'Str0ng!Pass1';

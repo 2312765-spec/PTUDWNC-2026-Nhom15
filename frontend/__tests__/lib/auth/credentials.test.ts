@@ -17,6 +17,9 @@ jest.mock('@/lib/auth/api', () => ({
   login: jest.fn(),
   googleLogin: jest.fn(),
 }));
+// D62 — IP người dùng đi kèm mọi lời gọi server → API.
+const CLIENT_IP = '203.0.113.7';
+jest.mock('@/lib/auth/client-ip', () => ({ getClientIp: async () => '203.0.113.7' }));
 const mockRegister = register as jest.MockedFunction<typeof register>;
 const mockLogin = login as jest.MockedFunction<typeof login>;
 const mockGoogleLogin = googleLogin as jest.MockedFunction<typeof googleLogin>;
@@ -47,7 +50,7 @@ describe('authorizeRegister — FR-AUTH-001', () => {
   it('FR-AUTH-001/D5: gửi đúng { email, password, displayName }, bỏ qua field thừa', async () => {
     mockRegister.mockResolvedValue(authResponse);
     await authorizeRegister({ ...credentials, callbackUrl: '/', fullName: 'x' });
-    expect(mockRegister).toHaveBeenCalledWith(credentials);
+    expect(mockRegister).toHaveBeenCalledWith(credentials, CLIENT_IP);
   });
 
   it('FR-AUTH-001/D24: thành công → user Auth.js mang hồ sơ + token của backend', async () => {
@@ -105,7 +108,7 @@ describe('authorizeLogin — FR-AUTH-002', () => {
   it('FR-AUTH-002: chỉ gửi { email, password }, bỏ qua field thừa', async () => {
     mockLogin.mockResolvedValue(authResponse);
     await authorizeLogin({ ...loginCredentials, callbackUrl: '/', displayName: 'x' });
-    expect(mockLogin).toHaveBeenCalledWith(loginCredentials);
+    expect(mockLogin).toHaveBeenCalledWith(loginCredentials, CLIENT_IP);
   });
 
   it('FR-AUTH-002/D24: thành công → user Auth.js mang hồ sơ + token của backend', async () => {
@@ -142,7 +145,7 @@ describe('authorizeGoogle — FR-AUTH-003', () => {
   it('FR-AUTH-003/D9: gửi đúng { idToken }', async () => {
     mockGoogleLogin.mockResolvedValue(authResponse);
     await authorizeGoogle('google-id-token');
-    expect(mockGoogleLogin).toHaveBeenCalledWith({ idToken: 'google-id-token' });
+    expect(mockGoogleLogin).toHaveBeenCalledWith({ idToken: 'google-id-token' }, CLIENT_IP);
   });
 
   it('FR-AUTH-003/D24: thành công → user Auth.js mang hồ sơ + token của backend, giống hệt authorizeLogin', async () => {

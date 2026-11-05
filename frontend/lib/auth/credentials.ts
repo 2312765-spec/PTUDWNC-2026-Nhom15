@@ -1,6 +1,7 @@
 import { CredentialsSignin, type User } from 'next-auth';
 import { toProblemDetails, type ProblemDetails } from '@/lib/api-client';
 import { googleLogin, login, register } from '@/lib/auth/api';
+import { getClientIp } from '@/lib/auth/client-ip';
 import type { AuthResponse } from '@/lib/types';
 
 /**
@@ -45,11 +46,14 @@ export async function authorizeRegister(
   credentials: Partial<Record<string, unknown>>,
 ): Promise<User> {
   try {
-    const auth = await register({
-      email: field(credentials, 'email'),
-      password: field(credentials, 'password'),
-      displayName: field(credentials, 'displayName'),
-    });
+    const auth = await register(
+      {
+        email: field(credentials, 'email'),
+        password: field(credentials, 'password'),
+        displayName: field(credentials, 'displayName'),
+      },
+      await getClientIp(),
+    );
     return toSessionUser(auth);
   } catch (error) {
     throw new BackendAuthError(toProblemDetails(error));
@@ -62,10 +66,13 @@ export async function authorizeRegister(
  */
 export async function authorizeLogin(credentials: Partial<Record<string, unknown>>): Promise<User> {
   try {
-    const auth = await login({
-      email: field(credentials, 'email'),
-      password: field(credentials, 'password'),
-    });
+    const auth = await login(
+      {
+        email: field(credentials, 'email'),
+        password: field(credentials, 'password'),
+      },
+      await getClientIp(),
+    );
     return toSessionUser(auth);
   } catch (error) {
     throw new BackendAuthError(toProblemDetails(error));
@@ -82,6 +89,6 @@ export async function authorizeLogin(credentials: Partial<Record<string, unknown
  * `?error=` chung (luồng OAuth không có chỗ cho response tuỳ biến như authorize()).
  */
 export async function authorizeGoogle(idToken: string): Promise<User> {
-  const auth = await googleLogin({ idToken });
+  const auth = await googleLogin({ idToken }, await getClientIp());
   return toSessionUser(auth);
 }

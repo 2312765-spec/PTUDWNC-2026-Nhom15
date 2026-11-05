@@ -104,6 +104,25 @@ public sealed class RateLimitingTests
         response.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
     }
 
+    [Fact(DisplayName = "NFR-SEC-003/D62: đếm theo X-Forwarded-For — Next.js chuyển IP người dùng, mỗi IP một bộ đếm")]
+    public async Task ForwardedFor_EachClientIpHasOwnCounter()
+    {
+        await using var factory = new RateLimitApiFactory();
+        var client = factory.CreateClient();
+
+        Task<HttpResponseMessage> LoginFromAsync(string ip)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login") { Content = JsonContent.Create(new { }) };
+            request.Headers.Add("X-Forwarded-For", ip);
+            return client.SendAsync(request);
+        }
+
+        for (var i = 0; i < RateLimitApiFactory.AuthLimit; i++) await LoginFromAsync("203.0.113.1");
+
+        (await LoginFromAsync("203.0.113.1")).StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        (await LoginFromAsync("203.0.113.2")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     [Fact(DisplayName = "NFR-SEC-003/D15: hết lượt /auth/* không chặn API chung (hai bộ đếm riêng)")]
     public async Task AuthExhausted_DoesNotBlockGeneralApi()
     {

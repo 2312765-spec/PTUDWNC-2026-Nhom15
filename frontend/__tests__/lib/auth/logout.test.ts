@@ -4,6 +4,9 @@ import { revokeRefreshToken } from '@/lib/auth/logout';
 import { refreshAccessToken } from '@/lib/auth/refresh';
 
 jest.mock('@/lib/auth/api', () => ({ logout: jest.fn() }));
+// D62 — IP người dùng đi kèm mọi lời gọi server → API.
+const CLIENT_IP = '203.0.113.7';
+jest.mock('@/lib/auth/client-ip', () => ({ getClientIp: async () => '203.0.113.7' }));
 jest.mock('@/lib/auth/refresh', () => ({
   ...jest.requireActual('@/lib/auth/refresh'),
   refreshAccessToken: jest.fn(),
@@ -30,7 +33,7 @@ describe('revokeRefreshToken — FR-AUTH-005', () => {
     await revokeRefreshToken(tokenWith());
 
     expect(mockRefresh).not.toHaveBeenCalled();
-    expect(mockLogout).toHaveBeenCalledWith({ refreshToken: 'rt' }, 'at');
+    expect(mockLogout).toHaveBeenCalledWith({ refreshToken: 'rt' }, 'at', CLIENT_IP);
   });
 
   it('FR-AUTH-005: không có refresh token → không gọi backend', async () => {
@@ -50,7 +53,7 @@ describe('revokeRefreshToken — FR-AUTH-005', () => {
 
     await revokeRefreshToken(tokenWith({ expiresAt: past() }));
 
-    expect(mockLogout).toHaveBeenCalledWith({ refreshToken: 'rt2' }, 'at2');
+    expect(mockLogout).toHaveBeenCalledWith({ refreshToken: 'rt2' }, 'at2', CLIENT_IP);
   });
 
   it('FR-AUTH-005: refresh trước khi logout bị từ chối → không gọi logout, không ném', async () => {
