@@ -62,6 +62,63 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
 
+  # NFR-PERF-005/D64 — Core Web Vitals trên 6 trang public, preset mobile, 3 lần/URL.
+  # Cần backend thật có seed: API chạy Development (tự migrate + DbSeeder).
+  lighthouse:
+    name: Lighthouse CI (NFR-PERF-005)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # MinIO đã khóa pull ẩn danh trên quay.io lẫn Docker Hub (traceability.md, FR-FILE) → dùng
+      # adobe/s3mock (như IntegrationTests/Common/S3MockContainer.cs) ở cổng 9000, khớp Minio:Endpoint của
+      # appsettings.Development.json. S3Mock nhận mọi access key; bucket tạo sẵn qua biến môi trường.
+      - name: Hạ tầng (postgres, redis, S3 thay MinIO)
+        run: |
+          docker compose up -d --wait postgres redis
+          docker run -d --name s3mock -p 9000:9090 \
+            -e COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS=culinary-blog adobe/s3mock:5.2.3
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Chạy API (Development — migrate + seed)
+        run: |
+          dotnet run --project backend/CulinaryBlog.API --launch-profile http > api.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:5000/health/ready && exit 0
+            sleep 5
+          done
+          cat api.log
+          exit 1
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # Build SAU khi API sẵn sàng: trang ISR (/, /categories/[slug], /recipes/[slug]) prerender với dữ liệu thật
+      - name: Build + Lighthouse
+        working-directory: ./frontend
+        run: |
+          echo "AUTH_SECRET=$(openssl rand -base64 32)" >> .env.local
+          echo "AUTH_TRUST_HOST=true" >> .env.local
+          npm ci
+          npm run build
+          npm run lhci
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse
+          path: |
+            frontend/.lighthouseci
+            api.log
+
   secrets-scan:
     name: Quét secret (NFR-SEC-007)
     runs-on: ubuntu-latest

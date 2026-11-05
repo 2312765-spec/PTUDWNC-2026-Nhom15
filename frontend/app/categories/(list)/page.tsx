@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { unstable_noStore as noStore } from 'next/cache';
+import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 import Link from 'next/link';
-import { DeleteCategoryButton } from '@/components/categories/DeleteCategoryButton';
-import { Badge, Card, CardBody, CardFooter } from '@/components/ui';
+import { AdminDeleteCategoryButton } from '@/components/categories/AdminDeleteCategoryButton';
+import { Badge, Card, CardBody } from '@/components/ui';
 import { getCategories } from '@/lib/categories';
 
 /**
@@ -18,9 +19,11 @@ export const metadata: Metadata = {
 };
 
 export default async function CategoriesPage() {
-  // `noStore()` khi API lỗi: lúc `next build` (CI/Docker không có API) nó chuyển route sang render
-  // động thay vì làm vỡ build; lúc chạy thật nó ngăn cache một trang lỗi trong 3600 giây.
+  // API lỗi lúc `next build` (image prod — frontend/Dockerfile build không có API): render trạng thái
+  // lỗi thay vì noStore(), để route vẫn là ISR 3600; lần revalidate đầu tiên sẽ thay bằng dữ liệu thật.
+  // API lỗi lúc chạy: noStore() + ném lỗi → Next giữ bản cũ, không cache trang lỗi trong 3600 giây.
   const categories = await getCategories().catch((error: unknown) => {
+    if (process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD) return null;
     noStore();
     throw error;
   });
@@ -34,7 +37,11 @@ export default async function CategoriesPage() {
         </p>
       </header>
 
-      {categories.length === 0 ? (
+      {categories === null ? (
+        <p role="alert" className="rounded-lg border border-border bg-surface p-6 text-center text-sm text-red-700">
+          Không tải được danh mục. Vui lòng thử lại sau.
+        </p>
+      ) : categories.length === 0 ? (
         <Card>
           <CardBody className="py-10 text-center text-ink-muted">Chưa có danh mục nào.</CardBody>
         </Card>
@@ -58,13 +65,11 @@ export default async function CategoriesPage() {
                   </CardBody>
                 </Link>
                 {/* FR-CAT-005 — nằm ngoài <Link> để không lồng phần tử tương tác (nút trong thẻ a). */}
-                <CardFooter className="flex justify-end p-2">
-                  <DeleteCategoryButton
-                    categoryId={category.id}
-                    categoryName={category.name}
-                    recipeCount={category.recipeCount}
-                  />
-                </CardFooter>
+                <AdminDeleteCategoryButton
+                  categoryId={category.id}
+                  categoryName={category.name}
+                  recipeCount={category.recipeCount}
+                />
               </Card>
             </li>
           ))}

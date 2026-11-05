@@ -1,7 +1,7 @@
 'use server';
 
 import { signIn } from '@/auth';
-import type { ProblemDetails } from '@/lib/api-client';
+import type { ProblemDetails } from '@/lib/problem-details';
 import type { LoginRequest } from '@/lib/auth/api';
 import { BackendAuthError } from '@/lib/auth/credentials';
 

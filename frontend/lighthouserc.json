@@ -1,0 +1,30 @@
+{
+  "ci": {
+    "collect": {
+      "startServerCommand": "npm run start",
+      "startServerReadyPattern": "Ready in",
+      "url": [
+        "http://localhost:3000/",
+        "http://localhost:3000/recipes",
+        "http://localhost:3000/recipes/banh-khot",
+        "http://localhost:3000/categories",
+        "http://localhost:3000/categories/mon-khai-vi",
+        "http://localhost:3000/search?q=ga"
+      ],
+      "numberOfRuns": 3
+    },
+    "assert": {
+      "aggregationMethod": "median-run",
+      "assertions": {
+        "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }],
+        "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
+        "total-blocking-time": ["error", { "maxNumericValue": 200 }],
+        "resource-summary:script:size": ["error", { "maxNumericValue": 204800 }]
+      }
+    },
+    "upload": {
+      "target": "filesystem",
+      "outputDir": ".lighthouseci"
+    }
+  }
+}

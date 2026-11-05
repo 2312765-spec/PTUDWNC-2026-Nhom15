@@ -10,10 +10,13 @@ Route group công khai, không cần đăng nhập. SRS mục 5.1:
 | `/categories/[slug]` | `export const revalidate = 600` | FR-CAT-002 |
 | `/search` | SSR (`dynamic = 'force-dynamic'`, `?q=&page=`) | FR-SRCH-001 |
 
-Trang chủ `/` đã có sẵn ở `app/(home)/page.tsx` (ISR 3600; route group `(home)` để `loading.tsx` chỉ áp cho trang chủ).
+Trang chủ `/` đã có sẵn ở `app/(home)/page.tsx` (ISR 3600).
 Server Component mặc định — chỉ thêm `'use client'` khi thực sự cần state/effect.
 
 **Route có `notFound()` (`/recipes/[slug]`, `/categories/[slug]`) không được có `loading.tsx`** ở chính
 segment đó hay segment cha: `loading.tsx` bật streaming, Next gửi header 200 trước khi `notFound()` chạy
-→ soft 404 (NFR-SEO). Skeleton cho trang danh sách thì đặt trong route group riêng, như
-`app/(home)/loading.tsx` và `app/categories/(list)/loading.tsx`. E2E `e2e/recipe.spec.ts` kiểm tra status 404.
+→ soft 404 (NFR-SEO). E2E `e2e/recipe.spec.ts` kiểm tra status 404.
+
+**Trang ISR (`/`, `/categories`) cũng không đặt `loading.tsx`** (D64.6): HTML tĩnh khi đó gửi skeleton
+trước, nội dung thật nằm trong `div hidden` và chỉ được tráo vào bằng script sau ~300ms — LCP trễ, trang
+chủ trượt ngưỡng 2500ms trên Lighthouse CI (NFR-PERF-005).

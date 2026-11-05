@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button, Input, useToast } from '@/components/ui';
-import { toProblemDetails, type ProblemDetails } from '@/lib/api-client';
+import { toProblemDetails, type ProblemDetails } from '@/lib/problem-details';
 import type { LoginRequest } from '@/lib/auth/api';
 import { loginSchema, type LoginFormValues } from '@/lib/auth/schemas';
 import { cn } from '@/lib/utils';

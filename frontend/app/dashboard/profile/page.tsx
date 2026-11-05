@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Badge, Button, Skeleton } from '@/components/ui';
-import { toProblemDetails } from '@/lib/api-client';
+import { toProblemDetails } from '@/lib/problem-details';
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 import { EditProfileForm } from './EditProfileForm';
 
