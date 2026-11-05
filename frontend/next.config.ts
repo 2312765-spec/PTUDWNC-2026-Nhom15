@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { buildContentSecurityPolicy } from './lib/security/csp';
 
 type RemotePattern = NonNullable<NonNullable<NextConfig['images']>['remotePatterns']>[number];
 
@@ -51,6 +52,18 @@ const nextConfig: NextConfig = {
 
   // NFR-SEC-005
   poweredByHeader: false,
+
+  // NFR-SEC-004/D68 — CSP cho mọi trang. Nginx KHÔNG thêm CSP (đúng một header mỗi response).
+  async headers() {
+    const isDev = process.env.NODE_ENV !== 'production';
+    const policy = buildContentSecurityPolicy({
+      isDev,
+      apiUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1',
+      // Ảnh dev tải thẳng từ S3 (localhost:9000) và ảnh seed placehold.co; prod ảnh cùng domain ('self').
+      imageOrigins: isDev ? ['http://localhost:9000', 'https://placehold.co'] : [],
+    });
+    return [{ source: '/:path*', headers: [{ key: 'Content-Security-Policy', value: policy }] }];
+  },
 
   // FR-AUTH-001/002 — dev log mặc định in tham số server action, tức in cả mật khẩu
   // của loginAction/registerAction ra terminal. Tắt đi.

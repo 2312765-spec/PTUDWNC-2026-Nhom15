@@ -78,9 +78,10 @@ public sealed class GlobalExceptionMiddleware(
         }
 
         context.Response.StatusCode = status;
-        context.Response.ContentType = "application/problem+json";
 
-        await context.Response.WriteAsJsonAsync(problem);
+        // Truyền contentType vào WriteAsJsonAsync — gán Response.ContentType trước đó bị nó ghi đè
+        // thành application/json (CONS-005 cần application/problem+json; cùng cách RateLimitingMiddleware).
+        await context.Response.WriteAsJsonAsync(problem, options: null, contentType: "application/problem+json");
     }
 
     private static (int Status, string ErrorCode, string Title, IDictionary<string, string[]>? Errors) Map(Exception exception) =>
@@ -93,7 +94,18 @@ public sealed class GlobalExceptionMiddleware(
                 "Dữ liệu không hợp lệ",
                 null),
 
-            
+            // D67 — minimal API không đọc/bind được request (ThrowOnBadRequest bật mọi môi trường).
+            // Đọc form vượt giới hạn (multipart/body length) ném InvalidDataException → 413.
+            BadHttpRequestException { InnerException: InvalidDataException } => (
+                StatusCodes.Status413PayloadTooLarge,
+                ErrorCodes.FileSizeExceeded,
+                "Request vượt quá kích thước cho phép",
+                null),
+            BadHttpRequestException bhre => (
+                bhre.StatusCode == StatusCodes.Status413PayloadTooLarge ? bhre.StatusCode : StatusCodes.Status400BadRequest,
+                bhre.StatusCode == StatusCodes.Status413PayloadTooLarge ? ErrorCodes.FileSizeExceeded : ErrorCodes.ValidationError,
+                "Request không hợp lệ",
+                null),
 
             // DomainException từ Domain
             DomainException de => (

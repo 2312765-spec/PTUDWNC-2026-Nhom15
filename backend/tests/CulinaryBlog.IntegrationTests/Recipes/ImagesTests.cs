@@ -156,18 +156,52 @@ public sealed class ImagesTests(RecipeImagesApiFactory factory) : IClassFixture<
         problem!.Type.Should().Be(ErrorCodes.RecipeNotFound);
     }
 
-    [Fact(DisplayName = "CONS-007/A2/D30: file > 5MB → 400 FILE_SIZE_EXCEEDED (type đúng mã, không phải VALIDATION_ERROR)")]
+    // D67: 5–6MB lọt qua giới hạn form 6MB, validator trả 400; trên 6MB bị chặn ở tầng HTTP → 413.
+    [Fact(DisplayName = "CONS-007/A2/D30: file > 5MB (5,5MB, dưới giới hạn form 6MB) → 400 FILE_SIZE_EXCEEDED")]
     public async Task Upload_FileTooLarge_Returns400FileSizeExceeded()
     {
         var (token, userId) = await RegisterAuthorAsync();
         var recipeId = await SeedRecipeAsync(userId);
 
         var response = await _client.SendAsync(
-            MultipartUploadRequest(recipeId, JpegBytes(6 * 1024 * 1024 + 1), "image/jpeg", "big.jpg", token));
+            MultipartUploadRequest(recipeId, JpegBytes(5 * 1024 * 1024 + 512 * 1024), "image/jpeg", "big.jpg", token));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
         problem!.Type.Should().Be(ErrorCodes.FileSizeExceeded);
+    }
+
+    [Fact(DisplayName = "NFR-SEC-004/D67: body 10MB → 413 FILE_SIZE_EXCEEDED (RFC 7807), chặn ở tầng HTTP trước validator")]
+    public async Task Upload_BodyOverFormLimit_Returns413FileSizeExceeded()
+    {
+        var (token, userId) = await RegisterAuthorAsync();
+        var recipeId = await SeedRecipeAsync(userId);
+
+        var response = await _client.SendAsync(
+            MultipartUploadRequest(recipeId, JpegBytes(10 * 1024 * 1024), "image/jpeg", "huge.jpg", token));
+
+        response.StatusCode.Should().Be(HttpStatusCode.RequestEntityTooLarge);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        problem!.Type.Should().Be(ErrorCodes.FileSizeExceeded);
+        factory.FileStorage.Uploads.Should().NotContain(u => u.FileName == "huge.jpg");
+    }
+
+    [Fact(DisplayName = "NFR-SEC-004: tên file '../../../etc/passwd.jpg' không ảnh hưởng thư mục lưu — luôn recipes/{recipeId}")]
+    public async Task Upload_PathTraversalFileName_StoresUnderRecipeFolder()
+    {
+        var (token, userId) = await RegisterAuthorAsync();
+        var recipeId = await SeedRecipeAsync(userId);
+        const string evilName = "../../../etc/passwd.jpg";
+
+        var response = await _client.SendAsync(
+            MultipartUploadRequest(recipeId, JpegBytes(), "image/jpeg", evilName, token));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        factory.FileStorage.Uploads.Should().Contain(u => u.FileName == evilName)
+            .Which.Folder.Should().Be($"recipes/{recipeId}");
+        var body = await response.Content.ReadFromJsonAsync<UploadImageResponse>(JsonOptions);
+        body!.OriginalUrl.Should().NotContain("..").And.NotContain("passwd");
     }
 
     [Fact(DisplayName = "D28/A3: .exe đổi tên .jpg, khai Content-Type image/jpeg → 400 FILE_MIME_INVALID (magic bytes bắt được)")]

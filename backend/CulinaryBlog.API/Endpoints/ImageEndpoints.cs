@@ -12,6 +12,9 @@ namespace CulinaryBlog.API.Endpoints;
 /// </summary>
 public static class ImageEndpoints
 {
+    /// <summary>D67 — 5MB (CONS-007) + dư multipart; khớp client_max_body_size 6M của Nginx.</summary>
+    private const long MaxUploadRequestBytes = 6 * 1024 * 1024;
+
     public static void MapImageEndpoints(this IEndpointRouteBuilder app)
     {
         // SỬA LỖI 404: Thêm tiền tố /api/v1 vào trước route
@@ -20,6 +23,8 @@ public static class ImageEndpoints
         group.MapPost("/", UploadAsync)
              .RequireAuthorization(Policies.Author) // Bắt buộc đăng nhập (chưa login -> 401)
              .DisableAntiforgery()
+             // D67 — dừng đọc form khi vượt 6MB (413), không nhận hết body; luật 5MB nằm ở validator.
+             .WithFormOptions(multipartBodyLengthLimit: MaxUploadRequestBytes)
              .WithSummary("Upload ảnh — multipart: file, altText?. Ảnh đầu tiên tự động primary");
 
         group.MapPatch("/{imageId:guid}", UpdateAsync)
