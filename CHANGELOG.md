@@ -42,7 +42,11 @@ Theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và [SemVer](https
 ### Fixed
 - NFR-SEO-002: title trang chi tiết công thức bị lặp đuôi `| Culinary Blog | Culinary Blog`.
 - FR-CAT-001: `/categories` thành SSR khi build image production không có API — nay giữ ISR 3600.
+- CONS-005: response lỗi của API trả `Content-Type: application/problem+json` (trước đây bị ghi đè thành
+  `application/json`). Lỗi bind request (JSON hỏng, thiếu tham số) trả RFC 7807 thay vì 400 rỗng / 500 (D67).
 
 ### Security
+- NFR-SEC-004: upload ảnh giới hạn 6MB ở tầng HTTP — vượt → 413 `FILE_SIZE_EXCEEDED`, không nhận hết body (D67).
+  Thêm Content-Security-Policy cho trang web và API (D68). Test chặn hồi quy SQL injection, path traversal, raw SQL.
 - NFR-SEC-007: bỏ `Jwt:Key` khỏi `appsettings.json` và khóa dự phòng hardcode trong `Program.cs`. API dừng
   ngay khi thiếu khóa hoặc khóa < 32 byte. **Khóa cũ vẫn còn trong lịch sử Git — production phải dùng khóa mới.**

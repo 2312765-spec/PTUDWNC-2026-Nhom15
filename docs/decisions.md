@@ -593,7 +593,7 @@ nếu không request `/recipes/search` sẽ khớp vào route slug. Kèm theo D1
 | `CATEGORY_NAME_EXISTS` | 409 | Category | — |
 | `CATEGORY_DELETE_HAS_RECIPES` | 409 | Category | — |
 | `CATEGORY_FORBIDDEN` | 403 | Category | 🆕 **thêm mới** (D50) — người không phải Admin gọi tạo/sửa/xóa category |
-| `FILE_SIZE_EXCEEDED` | 400 | File | — |
+| `FILE_SIZE_EXCEEDED` | 400 / **413** | File | 413 khi body vượt giới hạn tầng HTTP (D67) |
 | `FILE_MIME_INVALID` | 400 | File | — |
 | `VALIDATION_ERROR` | 400 | Common | — |
 | `RATE_LIMIT_EXCEEDED` | 429 | Common | — |
@@ -1798,6 +1798,69 @@ Nginx → 403), API `/health` Healthy, job sitemap ghi `seo/sitemap.xml` vào Ru
 **Vì:** server mới dựng được chỉ bằng image công khai; giữ nguyên code và cấu hình Nginx/API.
 
 **Sửa SRS:** §6.5 — object storage production "S3 tương thích (RustFS)" thay "MinIO".
+
+---
+
+## D67 — NFR-SEC-004: giới hạn kích thước upload ở tầng HTTP
+
+> 2026-11-05. Plan: `plans/NFR-SEC-004-upload-csp.md`.
+
+**Nguồn:** NFR-SEC-004 "kiểm tra size **trước khi read stream** (không buffer toàn bộ)". Validator
+(`UploadRecipeImageCommandValidator`) kiểm `Length` trước khi đọc — nhưng endpoint nhận `IFormFile`, nên
+ASP.NET đã nhận + đệm **toàn bộ** body (mặc định Kestrel tới 30MB) trước khi validator chạy. Nginx chặn 6M
+nhưng chỉ đứng trước API (dev chạy thẳng Kestrel). Thêm nữa, body vượt giới hạn ném
+`BadHttpRequestException` mà `GlobalExceptionMiddleware` không map → **500**.
+
+**Chốt:**
+
+1. Endpoint `POST /recipes/{id}/images` giới hạn form **6MB** (5MB CONS-007 + dư multipart — khớp
+   `client_max_body_size 6M` của Nginx). Đọc form dừng ngay khi vượt, không nhận hết body.
+2. Vượt giới hạn → **413** RFC 7807 `type: FILE_SIZE_EXCEEDED`. File 5–6MB vẫn lọt tầng HTTP và bị
+   validator trả **400** `FILE_SIZE_EXCEEDED` như cũ (cùng mã, khác status — status báo tầng chặn).
+3. `RouteHandlerOptions.ThrowOnBadRequest = true` ở **mọi** môi trường (mặc định chỉ Development: Testing/
+   Production trả 400 **rỗng**, Development ném lỗi → 500). `GlobalExceptionMiddleware` map
+   `BadHttpRequestException`: lỗi đọc form (`InvalidDataException` bên trong — vượt giới hạn) hoặc status
+   413 → **413** `FILE_SIZE_EXCEEDED`; còn lại (JSON hỏng, thiếu tham số) → 400 `VALIDATION_ERROR` — đều
+   RFC 7807 thay vì body rỗng/500.
+   *Phát hiện lúc code:* `WriteAsJsonAsync(problem)` ghi đè `Content-Type` thành `application/json` →
+   **mọi** response lỗi trước đây sai CONS-005. Sửa: truyền `contentType: "application/problem+json"`
+   (như `RateLimitingMiddleware`). Client (`res.json()`, axios) parse cả hai nên không vỡ.
+4. Là cấu hình transport, **không** phải validation nghiệp vụ → không vi phạm CONS-008; luật 5MB vẫn
+   chỉ nằm ở validator.
+
+**Vì:** đúng ý "không buffer toàn bộ" của SRS ngay cả khi request không đi qua Nginx; client nhận lỗi
+RFC 7807 có mã thay vì 500.
+
+**Sửa SRS:** FR-RCP-008 A2 / bảng mã lỗi — `FILE_SIZE_EXCEEDED` có thể là 413 khi bị chặn ở tầng HTTP.
+
+---
+
+## D68 — NFR-SEC-004: Content-Security-Policy
+
+> 2026-11-05. Plan: `plans/NFR-SEC-004-upload-csp.md`.
+
+**Nguồn:** NFR-SEC-004 yêu cầu "Content-Security-Policy header" chống XSS. Trước 2026-11-05 không có
+CSP ở Nginx, Next.js lẫn API.
+
+**Chốt:**
+
+1. **Trang Next.js** (`frontend/lib/security/csp.ts`, gắn qua `headers()` của `next.config.ts`):
+   `default-src 'self'` · `script-src 'self' 'unsafe-inline'` · `style-src 'self' 'unsafe-inline'` ·
+   `img-src 'self' data: blob:` + nguồn ảnh cấu hình · `font-src 'self'` · `connect-src 'self'` + origin
+   API · `object-src 'none'` · `base-uri 'self'` · `frame-ancestors 'none'` ·
+   `form-action 'self' https://accounts.google.com`. Dev thêm `'unsafe-eval'` (React Refresh) và `ws:` (HMR).
+2. **`'unsafe-inline'` cho script là đánh đổi có chủ ý:** App Router chèn script inline (payload RSC);
+   CSP dùng nonce buộc **mọi trang render động** → mất ISR mà SRS 5.1 yêu cầu (`/` 3600, `/recipes/[slug]`
+   300…). Hash không dùng được vì payload RSC khác nhau mỗi trang. Lớp chống XSS chính vẫn là React tự
+   escape + JSON-LD escape; CSP vẫn chặn script từ domain lạ, plugin, `<base>` giả, nhúng khung, form gửi ra ngoài.
+3. **API** (middleware `SecurityHeadersMiddleware`): `default-src 'none'; frame-ancestors 'none'` — API chỉ
+   trả JSON. Gắn cả trên response lỗi.
+4. **Đúng một header CSP mỗi response** — Nginx **không** thêm CSP (như bài học HSTS ở D60).
+
+**Vì:** đáp ứng NFR-SEC-004 mà không phá ISR (SRS 5.1) hay NFR-PERF-005.
+
+**Sửa SRS:** NFR-SEC-004 — ghi rõ CSP cho phép `'unsafe-inline'` script do ràng buộc ISR của Next.js
+App Router.
 
 ---
 

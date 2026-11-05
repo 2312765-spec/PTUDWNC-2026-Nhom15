@@ -36,11 +36,19 @@ read -r code location < <("${CURL[@]}" -o /dev/null -w '%{http_code} %{redirect_
 [ "$code" = "301" ] && [ "$location" = "$BASE/recipes" ] \
   && ok "301 → $location" || fail "http:// trả $code $location"
 
-step "4. /health/ready + HSTS"
+step "4. /health/ready + HSTS + CSP"
 headers="$("${CURL[@]}" -D - -o /dev/null "$BASE/health/ready")"
 echo "$headers" | head -n1 | grep -q ' 200' && ok "/health/ready 200" || fail "/health/ready: $(echo "$headers" | head -n1)"
 hsts_count="$(echo "$headers" | grep -ci '^strict-transport-security: max-age=31536000')"
 [ "$hsts_count" = "1" ] && ok "HSTS max-age=31536000 (đúng 1 header)" || fail "HSTS: thấy $hsts_count header đúng"
+# NFR-SEC-004/D68 — đúng MỘT CSP mỗi response: API chặn hết, trang web chỉ cùng nguồn (Nginx không thêm)
+csp_api="$(echo "$headers" | grep -i '^content-security-policy:' | tr -d '\r')"
+[ "$(echo "$csp_api" | grep -c .)" = "1" ] && echo "$csp_api" | grep -q "default-src 'none'" \
+  && ok "CSP API: default-src 'none' (đúng 1 header)" || fail "CSP API: $csp_api"
+csp_web="$("${CURL[@]}" -D - -o /dev/null "$BASE/" | grep -i '^content-security-policy:' | tr -d '\r')"
+[ "$(echo "$csp_web" | grep -c .)" = "1" ] && echo "$csp_web" | grep -q "default-src 'self'" \
+  && echo "$csp_web" | grep -q "frame-ancestors 'none'" \
+  && ok "CSP trang web: default-src 'self', frame-ancestors 'none' (đúng 1 header)" || fail "CSP trang web: $csp_web"
 
 step "5. Chỉ nginx publish cổng ra host (D60)"
 published="$("${COMPOSE[@]}" ps --format '{{.Service}} {{.Publishers}}' | grep -v '^nginx ' | grep -E 'PublishedPort:[1-9]' || true)"
