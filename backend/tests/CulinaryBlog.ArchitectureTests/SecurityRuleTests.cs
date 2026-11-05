@@ -1,43 +1,70 @@
-using ArchUnitNET.Domain;
-using ArchUnitNET.Loader;
-using ArchUnitNET.xUnit;
 using FluentAssertions;
+using Mono.Cecil;
+using Mono.Cecil.Cil;
 using Xunit;
-using static ArchUnitNET.Fluent.ArchRuleDefinition;
 
 namespace CulinaryBlog.ArchitectureTests;
 
 /// <summary>
 /// NFR-SEC-004 / CONS-006 — không raw SQL dạng chuỗi. Chỉ cho phép LINQ hoặc API <c>*Interpolated</c>
 /// / <c>FromSql</c> (EF Core tự tham số hóa từng giá trị nội suy). Chặn hồi quy: ai thêm
-/// <c>FromSqlRaw</c>, <c>ExecuteSqlRaw</c>, <c>SqlQueryRaw</c> thì build test đỏ.
+/// <c>FromSqlRaw</c>, <c>ExecuteSqlRaw</c>, <c>SqlQueryRaw</c> thì test đỏ.
+///
+/// Quét IL bằng Mono.Cecil thay vì ArchUnitNET: ở Release, state machine của phương thức <c>async</c> là
+/// <b>struct</b> lồng do compiler sinh và ArchUnitNET không thấy lời gọi bên trong (CI chạy Release —
+/// test đối chứng bắt được điều này). Ở đây duyệt mọi kiểu, kể cả kiểu lồng, nên Debug và Release như nhau.
 /// </summary>
 public class SecurityRuleTests
 {
-    private static readonly Architecture Architecture = new ArchLoader()
-        .LoadAssemblies(
-            typeof(Domain.Common.BaseEntity).Assembly,
-            typeof(Application.DependencyInjection).Assembly,
-            typeof(Infrastructure.DependencyInjection).Assembly,
-            typeof(Program).Assembly)
-        .Build();
+    private static readonly string[] RawSqlMethods = ["FromSqlRaw", "ExecuteSqlRaw", "ExecuteSqlRawAsync", "SqlQueryRaw"];
 
-    // Khớp FullName của phương thức EF Core (Mono.Cecil ghi "Kiểu::Tên(...)", không phải "Kiểu.Tên(").
-    private const string RawSqlPattern = @"::(FromSqlRaw|ExecuteSqlRaw|ExecuteSqlRawAsync|SqlQueryRaw)(<.*>)?\(";
+    private static readonly IReadOnlyList<(string Caller, string Callee)> Calls = LoadCalls(
+        typeof(Domain.Common.BaseEntity).Assembly.Location,
+        typeof(Application.DependencyInjection).Assembly.Location,
+        typeof(Infrastructure.DependencyInjection).Assembly.Location,
+        typeof(Program).Assembly.Location);
 
     [Fact(DisplayName = "NFR-SEC-004/CONS-006: không lớp nào gọi FromSqlRaw / ExecuteSqlRaw / SqlQueryRaw")]
-    public void NoType_ShouldCall_RawSqlApis() =>
-        Types().Should().NotCallAny(RawSqlPattern, useRegularExpressions: true)
-            .Because("raw SQL dạng chuỗi dễ bị SQL injection — dùng LINQ hoặc API *Interpolated (tham số hóa)")
-            .Check(Architecture);
-
-    [Fact(DisplayName = "NFR-SEC-004 (đối chứng): quy tắc thấy được lời gọi EF Core — bắt được ExecuteSqlInterpolatedAsync đang có")]
-    public void Rule_DetectsExternalEfCoreCalls()
+    public void NoType_ShouldCall_RawSqlApis()
     {
-        // Nếu ArchUnitNET không nhìn thấy lời gọi sang EF Core thì test trên luôn xanh vô nghĩa.
-        var rule = Types().Should().NotCallAny(@"::ExecuteSqlInterpolatedAsync(<.*>)?\(", useRegularExpressions: true);
+        var violations = Calls.Where(c => RawSqlMethods.Any(m => c.Callee.EndsWith("::" + m, StringComparison.Ordinal)));
 
-        rule.HasNoViolations(Architecture).Should().BeFalse(
-            "RecipeRepository.LockForUpdateAsync gọi ExecuteSqlInterpolatedAsync — quy tắc phải phát hiện được");
+        violations.Should().BeEmpty(
+            "raw SQL dạng chuỗi dễ bị SQL injection — dùng LINQ hoặc API *Interpolated (tham số hóa)");
+    }
+
+    [Fact(DisplayName = "NFR-SEC-004 (đối chứng): quét IL thấy được lời gọi EF Core trong phương thức async — bắt được ExecuteSqlInterpolatedAsync đang có")]
+    public void Scan_DetectsEfCoreCallInsideAsyncMethod()
+    {
+        // RecipeRepository.LockForUpdateAsync (async) gọi ExecuteSqlInterpolatedAsync — nếu không thấy thì
+        // test trên luôn xanh vô nghĩa.
+        Calls.Should().Contain(c =>
+            c.Caller.StartsWith("CulinaryBlog.Infrastructure.Persistence.Repositories.RecipeRepository", StringComparison.Ordinal)
+            && c.Callee.EndsWith("::ExecuteSqlInterpolatedAsync", StringComparison.Ordinal));
+    }
+
+    /// <summary>(kiểu gọi — kể cả kiểu lồng compiler sinh, phương thức được gọi dạng "KiểuKhaiBáo::Tên").</summary>
+    private static List<(string Caller, string Callee)> LoadCalls(params string[] assemblyPaths)
+    {
+        var calls = new List<(string, string)>();
+        foreach (var path in assemblyPaths)
+        {
+            using var module = ModuleDefinition.ReadModule(path);
+            foreach (var type in module.GetTypes()) // GetTypes() gồm cả kiểu lồng
+            {
+                foreach (var method in type.Methods.Where(m => m.HasBody))
+                {
+                    foreach (var instruction in method.Body.Instructions)
+                    {
+                        if (instruction.OpCode.FlowControl == FlowControl.Call && instruction.Operand is MethodReference callee)
+                        {
+                            calls.Add((type.FullName, $"{callee.DeclaringType.FullName}::{callee.Name}"));
+                        }
+                    }
+                }
+            }
+        }
+
+        return calls;
     }
 }

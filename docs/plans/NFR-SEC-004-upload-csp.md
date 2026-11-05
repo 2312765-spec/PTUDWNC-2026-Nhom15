@@ -96,6 +96,11 @@ Sau khi thêm CSP: chạy lại Lighthouse CI (không lỗi CSP trên console, `
 - `GlobalExceptionMiddleware` gán `ContentType = application/problem+json` rồi `WriteAsJsonAsync` ghi đè
   thành `application/json` → mọi response lỗi sai CONS-005 từ trước. Đã sửa.
 - API phục vụ trang HTML Scalar (`/scalar`, Development) cần script CDN → middleware CSP bỏ qua đường dẫn này.
+- **CI đỏ (architecture test, Release):** test đối chứng fail — ở Release, state machine của phương thức
+  `async` là struct lồng do compiler sinh và ArchUnitNET không thấy lời gọi bên trong → quy tắc cấm raw
+  SQL **mù** với code async trên CI (local chạy Debug nên không lộ). Viết lại bằng Mono.Cecil quét IL mọi
+  kiểu kể cả kiểu lồng. Kiểm: thêm tạm `FromSqlRaw` trong phương thức async, chạy Release → đỏ đúng;
+  hoàn tác → 12/12 xanh ở cả Release và Debug.
 - Kiểm CSP lần đầu đo nhầm một `next start` cũ còn sót (build trước khi có CSP, giữ cổng 3000) → dừng
   process đó, đo lại.
 
