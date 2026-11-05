@@ -1724,6 +1724,12 @@ không có người bấm — nên **không có INP**. Next 16 cũng không còn
 4. **Trang đo:** 6 trang public — `/`, `/recipes`, `/recipes/{slug}`, `/categories`,
    `/categories/{slug}`, `/search?q=`. Không đo `/dashboard/*` (CSR sau đăng nhập) và `/auth/*`.
 5. Báo cáo lưu filesystem + artifact CI, **không** đẩy lên `temporary-public-storage` (công khai).
+6. **Trang ISR không có `loading.tsx`** (bổ sung 2026-11-05 sau lần chạy CI đầu: `/` LCP 2569ms).
+   `loading.tsx` bọc trang trong Suspense; kể cả trang tĩnh, HTML prerender vẫn gửi skeleton trước và
+   nội dung thật trong `div hidden`, tráo vào bằng script `$RC` (React gom lần tráo ~300ms) → phần tử LCP
+   vẽ sau khi JS chạy. Đã bỏ `app/(home)/loading.tsx`, `app/categories/(list)/loading.tsx`. Đổi lại:
+   chuyển trang client sang hai trang này không có skeleton nếu RSC chưa prefetch xong (`<Link>` prefetch
+   sẵn route tĩnh nên thường tức thì). NFR-USE-004 cho trang SSR/CSR không bị ảnh hưởng.
 
 **Vì:** giữ đúng ý SRS (Core Web Vitals + giới hạn JS) bằng chỉ số Lighthouse thực sự đo được;
 không đặt một assert không bao giờ có dữ liệu.
