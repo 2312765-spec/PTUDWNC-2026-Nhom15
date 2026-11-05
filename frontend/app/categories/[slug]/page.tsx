@@ -30,12 +30,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: data.category.name,
     description: data.category.description ?? `Công thức thuộc danh mục ${data.category.name}.`,
+    // D61.5: canonical không kèm ?page=
+    alternates: { canonical: `/categories/${data.category.slug}` },
   };
 }
 
 export default async function CategoryDetailPage({ params }: PageProps) {
   const { slug } = await params;
   const data = await getCategoryBySlug(slug, 1, PAGE_SIZE);
+  // Không thêm loading.tsx cho segment này hoặc segment cha: loading.tsx bật streaming nên header 200
+  // được gửi trước notFound() → soft 404 (e2e/recipe.spec.ts kiểm tra status 404).
   if (!data) notFound();
 
   const { category, recipes } = data;

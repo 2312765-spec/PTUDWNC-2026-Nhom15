@@ -134,7 +134,7 @@ public static class DbSeeder
             recipe.AddIngredient(ingredient.Name, ingredient.Quantity, ingredient.Unit, ingredient.Notes);
         }
 
-        recipe.AttachImage($"https://placehold.co/800x600?text={slug}", altText: seed.Title);
+        recipe.AttachImage($"https://placehold.co/800x600/png?text={slug}", altText: seed.Title);
 
         // Qua domain method để D3 (≥ 1 step và ≥ 1 ingredient) được kiểm tra thật.
         if (status != RecipeStatus.Draft)

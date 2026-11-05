@@ -14,6 +14,7 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   title: 'Danh mục công thức',
   description: 'Khám phá các danh mục món ăn và số lượng công thức đã xuất bản trong từng danh mục.',
+  alternates: { canonical: '/categories' }, // NFR-SEO-002
 };
 
 export default async function CategoriesPage() {

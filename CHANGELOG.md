@@ -24,6 +24,13 @@ Theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và [SemVer](https
   ảnh MinIO phục vụ qua Nginx `/culinary-blog/` với cấu hình mới `Minio:PublicBaseUrl` (D58), sao lưu
   `pg_dump` 03:00 UTC giữ 30 ngày (`scripts/pg-backup.sh`, NFR-REL-003), smoke test `scripts/verify-prod.sh`.
   Hướng dẫn: `docs/deployment.md`. API bật `UseForwardedHeaders`; frontend build `output: 'standalone'`.
+- NFR-SEO-001/002: JSON-LD Schema.org Recipe đầy đủ (`datePublished`, ảnh tuyệt đối, `HowToStep` neo `#buoc-n`)
+  qua `components/seo/RecipeJsonLd.tsx`; meta description 150–160 ký tự, canonical, Open Graph, Twitter
+  `summary_large_image`; og:image 1200×630 sinh tại `/recipes/{slug}/og-image` (ảnh chính hoặc thẻ chữ);
+  `metadataBase` = `NEXT_PUBLIC_SITE_URL`; canonical không query param; `/search` `noindex` (D61).
+
+### Fixed
+- NFR-SEO-002: title trang chi tiết công thức bị lặp đuôi `| Culinary Blog | Culinary Blog`.
 
 ### Security
 - NFR-SEC-007: bỏ `Jwt:Key` khỏi `appsettings.json` và khóa dự phòng hardcode trong `Program.cs`. API dừng

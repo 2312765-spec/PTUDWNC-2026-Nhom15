@@ -47,7 +47,8 @@ describe('/search — FR-SRCH-001', () => {
   });
 
   it('FR-SRCH-001: metadata title theo từ khóa', async () => {
-    await expect(generateMetadata(props({ q: 'pho' }))).resolves.toEqual({ title: 'Tìm kiếm: pho' });
-    await expect(generateMetadata(props())).resolves.toEqual({ title: 'Tìm kiếm công thức' });
+    // canonical + noindex (D61.4) kiểm ở __tests__/app/seo-metadata.test.tsx
+    await expect(generateMetadata(props({ q: 'pho' }))).resolves.toMatchObject({ title: 'Tìm kiếm: pho' });
+    await expect(generateMetadata(props())).resolves.toMatchObject({ title: 'Tìm kiếm công thức' });
   });
 });
