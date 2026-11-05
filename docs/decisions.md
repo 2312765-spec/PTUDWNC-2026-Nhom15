@@ -77,6 +77,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D59 | Migration + seed role ở prod (CONS-009) | Service `migrate` một lần: `--migrate-only` = migrate + `IdentityRoleSeeder` rồi thoát · **không** chạy `DbSeeder` · `api` chờ `service_completed_successfully` |
 | D60 | Cổng prod (CONS-009, NFR-SEC-005) | **Chỉ Nginx** publish 80/443 (lệch bảng SRS §6.5) · API bật `ForwardedHeaders`, tin proxy trong mạng nội bộ |
 | D61 | Route trang hồ sơ & chặn route chưa đăng nhập (FR-AUTH-006/007) | Trang hồ sơ ở **`/dashboard/profile`**, không có `/profile` · `proxy.ts` chặn `/dashboard/*` khi chưa đăng nhập → `/auth/login?callbackUrl=<đường dẫn nội bộ>` · chỉ để UX, backend vẫn tự kiểm tra |
+| D62 | IP để rate limit khi request đi qua Next.js (NFR-SEC-003) | Server Next.js gửi `X-Forwarded-For` = `X-Real-IP` do Nginx ghi · Nginx đặt `proxy_set_header` ở mức server (location `/api/` không khai báo riêng) · Dev ngưỡng cao |
 
 ---
 
@@ -1629,6 +1630,41 @@ sau Nginx scheme luôn là `http` (HSTS không gửi) và IP client trong log lu
 chạy và có test (header, dashboard, FR-AUTH-006/007 đều đang trỏ `/dashboard/profile`).
 
 **Sửa SRS:** mục 5.1 — đổi `/profile` thành `/dashboard/profile`.
+
+---
+
+## D62 — NFR-SEC-003: IP để rate limit khi request đi vòng qua Next.js
+
+> 2026-11-05. Phát hiện khi review PR #62 (lab08).
+
+**Nguồn:** D15 đếm "theo IP", D60 lấy IP sau `UseForwardedHeaders`. Nhưng đăng ký, đăng nhập,
+Google, refresh token và logout đều do **server Next.js** gọi (Auth.js `authorize`, callback `jwt`
+trong `proxy.ts`, `events.signOut`) qua `API_INTERNAL_URL` — không qua Nginx, không có
+`X-Forwarded-For`. API thấy mọi người dùng là IP container `frontend`, nên `/auth/*` chỉ còn
+10 req/phút **cho cả site**: khoảng 150 người online đã đủ làm refresh bị 429 → phiên hỏng → đăng
+xuất hàng loạt. Thêm nữa, `location /api/` của `nginx.prod.conf` có `proxy_set_header` riêng nên
+không kế thừa `X-Forwarded-For`/`X-Real-IP` ở mức server — request từ trình duyệt cũng chung IP
+của Nginx.
+
+**Chốt:**
+
+1. Nginx: mọi `proxy_set_header` chung đặt ở mức `server`, location `/api/` không khai báo riêng.
+2. Lời gọi server → API của Next.js gửi `X-Forwarded-For: <IP người dùng>` (`lib/auth/client-ip.ts`).
+   IP lấy từ **`X-Real-IP`** do Nginx ghi đè bằng `$remote_addr` — không đọc `X-Forwarded-For` của
+   request tới Next.js vì phần đầu chuỗi do client tự gửi. Ngoài request scope → không gửi header.
+3. API giữ cấu hình D60 (tin `X-Forwarded-For` từ mạng nội bộ, `ForwardLimit = 1`). Chỉ Nginx
+   publish cổng nên client bên ngoài không gửi thẳng tới API hay frontend được.
+4. Development bật rate limit với ngưỡng cao (`appsettings.Development.json`: auth 100, upload 50,
+   chung 1000) — ở máy dev mọi request cùng là `127.0.0.1`. Production dùng đúng số D15.
+5. Rate limit tự viết bằng `PartitionedRateLimiter` + `RateLimitingMiddleware`, không dùng
+   `UseRateLimiter()`: D15 đòi `X-RateLimit-*` trên mọi response, `UseRateLimiter` chỉ cho can
+   thiệp lúc từ chối.
+
+**Vì:** giữ nguyên ngưỡng D15 và mục đích chống brute force theo từng người; sửa đúng chỗ làm mất
+IP thay vì nới giới hạn cho IP nội bộ (nới thì kẻ tấn công đi qua form đăng nhập là thoát giới hạn).
+
+**Sửa SRS:** NFR-SEC-003 — ghi chú "IP" là IP người dùng cuối, kể cả khi request do server
+frontend gọi thay.
 
 ---
 
