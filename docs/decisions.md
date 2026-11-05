@@ -1704,6 +1704,35 @@ frontend gọi thay.
 
 ---
 
+## D64 — NFR-PERF-005: chỉ số Lighthouse CI đo được
+
+> 2026-11-05. Phát hiện khi lập kế hoạch NFR-PERF-005 (`plans/NFR-PERF-005-lighthouse-ci.md`).
+
+**Nguồn:** SRS §NFR-PERF-005 yêu cầu "đo bằng Lighthouse CI" cả LCP, CLS, **INP** và
+"First Load JS Bundle ≤ 200KB (gzipped)". Nhưng Lighthouse chạy chế độ navigation — tải trang,
+không có người bấm — nên **không có INP**. Next 16 cũng không còn in cột "First Load JS" khi
+`next build`, nên không có con số build nào để đối chiếu.
+
+**Chốt:**
+
+1. **INP → TBT (Total Blocking Time) ≤ 200ms.** TBT là chỉ số lab Google khuyên dùng thay INP
+   (cùng đo main thread bị chặn). INP thật chỉ có từ dữ liệu người dùng (CrUX) — ngoài phạm vi v1.
+2. **Bundle → `resource-summary:script:size` ≤ 204800 byte** mỗi trang: tổng JS tải qua mạng
+   (transfer size, đã nén) mà Lighthouse ghi nhận khi mở trang.
+3. **Preset mobile** (mặc định Lighthouse: 4G chậm, CPU ×4) — đúng cách Google đánh giá Core Web
+   Vitals. Mỗi URL chạy 3 lần, assert theo trung vị.
+4. **Trang đo:** 6 trang public — `/`, `/recipes`, `/recipes/{slug}`, `/categories`,
+   `/categories/{slug}`, `/search?q=`. Không đo `/dashboard/*` (CSR sau đăng nhập) và `/auth/*`.
+5. Báo cáo lưu filesystem + artifact CI, **không** đẩy lên `temporary-public-storage` (công khai).
+
+**Vì:** giữ đúng ý SRS (Core Web Vitals + giới hạn JS) bằng chỉ số Lighthouse thực sự đo được;
+không đặt một assert không bao giờ có dữ liệu.
+
+**Sửa SRS:** NFR-PERF-005 — thay "INP ≤ 200ms (Lighthouse CI)" bằng "TBT ≤ 200ms (Lighthouse CI,
+lab); INP theo dõi qua CrUX"; ghi rõ cách đo bundle là transfer size JS mỗi trang.
+
+---
+
 ## Khi phát hiện mâu thuẫn mới lúc code
 
 1. Thêm mục mới vào cuối file này với mã `D23`, `D24`…
