@@ -1739,6 +1739,39 @@ lab); INP theo dõi qua CrUX"; ghi rõ cách đo bundle là transfer size JS m�
 
 ---
 
+## D65 — CONS-009: S3 cho dev/CI khi MinIO khóa phân phối image
+
+> 2026-11-05. Phát hiện khi job Lighthouse CI không pull được MinIO (PR #64). Plan:
+> `plans/CONS-009-dev-s3mock.md`.
+
+**Nguồn:** SRS §6.5 và CLAUDE.md mục 2 chọn MinIO làm object storage. Nhưng MinIO Inc. đã khóa
+phân phối image công khai: `docker manifest inspect` (2026-11-05) — `quay.io/minio/minio:latest`,
+`quay.io/minio/mc:latest` và **cả digest prod** `quay.io/minio/minio@sha256:14cea4…` trả "no such
+manifest"; `minio/minio` trên Docker Hub trả "unauthorized". Máy dev clone mới không chạy được
+`docker compose up -d`; chỉ máy còn cache image mới chạy.
+
+**Chốt:**
+
+1. **Dev (`docker-compose.yml`) + CI dùng `adobe/s3mock:5.2.3`** — cùng S3 với integration test
+   (`IntegrationTests/Common/S3MockContainer.cs`). Service giữ tên `minio`, cổng host 9000, nên
+   `Minio:Endpoint` dev và `next.config.ts` không đổi. Bucket tạo bằng biến môi trường (không cần
+   `mc`, cũng bị khóa); object lưu volume `s3mockdata`, giữ qua restart. GET object không xác thực —
+   khớp ảnh public D16. Không có console web.
+2. **Code không đổi.** `MinioFileStorageService` chỉ dùng S3 API chuẩn (AWSSDK.S3, path-style) —
+   tên lớp và khóa cấu hình `Minio:*` giữ nguyên.
+3. **Prod (`docker-compose.prod.yml`) chưa đổi** — vẫn MinIO pin digest + `MINIO_IMAGE`/`docker load`
+   (`docs/deployment.md` mục 3). **Rủi ro mở:** server mới không pull được image; cần quyết định thay
+   thế cho prod (ứng viên còn pull tự do: RustFS, SeaweedFS) ở việc riêng. S3Mock **không** dùng cho prod
+   (không phân quyền, không thiết kế cho dữ liệu thật).
+
+**Vì:** gỡ chặn cả nhóm ngay với thay đổi nhỏ nhất, dùng lại S3 đã được kiểm trong test và CI;
+tách quyết định prod (cần thử kỹ) khỏi việc gỡ chặn dev.
+
+**Sửa SRS:** §6.5 — ghi chú môi trường dev/test dùng S3-compatible mock; MinIO (hoặc thay thế S3
+tương thích) cho production.
+
+---
+
 ## Khi phát hiện mâu thuẫn mới lúc code
 
 1. Thêm mục mới vào cuối file này với mã `D23`, `D24`…

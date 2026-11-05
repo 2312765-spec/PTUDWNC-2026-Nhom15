@@ -70,14 +70,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # MinIO đã khóa pull ẩn danh trên quay.io lẫn Docker Hub (traceability.md, FR-FILE) → dùng
-      # adobe/s3mock (như IntegrationTests/Common/S3MockContainer.cs) ở cổng 9000, khớp Minio:Endpoint của
-      # appsettings.Development.json. S3Mock nhận mọi access key; bucket tạo sẵn qua biến môi trường.
-      - name: Hạ tầng (postgres, redis, S3 thay MinIO)
-        run: |
-          docker compose up -d --wait postgres redis
-          docker run -d --name s3mock -p 9000:9090 \
-            -e COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS=culinary-blog adobe/s3mock:5.2.3
+      # Service "minio" của docker-compose.yml là adobe/s3mock (D65) — cùng S3 với dev
+      - name: Hạ tầng (postgres, redis, S3)
+        run: docker compose up -d --wait postgres redis minio
 
       - uses: actions/setup-dotnet@v4
         with:

@@ -145,7 +145,7 @@ Mỗi handler một file. Endpoint group `{Entity}Endpoints.cs`.
 ## 5. Lệnh hay dùng
 
 ```bash
-# Hạ tầng dev (postgres, redis, minio, seq, mailhog)
+# Hạ tầng dev (postgres, redis, S3 = adobe/s3mock — D65, seq, mailhog)
 docker compose up -d
 
 # Hook quét secret (NFR-SEC-007) — bật một lần cho mỗi bản clone, cần cài gitleaks
@@ -172,7 +172,7 @@ npm run lint && npm run build
 npm run test:e2e                # E2E Playwright — cần backend chạy sẵn
 ```
 
-**Cổng:** API 5000 · Web 3000 · Postgres 5432 · Redis 6379 · MinIO 9000/9001 ·
+**Cổng:** API 5000 · Web 3000 · Postgres 5432 · Redis 6379 · S3 9000 (dev, D65) ·
 Seq 5341 · Mailhog 8025
 
 ---
