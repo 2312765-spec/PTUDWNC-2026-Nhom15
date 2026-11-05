@@ -157,9 +157,9 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 > do, chỉ hỗ trợ path-style — khớp `ForcePathStyle=true` sẵn có) làm S3 server thật thay thế, qua
 > helper dùng chung `IntegrationTests/Common/S3MockContainer.cs`. Gọi thẳng `MinioFileStorageService`
 > vào server thật, xác nhận `PutObjectAsync`/`DeleteObjectAsync` — đóng khoảng trống trước đây (chỉ
-> có review bằng mắt, chưa có test tự động cho tầng Infrastructure thật). **Lưu ý cho D:**
-> `docker-compose.yml` (dev/prod thật) vẫn dùng `quay.io/minio/minio:latest` — nếu registry đó
-> cũng chặn máy dev/CI của nhóm, cần xử lý riêng ở đó (ngoài phạm vi test này).
+> có review bằng mắt, chưa có test tự động cho tầng Infrastructure thật). **Cập nhật 2026-11-05
+> (D65):** registry đã chặn cả máy dev/CI → `docker-compose.yml` dev và CI cũng dùng `adobe/s3mock:5.2.3`
+> (service vẫn tên `minio`, cổng 9000). Prod còn MinIO — xem lưu ý CONS-009.
 
 ---
 
@@ -239,7 +239,9 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 | CONS-009 | Docker hóa, Dockerfile multi-stage, `docker-compose.prod.yml` (SRS §6.5) — plan `docs/plans/CONS-009-docker-compose-prod.md`, hướng dẫn `docs/deployment.md` | `docker-compose.prod.yml` · `nginx/nginx.prod.conf` · `scripts/pg-backup.sh` · `.env.production.example` · `backend/CulinaryBlog.API/Dockerfile` · `frontend/Dockerfile` (+`output: 'standalone'`) · `API/Extensions/{DatabaseMigrationExtensions,JwtKeyGuard}.cs` · `Minio:PublicBaseUrl` trong `MinioFileStorageService` | `IntegrationTests/Common/{DatabaseMigrationTests (2), ForwardedHeadersTests (2), JwtKeyGuardTests (5)}.cs` · `Files/MinioFileStorageServiceTests.cs` (+3 D58) · `scripts/verify-prod.sh` 16/16 pass trên máy local 2026-10-21 (cert tự ký, `culinary.localhost`) | **D58, D59, D60**, D16, D36, D52 | ✅ |
 
 > **CONS-009 — lưu ý:** MinIO đã khóa pull ẩn danh → compose pin theo digest, server mới phải `docker load`
-> image hoặc dùng registry riêng (`MINIO_IMAGE`/`MC_IMAGE`). DataProtection key của API chưa persist (cảnh báo
+> image hoặc dùng registry riêng (`MINIO_IMAGE`/`MC_IMAGE`). **Kiểm 2026-11-05: chính digest đó cũng đã
+> bị gỡ khỏi quay.io** — chỉ máy còn cache mới dựng được; thay thế S3 cho prod là rủi ro mở (D65.3).
+> Dev/CI đã chuyển sang `adobe/s3mock` (D65). DataProtection key của API chưa persist (cảnh báo
 > khi khởi động) — chưa ảnh hưởng vì xác thực dùng JWT. Welcome email cần `SMTP_HOST`; để trống thì job lỗi và retry.
 
 ---

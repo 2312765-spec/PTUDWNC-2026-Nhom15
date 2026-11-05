@@ -39,42 +39,30 @@ services:
       timeout: 3s
       retries: 5
 
+  # S3 cho dev (D65): MinIO đã khóa mọi image công khai (quay.io lẫn Docker Hub, cả digest cũ) nên dùng
+  # adobe/s3mock — cùng S3 với integration test và Lighthouse CI. Giữ tên service "minio" và cổng 9000
+  # để Minio:Endpoint (appsettings.Development.json) và next.config.ts không phải đổi.
+  # Bucket culinary-blog tạo sẵn; GET object không cần xác thực (ảnh public — D16). Nhận mọi access key.
+  # Không có console web — xem object: http://localhost:9000/culinary-blog
   minio:
-    image: quay.io/minio/minio:latest
-    container_name: cb-minio
+    image: adobe/s3mock:5.2.3
+    container_name: cb-s3
     restart: unless-stopped
-    command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: culinary-blog
+      # Thư mục có sẵn trong image, thuộc user cnb (uid 1000) — volume mới thừa hưởng quyền này.
+      # Gắn vào thư mục khác (vd. /data) thì volume thuộc root, s3mock không ghi được → HTTP 500.
+      COM_ADOBE_TESTING_S3MOCK_STORE_ROOT: /s3mockroot
+      COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT: "true"   # giữ object qua restart
     ports:
-      - "9000:9000"   # S3 API
-      - "9001:9001"   # Console: http://localhost:9001
+      - "9000:9090"   # S3 API
     volumes:
-      - miniodata:/data
+      - s3mockdata:/s3mockroot
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9090/"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  # Tạo bucket "culinary-blog" với policy public-read (D16) — chạy một lần rồi thoát
-  # LƯU Ý: dùng quay.io, KHÔNG dùng "minio/mc:latest" trên Docker Hub — Docker Hub
-  # đã chặn pull ẩn danh image này ("pull access denied"). quay.io là mirror chính
-  # thức của MinIO Inc., không bị chặn.
-  minio-init:
-    image: quay.io/minio/mc:latest
-    container_name: cb-minio-init
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 minioadmin minioadmin &&
-      mc mb --ignore-existing local/culinary-blog &&
-      mc anonymous set download local/culinary-blog &&
-      echo 'Bucket culinary-blog sẵn sàng (public-read theo D16)'
-      "
 
   seq:
     image: datalust/seq:latest
@@ -137,5 +125,5 @@ services:
 volumes:
   pgdata:
   redisdata:
-  miniodata:
+  s3mockdata:
   seqdata:
