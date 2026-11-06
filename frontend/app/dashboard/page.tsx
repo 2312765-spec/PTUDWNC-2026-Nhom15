@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpen, FolderTree, UserRound } from 'lucide-react';
+import { BookOpen, FolderTree, PlusCircle, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -19,6 +19,11 @@ interface Shortcut {
 const baseShortcuts: Shortcut[] = [
   { href: '/dashboard/profile', label: 'Hồ sơ của tôi', description: 'Xem và chỉnh sửa thông tin tài khoản.', icon: UserRound },
   { href: '/recipes', label: 'Khám phá công thức', description: 'Xem các món ăn đã được đăng.', icon: BookOpen },
+];
+
+/** FR-RCP-003 — Author và Admin đều tạo được công thức. */
+const authorShortcuts: Shortcut[] = [
+  { href: '/dashboard/recipes/new', label: 'Tạo công thức mới', description: 'Viết công thức theo từng bước, lưu nháp trước khi xuất bản.', icon: PlusCircle },
 ];
 
 const adminShortcuts: Shortcut[] = [
@@ -52,7 +57,12 @@ export default function DashboardPage() {
     );
   }
 
-  const shortcuts = profile.roles.includes('Admin') ? [...baseShortcuts, ...adminShortcuts] : baseShortcuts;
+  const canWrite = profile.roles.includes('Author') || profile.roles.includes('Admin');
+  const shortcuts = [
+    ...(canWrite ? authorShortcuts : []),
+    ...baseShortcuts,
+    ...(profile.roles.includes('Admin') ? adminShortcuts : []),
+  ];
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">

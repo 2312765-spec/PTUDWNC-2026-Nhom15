@@ -69,6 +69,22 @@ describe('DashboardPage — trang đích của link trong email chào mừng (FR
     expect(screen.queryByRole('link', { name: /Quản lý danh mục/ })).not.toBeInTheDocument();
   });
 
+  it('FR-RCP-003: Author (và Admin) thấy lối tắt "Tạo công thức mới" → /dashboard/recipes/new', () => {
+    signedInAs(author);
+
+    render(<DashboardPage />);
+
+    expect(screen.getByRole('link', { name: /Tạo công thức mới/ })).toHaveAttribute('href', '/dashboard/recipes/new');
+  });
+
+  it('FR-RCP-003: tài khoản không có role Author/Admin không thấy lối tắt tạo công thức', () => {
+    signedInAs({ ...author, roles: [] });
+
+    render(<DashboardPage />);
+
+    expect(screen.queryByRole('link', { name: /Tạo công thức mới/ })).not.toBeInTheDocument();
+  });
+
   it('permissions.md: Admin thấy lối tắt quản lý danh mục', () => {
     signedInAs(admin);
 

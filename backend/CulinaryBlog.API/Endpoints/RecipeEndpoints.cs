@@ -7,6 +7,7 @@ using CulinaryBlog.Application.Recipes.Commands.Create;
 using CulinaryBlog.Application.Recipes.Commands.Steps;
 using CulinaryBlog.Application.Recipes.Commands.Update;
 using CulinaryBlog.Application.Recipes.DTOs;
+using CulinaryBlog.Application.Recipes.Queries.GetRecipeById;
 using CulinaryBlog.Application.Recipes.Queries.GetRecipeBySlug;
 using CulinaryBlog.Application.Recipes.Queries.GetRecipes;
 using CulinaryBlog.Application.Recipes.Queries.SearchRecipes;
@@ -74,6 +75,17 @@ public static class RecipeEndpoints
         .Produces<PagedResult<RecipeSummaryDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest);
           
+        // D75: chi tiết theo id cho trang sửa (FR-RCP-004 FE) — không cache, luôn có rowVersion mới nhất.
+        // Ràng buộc :guid làm route này được ưu tiên hơn /{slug} (D72/D75: slug dạng GUID được thêm "-1").
+        group.MapGet("/{id:guid}", async (Guid id, ISender mediator, CancellationToken ct) =>
+            TypedResults.Ok(await mediator.Send(new GetRecipeByIdQuery(id), ct)))
+        .WithName("GetRecipeById")
+        .WithSummary("Chi tiết theo id — Draft/Archived: chỉ owner hoặc Admin (403) (D75)")
+        .Produces<RecipeDetailDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .AllowAnonymous();
+
         // FR-RCP-002: Xem chi tiết công thức nấu ăn theo slug
         group.MapGet("/{slug}", async (
             string slug,

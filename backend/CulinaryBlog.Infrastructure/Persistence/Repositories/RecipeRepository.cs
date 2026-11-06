@@ -36,6 +36,17 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
             .Include(r => r.Images)
             .FirstOrDefaultAsync(r => r.Slug == slug && !r.IsDeleted, cancellationToken);
 
+    /// <summary>D75 — đọc chi tiết theo id, AsNoTracking + AsSplitQuery (NFR-PERF-004).</summary>
+    public async Task<Recipe?> GetByIdDetailedAsync(Guid id, CancellationToken cancellationToken = default) =>
+        await context.Recipes
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Include(r => r.Category)
+            .Include(r => r.Steps)
+            .Include(r => r.Ingredients)
+            .Include(r => r.Images)
+            .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted, cancellationToken);
+
     /// <summary>
     /// D1/D10/D72 — tính cả recipe đã xóa mềm: unique index <c>IX_Recipes_Slug</c> phủ mọi bản ghi,
     /// slug của recipe đã xóa không được tái sử dụng.
