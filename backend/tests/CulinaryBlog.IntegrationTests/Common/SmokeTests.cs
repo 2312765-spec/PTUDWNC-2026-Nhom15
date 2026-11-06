@@ -43,7 +43,7 @@ public class SmokeTests(CulinaryBlogApiFactory factory) : IClassFixture<Culinary
     }
 
     [Theory(DisplayName = "Endpoint chưa hiện thực trả 501 kèm mã FR")]
-    [InlineData("/api/v1/recipes/11111111-1111-1111-1111-111111111111/publish")] // FR-RCP-005 (C)
+    [InlineData("/api/v1/recipes/11111111-1111-1111-1111-111111111111/archive")] // FR-RCP-006 (C)
     public async Task PendingEndpoints_Return501(string url)
     {
         // Các endpoint còn pending đều cần policy Author → gửi JWT thật (ký bằng khóa test) để
