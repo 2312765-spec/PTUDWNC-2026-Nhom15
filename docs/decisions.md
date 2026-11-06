@@ -84,6 +84,8 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D71 | `If-Match`/`RowVersion` (FR-RCP-004) | DTO có `rowVersion` + header `ETag` · PUT thiếu `If-Match` → **400** · lệch → **409** |
 | D72 | Chi tiết slug recipe | Gộp `-`, cắt 200, rỗng → `cong-thuc`, slug cấm thêm `-1`, trùng (kể cả đã xóa mềm) → `-2`… |
 | D73 | Xóa / đánh số lại bước (FR-RCP-010) | **Hard delete** · lưu **2 pha** + khóa dòng recipe · `RECIPE_STEP_NOT_FOUND` (404) · stepNumber ngoài khoảng → 400 · không xóa bước cuối của recipe Published |
+| D74 | Token cho lời gọi API từ trình duyệt | Interceptor `apiClient` gắn Bearer từ `getSession()` (Auth.js tự refresh) · cache 30s |
+| D75 | Trang sửa đọc recipe theo id | `GET /recipes/{id:guid}` không cache, quyền như FR-RCP-002 · slug dạng GUID thêm `-1` |
 
 ---
 
@@ -2019,6 +2021,53 @@ nào kết thúc bằng 500.
 **Sửa SRS:** FR-RCP-010 — ghi rõ xóa bước là xóa vật lý; thêm A3 "bước không tồn tại → 404
 `RECIPE_STEP_NOT_FOUND`", A4 "stepNumber ngoài khoảng → 400", A5 "xóa bước cuối của recipe Published → 400";
 bỏ 422. Phụ lục B — thêm `RECIPE_STEP_NOT_FOUND`.
+
+---
+
+## D74 — Frontend: gắn Bearer token vào `apiClient` từ phiên Auth.js
+
+> 2026-11-06. Phát hiện lúc làm FE cho FR-RCP-003/004/010.
+
+**Nguồn thiếu:** `frontend/lib/api-client.ts` chỉ có `TODO(S2 — A): … gắn Authorization: Bearer từ
+session Auth.js`, chưa có interceptor nào. Mọi lời gọi API cần đăng nhập từ trình duyệt (`/dashboard/*`:
+hồ sơ, quản lý danh mục, ảnh, công thức) đi thiếu token → 401. E2E cũ không phát hiện vì chỉ kiểm tra heading.
+
+**Chốt:**
+
+1. Interceptor request của `apiClient` (chỉ chạy trên trình duyệt) gọi `getSession()` của `next-auth/react`
+   và gắn `Authorization: Bearer <session.accessToken>`. `/api/auth/session` chạy callback jwt nên access token
+   sắp hết hạn được refresh tự động (FR-AUTH-004) — không cần tự xử lý 401.
+2. Cache token 30 giây, gộp các lời gọi song song (một trang dashboard bắn nhiều request cùng lúc).
+3. Phiên có `error = RefreshTokenError` → không gắn token cũ (SessionExpiryWatcher sẽ đăng xuất).
+4. Request đã tự đặt `Authorization` (vd. logout phía server) → giữ nguyên. Phía server (`authorize()`)
+   interceptor bỏ qua.
+
+**Vì:** token chỉ nằm trong phiên Auth.js (cookie httpOnly mã hóa, NFR-SEC-002); `getSession()` là cách
+duy nhất để JS trình duyệt lấy access token mà không lưu ra localStorage.
+
+**Sửa SRS:** không cần.
+
+---
+
+## D75 — `GET /api/v1/recipes/{id:guid}` cho trang sửa công thức
+
+> 2026-11-06. Phát hiện lúc làm FE cho FR-RCP-004.
+
+**Nguồn thiếu:** route trang sửa là `/dashboard/recipes/[id]/edit` (`permissions.md` mục 4) và mọi lệnh ghi
+dùng `{id}`, nhưng API chỉ có `GET /recipes/{slug}` (FR-RCP-002) — trang sửa không đọc được công thức theo id.
+`GET /recipes/{slug}` còn qua cache Redis 5 phút; trang sửa cần `rowVersion` mới nhất (D71).
+
+**Chốt:**
+
+1. Thêm `GET /api/v1/recipes/{id:guid}` → `GetRecipeByIdQuery` → `RecipeDetailDto` (có `rowVersion`).
+   **Không cache.** Quyền xem giống FR-RCP-002: Published ai cũng xem; Draft/Archived chỉ owner hoặc Admin,
+   còn lại 403 `RECIPE_FORBIDDEN`; không có / đã xóa mềm → 404 `RECIPE_NOT_FOUND`.
+2. Ràng buộc `:guid` làm route này được ưu tiên hơn `/{slug}`. Để không recipe nào bị "nuốt" mất, slug có
+   dạng GUID (title là một chuỗi GUID) được thêm `-1` như slug cấm (bổ sung D72).
+
+**Vì:** cần cho FR-RCP-004 (FE) và chống 409 oan do đọc rowVersion cũ từ cache.
+
+**Sửa SRS:** Chương 8 mục 8.3 — thêm dòng `GET /recipes/{id}`.
 
 ---
 

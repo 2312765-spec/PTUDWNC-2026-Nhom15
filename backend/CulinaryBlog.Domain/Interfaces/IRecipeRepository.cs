@@ -8,6 +8,9 @@ public interface IRecipeRepository
     /// <summary>FR-RCP-002: chi tiết theo slug kèm category, steps, ingredients, images. Đã xóa → null.</summary>
     Task<Recipe?> GetBySlugDetailedAsync(string slug, CancellationToken cancellationToken = default);
 
+    /// <summary>D75 — như <see cref="GetBySlugDetailedAsync"/> nhưng theo id (trang sửa của Author). Đã xóa → null.</summary>
+    Task<Recipe?> GetByIdDetailedAsync(Guid id, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// FR-SRCH-001/D49 — tìm kiếm toàn văn trên công thức Published, xếp theo độ liên quan
     /// (ts_rank) giảm dần. Mỗi kết quả kèm điểm Rank. Từ khóa không còn chữ/số nào → rỗng.

@@ -101,7 +101,8 @@ public sealed partial class CreateRecipeCommandHandler(
             baseSlug = FallbackSlug;
         }
 
-        if (ReservedSlugs.Contains(baseSlug))
+        // D75: slug có dạng GUID sẽ bị route GET /recipes/{id:guid} bắt trước route /{slug}.
+        if (ReservedSlugs.Contains(baseSlug) || Guid.TryParse(baseSlug, out _))
         {
             baseSlug += "-1";
         }
