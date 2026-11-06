@@ -1,8 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * E2E luồng "create recipe" (CLAUDE.md mục 7) — FR-RCP-003 wizard, FR-RCP-004 sửa thông tin chung
- * (If-Match — D71), FR-RCP-010 quản lý bước (D6, D73). Chạy trên backend thật: kiểm tra luôn việc
+ * E2E luồng "create recipe" + "publish" (CLAUDE.md mục 7) — FR-RCP-003 wizard, FR-RCP-004 sửa thông tin chung
+ * (If-Match — D71), FR-RCP-010 quản lý bước (D6, D73), FR-RCP-009 nguyên liệu (D76), FR-RCP-005 xuất bản (D77),
+ * FR-RCP-007 xóa (D78). Chạy trên backend thật: kiểm tra luôn việc
  * apiClient gắn Bearer token từ phiên Auth.js (D74) — thiếu token thì mọi lệnh ghi trả 401.
  *
  * Rate limit /auth/* (D15/D63): mỗi test đăng ký đúng một tài khoản qua UI.
@@ -64,7 +65,7 @@ async function createViaWizard(page: Page, title: string) {
   await expect(page.getByRole('heading', { level: 1, name: 'Sửa công thức' })).toBeVisible(NAVIGATION);
 }
 
-test.describe('Tạo và sửa công thức (FR-RCP-003/004/010)', () => {
+test.describe('Tạo, sửa, xuất bản, xóa công thức (FR-RCP-003/004/005/007/009/010)', () => {
   test('FR-RCP-003: wizard tạo công thức → Draft, sang trang sửa với đủ nguyên liệu và các bước', async ({ page }) => {
     await registerViaUi(page);
     const title = `Gỏi cuốn E2E ${Date.now()}`;
@@ -74,7 +75,7 @@ test.describe('Tạo và sửa công thức (FR-RCP-003/004/010)', () => {
     await expect(page.getByText('Nháp', { exact: true })).toBeVisible();
     await expect(page.getByLabel('Tiêu đề', { exact: true })).toHaveValue(title);
     await expect(page.getByRole('heading', { name: 'Nguyên liệu (2)' })).toBeVisible();
-    await expect(page.getByText('vừa đủ')).toBeVisible();
+    await expect(page.getByText('vừa đủ', { exact: true })).toBeVisible();
     const steps = page.getByRole('list', { name: 'Các bước thực hiện' });
     await expect(steps.getByRole('heading', { level: 3 })).toHaveText(['Bước 1: Sơ chế', 'Bước 2: Cuốn']);
   });
@@ -123,5 +124,57 @@ test.describe('Tạo và sửa công thức (FR-RCP-003/004/010)', () => {
       'Bước 1: Đổ bánh',
       'Bước 2: Cuốn',
     ]);
+  });
+  test('FR-RCP-009 + FR-RCP-005 + FR-RCP-007: sửa nguyên liệu, xuất bản → trang công khai xem được, rồi xóa công thức', async ({
+    page,
+  }) => {
+    await registerViaUi(page);
+    const title = `Canh chua E2E ${Date.now()}`;
+    await createViaWizard(page, title);
+    const editUrl = page.url();
+    const slug = ((await page.locator('header code').textContent()) ?? '').replace('/recipes/', '');
+
+    // FR-RCP-009: thêm nguyên liệu (dấu phẩy thập phân), đưa lên đầu, xóa "Muối".
+    const ingredients = page.getByRole('list', { name: 'Danh sách nguyên liệu' });
+    await page.getByRole('button', { name: 'Thêm nguyên liệu' }).click();
+    await page.getByLabel('Nguyên liệu mới — tên').fill('Me chua');
+    await page.getByLabel('Nguyên liệu mới — số lượng').fill('0,5');
+    await page.getByLabel('Nguyên liệu mới — đơn vị').fill('chén');
+    await page.getByRole('button', { name: 'Thêm nguyên liệu' }).click();
+    await expect(page.getByText('Đã thêm nguyên liệu', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Nguyên liệu (3)' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Chuyển Me chua lên' }).click();
+    await page.getByRole('button', { name: 'Chuyển Me chua lên' }).click();
+    await page.getByRole('button', { name: 'Xóa Muối' }).click();
+    await page.getByRole('dialog', { name: 'Xóa nguyên liệu này?' }).getByRole('button', { name: 'Xóa nguyên liệu' }).click();
+    await expect(page.getByText('Đã xóa nguyên liệu', { exact: true })).toBeVisible();
+
+    await page.reload();
+    await expect(ingredients.getByRole('listitem')).toHaveCount(2);
+    await expect(ingredients.getByRole('listitem').first()).toContainText('Me chua');
+    await expect(ingredients.getByRole('listitem').first()).toContainText('0,5 chén');
+
+    // FR-RCP-005: xuất bản → badge đổi; lưu thông tin chung ngay sau đó không bị 409 (rowVersion mới — D77).
+    await page.getByRole('button', { name: 'Xuất bản' }).click();
+    await expect(page.getByRole('button', { name: 'Hủy xuất bản' })).toBeVisible();
+    await expect(page.getByText('Đã xuất bản', { exact: true }).first()).toBeVisible();
+    await page.getByLabel('Khẩu phần').fill('5');
+    await page.getByRole('button', { name: 'Lưu thông tin chung' }).click();
+    await expect(page.getByText('Đã lưu thay đổi')).toBeVisible();
+    await expect(page.getByRole('alert').filter({ hasText: 'thay đổi ở nơi khác' })).toHaveCount(0);
+
+    // Trang công khai (render phía server, không token — góc nhìn Guest) xem được.
+    const publicPage = await page.goto(`/recipes/${slug}`, NAVIGATION);
+    expect(publicPage?.status()).toBe(200);
+    await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+
+    // FR-RCP-007: xóa → về /dashboard; mở lại trang sửa → không tìm thấy.
+    await page.goto(editUrl, NAVIGATION);
+    await page.getByRole('button', { name: 'Xóa công thức' }).click();
+    await page.getByRole('dialog', { name: 'Xóa công thức này?' }).getByRole('button', { name: 'Xóa công thức' }).click();
+    await expect(page).toHaveURL(/\/dashboard$/, NAVIGATION);
+    await page.goto(editUrl, NAVIGATION);
+    await expect(page.getByRole('heading', { name: 'Không tìm thấy công thức' })).toBeVisible(NAVIGATION);
   });
 });

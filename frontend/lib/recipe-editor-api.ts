@@ -1,10 +1,11 @@
 import { apiClient } from '@/lib/api-client';
-import type { CategoryDto, RecipeDetailDto, RecipeStepDto } from '@/lib/types';
-import type { toCreateRecipeRequest, toRecipeBasicsRequest, toStepRequest } from '@/lib/recipe-schema';
+import type { CategoryDto, RecipeDetailDto, RecipeIngredientDto, RecipeStepDto } from '@/lib/types';
+import type { toCreateRecipeRequest, toIngredientRequest, toRecipeBasicsRequest, toStepRequest } from '@/lib/recipe-schema';
 
 /**
  * Lời gọi API cho trang tạo/sửa công thức (dashboard, CSR). Bearer do interceptor của apiClient gắn (D74).
- * FR-RCP-003 · FR-RCP-004 (If-Match — D71) · FR-RCP-010 (D6, D73) · D75 (GET theo id).
+ * FR-RCP-003 · FR-RCP-004 (If-Match — D71) · FR-RCP-005 (D77) · FR-RCP-007 (D78) · FR-RCP-009 (D76) ·
+ * FR-RCP-010 (D6, D73) · D75 (GET theo id).
  */
 
 export const recipeEditorKeys = {
@@ -59,13 +60,52 @@ export async function deleteStep(recipeId: string, stepId: string): Promise<void
   await apiClient.delete(`/recipes/${recipeId}/steps/${stepId}`);
 }
 
+/** FR-RCP-009/D76 — `orderIndex` vắng = xếp cuối. Trả nguyên liệu vừa tạo. */
+export async function addIngredient(
+  recipeId: string,
+  body: ReturnType<typeof toIngredientRequest> & { orderIndex?: number },
+): Promise<RecipeIngredientDto> {
+  const { data } = await apiClient.post<RecipeIngredientDto>(`/recipes/${recipeId}/ingredients`, body);
+  return data;
+}
+
+/** FR-RCP-009/D76 — `orderIndex` có giá trị thì chuyển tới vị trí đó (0-based); trả toàn bộ nguyên liệu theo thứ tự mới. */
+export async function updateIngredient(
+  recipeId: string,
+  ingredientId: string,
+  body: ReturnType<typeof toIngredientRequest> & { orderIndex?: number },
+): Promise<RecipeIngredientDto[]> {
+  const { data } = await apiClient.put<RecipeIngredientDto[]>(`/recipes/${recipeId}/ingredients/${ingredientId}`, body);
+  return data;
+}
+
+export async function deleteIngredient(recipeId: string, ingredientId: string): Promise<void> {
+  await apiClient.delete(`/recipes/${recipeId}/ingredients/${ingredientId}`);
+}
+
+/**
+ * FR-RCP-005/D77 — đổi trạng thái xuất bản. Không gửi If-Match (tùy chọn ở backend): đổi trạng thái không ghi
+ * đè nội dung. Trả RecipeDetailDto với rowVersion mới — trang PHẢI cập nhật cache, nếu không lần lưu thông tin
+ * chung kế tiếp sẽ 409.
+ */
+export async function setRecipePublished(id: string, publish: boolean): Promise<RecipeDetailDto> {
+  const { data } = await apiClient.patch<RecipeDetailDto>(`/recipes/${id}/${publish ? 'publish' : 'unpublish'}`);
+  return data;
+}
+
+/** FR-RCP-007/D1/D78 — xóa mềm. */
+export async function deleteRecipe(id: string): Promise<void> {
+  await apiClient.delete(`/recipes/${id}`);
+}
+
 /** NFR-USE-003 — thông báo theo Application Error Code (bảng cuối docs/decisions.md). */
 export const RECIPE_ERROR_MESSAGES: Record<string, string> = {
   RECIPE_NOT_FOUND: 'Không tìm thấy công thức (có thể đã bị xóa).',
   RECIPE_FORBIDDEN: 'Bạn không có quyền sửa công thức này.',
   RECIPE_CONCURRENCY_CONFLICT: 'Công thức vừa được thay đổi ở nơi khác. Hãy tải lại bản mới nhất rồi sửa tiếp.',
   RECIPE_STEP_NOT_FOUND: 'Bước này không còn tồn tại. Hãy tải lại trang.',
-  RECIPE_PUBLISH_INCOMPLETE: 'Công thức đã xuất bản phải còn ít nhất 1 bước thực hiện.',
+  RECIPE_INGREDIENT_NOT_FOUND: 'Nguyên liệu này không còn tồn tại. Hãy tải lại trang.',
+  RECIPE_PUBLISH_INCOMPLETE: 'Công thức cần ít nhất 1 nguyên liệu và 1 bước thực hiện để xuất bản (công thức đã xuất bản không được xóa hết).',
   VALIDATION_ERROR: 'Dữ liệu chưa hợp lệ, hãy kiểm tra lại.',
   NETWORK_ERROR: 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.',
 };

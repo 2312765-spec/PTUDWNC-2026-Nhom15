@@ -5,6 +5,8 @@ import { ExternalLink, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { RecipeBasicsForm } from '@/components/recipes/editor/RecipeBasicsForm';
+import { RecipeIngredientsManager } from '@/components/recipes/editor/RecipeIngredientsManager';
+import { RecipePublishControls } from '@/components/recipes/editor/RecipePublishControls';
 import { RecipeStepsManager } from '@/components/recipes/editor/RecipeStepsManager';
 import { Badge, Button, Skeleton } from '@/components/ui';
 import { RecipeImageManager } from '@/components/upload/RecipeImageManager';
@@ -33,14 +35,9 @@ function toImageDtos(recipe: RecipeDetailDto): RecipeImageDto[] {
     }));
 }
 
-function formatQuantity(quantity?: number, unit?: string) {
-  if (quantity == null) return 'vừa đủ';
-  return [quantity.toLocaleString('vi-VN'), unit].filter(Boolean).join(' ');
-}
-
 /**
- * Trang sửa công thức — FR-RCP-004 (thông tin chung, If-Match — D71), FR-RCP-010 (các bước),
- * FR-RCP-008 (ảnh, component của D). Đọc theo id qua GET /recipes/{id} (D75), không cache để luôn có
+ * Trang sửa công thức — FR-RCP-004 (thông tin chung, If-Match — D71), FR-RCP-005 (xuất bản — D77),
+ * FR-RCP-007 (xóa — D78), FR-RCP-009 (nguyên liệu — D76), FR-RCP-010 (các bước), FR-RCP-008 (ảnh, component của D). Đọc theo id qua GET /recipes/{id} (D75), không cache để luôn có
  * rowVersion mới nhất. Quyền: chỉ owner hoặc Admin (backend trả 403 RECIPE_FORBIDDEN). SRS 5.1: CSR.
  */
 export default function EditRecipePage() {
@@ -114,6 +111,7 @@ export default function EditRecipePage() {
         >
           Xem trang công thức <ExternalLink className="size-3.5" aria-hidden="true" />
         </Link>
+        <RecipePublishControls recipe={recipe} onChange={setRecipe} />
       </header>
 
       <section aria-labelledby="basics-heading" className="mt-8 rounded-lg border border-border bg-surface p-6">
@@ -131,22 +129,14 @@ export default function EditRecipePage() {
         <h2 id="ingredients-heading" className="text-lg font-semibold text-ink">
           Nguyên liệu ({recipe.ingredients.length})
         </h2>
-        <p className="mt-1 text-sm text-ink-muted">Thêm, sửa, xóa nguyên liệu sẽ có ở bản cập nhật tiếp theo (FR-RCP-009).</p>
-        {recipe.ingredients.length > 0 && (
-          <ul className="mt-4 divide-y divide-border text-sm">
-            {[...recipe.ingredients]
-              .sort((a, b) => a.orderIndex - b.orderIndex)
-              .map((i) => (
-                <li key={i.id} className="flex justify-between gap-4 py-2">
-                  <span className="text-ink">
-                    {i.name}
-                    {i.notes && <span className="text-ink-muted"> — {i.notes}</span>}
-                  </span>
-                  <span className="shrink-0 text-ink-muted">{formatQuantity(i.quantity, i.unit)}</span>
-                </li>
-              ))}
-          </ul>
-        )}
+        <p className="mb-4 mt-1 text-sm text-ink-muted">Số lượng để trống nghĩa là &ldquo;vừa đủ&rdquo; (vd. muối, tiêu).</p>
+        <RecipeIngredientsManager
+          recipeId={recipe.id}
+          initialIngredients={recipe.ingredients}
+          onChange={(ingredients) =>
+            queryClient.setQueryData<RecipeDetailDto>(queryKey, (current) => (current ? { ...current, ingredients } : current))
+          }
+        />
       </section>
 
       <section aria-labelledby="steps-heading" className="mt-8 rounded-lg border border-border bg-surface p-6">

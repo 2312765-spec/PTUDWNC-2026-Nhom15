@@ -117,16 +117,21 @@ export function toStepRequest(values: StepValues) {
   };
 }
 
+/** D7 — một nguyên liệu: số lượng để trống = null ("vừa đủ"), chấp nhận dấu phẩy thập phân. */
+export function toIngredientRequest(values: IngredientValues) {
+  return {
+    name: values.name.trim(),
+    quantity: values.quantity.trim() === '' ? null : Number(values.quantity.trim().replace(',', '.')),
+    unit: blankToNull(values.unit),
+    notes: blankToNull(values.notes),
+  };
+}
+
 /** FR-RCP-003 — body của POST /recipes: thông tin chung + steps + ingredients theo đúng thứ tự trên form. */
 export function toCreateRecipeRequest(values: CreateRecipeValues) {
   return {
     ...toRecipeBasicsRequest(values),
-    ingredients: values.ingredients.map((i) => ({
-      name: i.name.trim(),
-      quantity: i.quantity.trim() === '' ? null : Number(i.quantity.trim().replace(',', '.')),
-      unit: blankToNull(i.unit),
-      notes: blankToNull(i.notes),
-    })),
+    ingredients: values.ingredients.map(toIngredientRequest),
     steps: values.steps.map(toStepRequest),
   };
 }
