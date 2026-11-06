@@ -79,6 +79,11 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D61 | og:image, độ dài description, "pass 100%" (NFR-SEO-001/002) | og:image 1200×630 sinh bằng Route Handler `/recipes/{slug}/og-image` (fallback thẻ chữ) · description bổ sung/cắt về 150–160 · Rich Results = **0 lỗi** · `/search` + `/auth/*` `noindex` · canonical không query param |
 | D62 | Route trang hồ sơ & chặn route chưa đăng nhập (FR-AUTH-006/007) | Trang hồ sơ ở **`/dashboard/profile`**, không có `/profile` · `proxy.ts` chặn `/dashboard/*` khi chưa đăng nhập → `/auth/login?callbackUrl=<đường dẫn nội bộ>` · chỉ để UX, backend vẫn tự kiểm tra |
 | D63 | IP để rate limit khi request đi qua Next.js (NFR-SEC-003) | Server Next.js gửi `X-Forwarded-For` = `X-Real-IP` do Nginx ghi · Nginx đặt `proxy_set_header` ở mức server (location `/api/` không khai báo riêng) · Dev ngưỡng cao |
+| D69 | Hợp đồng request tạo/sửa recipe (FR-RCP-003/004) | `prepTime`/`cookTime` (Chương 8) · `difficulty` chữ hoặc số 1–4 · category sai → **400** · PUT thay toàn bộ, `nutrition` null = giữ nguyên |
+| D70 | Phân quyền Recipe ở Application | `RecipeAuthorizationHandler` dùng `ICurrentUser` (không `IAuthorizationService`) — ADR-0005 |
+| D71 | `If-Match`/`RowVersion` (FR-RCP-004) | DTO có `rowVersion` + header `ETag` · PUT thiếu `If-Match` → **400** · lệch → **409** |
+| D72 | Chi tiết slug recipe | Gộp `-`, cắt 200, rỗng → `cong-thuc`, slug cấm thêm `-1`, trùng (kể cả đã xóa mềm) → `-2`… |
+| D73 | Xóa / đánh số lại bước (FR-RCP-010) | **Hard delete** · lưu **2 pha** + khóa dòng recipe · `RECIPE_STEP_NOT_FOUND` (404) · stepNumber ngoài khoảng → 400 · không xóa bước cuối của recipe Published |
 
 ---
 
@@ -589,6 +594,7 @@ nếu không request `/recipes/search` sẽ khớp vào route slug. Kèm theo D1
 | `RECIPE_CONCURRENCY_CONFLICT` | **409** | Recipe | ✏️ đổi từ 422 (D4) |
 | `RECIPE_IMAGE_NOT_FOUND` | 404 | Recipe | 🆕 **thêm mới** — SRS FR-RCP-008 chỉ ghi chung "404", chưa có mã riêng cho ảnh không tồn tại (phát hiện lúc lập kế hoạch FR-RCP-008) |
 | `RECIPE_PRIMARY_IMAGE_REQUIRED` | 400 | Recipe | 🆕 **thêm mới** (D22) — `PATCH` `{ isPrimary: false }` trên ảnh đang là primary bị từ chối, vì recipe phải luôn có đúng 1 ảnh primary nếu còn ảnh |
+| `RECIPE_STEP_NOT_FOUND` | 404 | Recipe | 🆕 **thêm mới** (D73) — bước không tồn tại hoặc thuộc recipe khác |
 | `CATEGORY_NOT_FOUND` | 404 | Category | — |
 | `CATEGORY_NAME_EXISTS` | 409 | Category | — |
 | `CATEGORY_DELETE_HAS_RECIPES` | 409 | Category | — |
@@ -1866,6 +1872,153 @@ CSP ở Nginx, Next.js lẫn API.
 
 **Sửa SRS:** NFR-SEC-004 — ghi rõ CSP cho phép `'unsafe-inline'` script do ràng buộc ISR của Next.js
 App Router.
+
+---
+
+## D69 — FR-RCP-003/004: hợp đồng request tạo/sửa recipe
+
+> 2026-11-06. Phát hiện lúc code FR-RCP-003.
+
+**Nguồn mâu thuẫn:**
+
+- FR-RCP-003 bước 1 dùng `prepTimeMinutes`/`cookTimeMinutes`; FR-RCP-004 và SRS Chương 8 (bảng endpoint
+  `/recipes`) dùng `prepTime`/`cookTime`.
+- Chương 8 cho `PUT /recipes/{id}` mọi trường tùy chọn (`title?`, `description?`…), còn FR-RCP-004 bước 1
+  là body đầy đủ.
+- FR-RCP-003 A2 trả 422 khi `categoryId` không tồn tại (D4 đã bỏ 422 nhưng chưa nói 400 hay 404).
+- SRS không nói `difficulty` gửi dạng chữ hay số.
+
+**Chốt:**
+
+1. Tên trường theo Chương 8 và entity: `title, description, categoryId, prepTime, cookTime, servings,
+   difficulty, instructions?, nutrition?` (+ `steps?`, `ingredients?` ở POST).
+2. `difficulty` nhận **chuỗi hoặc số**: `"Easy"|"Medium"|"Hard"|"Expert"` (không phân biệt hoa thường)
+   hoặc `1`–`4` (giống D14 và giống giá trị số mà `RecipeDetailDto` trả về).
+3. `categoryId` không tồn tại hoặc đã xóa mềm → **400 `VALIDATION_ERROR`**, lỗi gắn vào trường
+   `CategoryId` (đây là lỗi dữ liệu đầu vào, không phải tài nguyên trên URL không tồn tại).
+4. `PUT /recipes/{id}` là **thay toàn bộ** các trường cơ bản như FR-RCP-004 (đúng ngữ nghĩa PUT, form sửa
+   của frontend luôn gửi đủ). `instructions: null` = xóa; `nutrition: null` hoặc vắng = **giữ nguyên**
+   (FR-RCP-004 bước 8 "cập nhật Nutrition nếu có"). PUT không đụng steps/ingredients — dùng FR-RCP-009/010.
+5. Steps trong body POST: `{ title, description, timerMinutes?, imageUrl? }` — **không** có `stepNumber`,
+   server đánh số 1, 2, 3… theo thứ tự gửi (D6). Ingredients: `{ name, quantity?, unit?, notes? }`,
+   `orderIndex` theo thứ tự gửi (D7). Tối đa **100** step và 100 ingredient mỗi request.
+6. `imageUrl` của step chỉ nhận URL tuyệt đối `http`/`https` (chặn `javascript:` khi frontend render).
+7. Response của POST (201) và PUT (200) là `RecipeDetailDto` đầy đủ, giống `GET /recipes/{slug}`.
+
+**Vì:** Chương 8 là hợp đồng API, khớp tên entity; số và chữ đều nhận được để frontend gửi lại đúng giá trị
+vừa đọc. 400 cho category sai đúng tinh thần D4 (dữ liệu không hợp lệ).
+
+**Sửa SRS:** FR-RCP-003 bước 1 — `prepTimeMinutes/cookTimeMinutes` → `prepTime/cookTime`; A2 → 400
+`VALIDATION_ERROR`. Chương 8 — PUT `/recipes/{id}` body đầy đủ, bỏ dấu `?` ở các trường bắt buộc.
+
+---
+
+## D70 — Phân quyền Recipe: `RecipeAuthorizationHandler` dùng `ICurrentUser`
+
+> 2026-11-06. Chi tiết: `adr/0005-phan-quyen-recipe-o-application.md`.
+
+**Nguồn mâu thuẫn:** `permissions.md` và FR-RCP-004 bước 5 ghi `IAuthorizationService.AuthorizeAsync(...)`
+(ASP.NET Core) trong Application Layer, nhưng Application không reference ASP.NET và `ICurrentUser`
+(đã đóng băng) không có `ClaimsPrincipal`.
+
+**Chốt:** `Application/Recipes/Authorization/RecipeAuthorizationHandler` — `EnsureCanCreate()` (Author/Admin),
+`EnsureCanModify(recipe)` (owner hoặc Admin). Sai quyền → 403 `RECIPE_FORBIDDEN`; chưa đăng nhập → 401.
+Gọi trong **mọi** command của FR-RCP-003/004/005/006/007/009/010, trước khi ghi.
+
+**Vì:** NFR-SEC-006 chỉ đòi kiểm tra ở Application Layer, không đòi đúng API của ASP.NET. Cùng cách với D50.
+
+**Sửa SRS:** FR-RCP-004 bước 5 — ghi "kiểm tra quyền sở hữu ở Application Layer (owner hoặc Admin)", bỏ tên
+API cụ thể. Sửa `permissions.md` mục 1 cho khớp.
+
+---
+
+## D71 — FR-RCP-004: `If-Match` / `RowVersion` / `ETag`
+
+> 2026-11-06. Bổ sung cho D34.
+
+**Nguồn thiếu:** FR-RCP-004 bắt client gửi `RowVersion` trong `If-Match` (hoặc body), nhưng không API nào
+trả `RowVersion` cho client; cũng không nói thiếu `If-Match` thì sao.
+
+**Chốt:**
+
+1. `RecipeDetailDto` thêm trường **`rowVersion`** (base64) — có ở `GET /recipes/{slug}`, POST, PUT. POST và PUT
+   còn trả header **`ETag: "<base64>"`**.
+2. `PUT /recipes/{id}` **bắt buộc** header `If-Match` (chấp nhận có/không ngoặc kép, bỏ tiền tố `W/`).
+   Thiếu hoặc không phải base64 → **400 `VALIDATION_ERROR`** (trường `RowVersion`). Không dùng 428 (không
+   nằm trong danh sách status D4). Không đọc RowVersion từ body — một nguồn duy nhất.
+3. Khác `RowVersion` trong DB → **409 `RECIPE_CONCURRENCY_CONFLICT`** (D4, D34).
+4. Thêm/sửa/xóa step, ingredient, ảnh **không** đổi `RowVersion` của recipe — sửa step trong wizard không làm
+   form thông tin chung bị 409 oan.
+
+**Vì:** không có giá trị để gửi thì FR-RCP-004 không dùng được. Bắt buộc `If-Match` để không ai vô tình ghi
+đè bản mới hơn (mục đích của FR-RCP-004 A2).
+
+**Sửa SRS:** FR-RCP-004 — tiền đề 3 bỏ "hoặc trong request body", thêm "thiếu If-Match → 400"; Chương 8 —
+`RecipeDetailDto` có `rowVersion`.
+
+---
+
+## D72 — Slug recipe: chi tiết sinh slug
+
+> 2026-11-06. Bổ sung cho D10, phát hiện lúc code FR-RCP-003.
+
+**Nguồn thiếu:** `SlugHelper` dùng chung (B) chưa gộp `-` liên tiếp, chưa cắt 200 ký tự, chưa xử lý slug cấm
+như D10 yêu cầu; `GenerateUniqueAsync` bắt đầu hậu tố từ `-1` (D10 là `-2`). D10 không nói title không còn ký
+tự hợp lệ nào (vd. `"!!!!!"`) thì sao. `ExistsBySlugAsync` của recipe bỏ qua bản ghi đã xóa mềm, trong khi
+unique index phủ cả chúng (D1) → tạo trùng slug với recipe đã xóa sẽ lỗi 500.
+
+**Chốt:** `CreateRecipeCommandHandler` tự hoàn thiện các bước sau `SlugHelper.Generate` (không sửa file của B):
+
+1. Gộp `-` liên tiếp, cắt `-` đầu/cuối, cắt còn 200 ký tự.
+2. Rỗng → `cong-thuc`.
+3. Rơi vào `search`/`new`/`edit` → thêm `-1` (D10).
+4. Trùng (tính **cả recipe đã xóa mềm**) → `-2`, `-3`… `IRecipeRepository.ExistsBySlugAsync` đổi sang
+   `IgnoreQueryFilters()`.
+5. Slug không đổi khi sửa title (D13).
+
+**Vì:** đúng D10, D1; không sửa hành vi slug của Category đang chạy.
+
+**Sửa SRS:** không cần (đã nằm trong D10). Gợi ý cho B: đưa bước 1–3 vào `SlugHelper` để Category dùng chung.
+
+---
+
+## D73 — FR-RCP-010: xóa bước, đánh số lại, lỗi và tranh chấp
+
+> 2026-11-06. Phát hiện lúc code FR-RCP-010.
+
+**Nguồn mâu thuẫn / thiếu:**
+
+- `BaseEntity` và D1 nói "không bao giờ xóa vật lý", nhưng unique index `(RecipeId, StepNumber)` (SRS 7.3)
+  phủ cả dòng đã xóa mềm: bước đã xóa vẫn giữ số của nó, renumber các bước còn lại sẽ đụng index.
+- Unique index đó **không deferrable**: đổi chỗ hai bước hoặc dồn số trong một lần `SaveChanges` vi phạm
+  index giữa chừng (Postgres kiểm tra từng câu UPDATE).
+- Hai request thêm bước song song cùng tính `Max + 1` → trùng số → lỗi DB 500.
+- SRS không có mã lỗi cho bước không tồn tại, không nói `stepNumber` ở PUT vượt số bước thì sao, không nói
+  xóa bước cuối của recipe đã Published thì sao.
+
+**Chốt:**
+
+1. **Xóa bước = hard delete** (giống ảnh — D43). D1 chỉ áp cho Recipe: recipe xóa mềm vẫn giữ nguyên bước.
+2. **Lưu 2 pha** trong `RecipeRepository.SaveStepsAsync`: pha 1 đẩy các bước bị đổi số ra vùng tạm
+  (≥ 1 000 000, thỏa CHECK `StepNumber > 0`) và áp dụng xóa; pha 2 gán số cuối. Cả hai pha nằm trong một
+  transaction (`IUnitOfWork.ExecuteInTransactionAsync` có execution strategy).
+3. **Khóa dòng recipe** (`SELECT … FOR UPDATE`, tham số hóa) trước khi đọc, cho cả thêm/sửa/xóa bước — các
+  lệnh trên cùng recipe chạy tuần tự.
+4. Mã lỗi mới **`RECIPE_STEP_NOT_FOUND` (404)** — bước không tồn tại hoặc thuộc recipe khác.
+5. `PUT` với `stepNumber` ngoài `1..số bước` → **400 `VALIDATION_ERROR`** (không tự kẹp về biên).
+   `stepNumber` vắng = giữ vị trí. `timerMinutes`/`imageUrl` vắng = xóa (PUT thay nội dung bước).
+6. `POST` bỏ qua `stepNumber` nếu client lỡ gửi (D6). Response: POST → `RecipeStepDto` (201);
+   PUT → **toàn bộ bước** theo thứ tự mới (200), vì đổi vị trí làm đổi số của các bước khác; DELETE → 204.
+7. Xóa bước cuối cùng của recipe **Published** → **400 `RECIPE_PUBLISH_INCOMPLETE`** (giữ điều kiện D3 sau
+  khi publish). Draft được xóa hết bước.
+8. Sửa bước không đổi `RowVersion` / `UpdatedAt` của recipe (D71).
+
+**Vì:** giữ đúng ràng buộc dữ liệu SRS 7.3 (StepNumber liên tục, unique) mà không đổi schema; không request
+nào kết thúc bằng 500.
+
+**Sửa SRS:** FR-RCP-010 — ghi rõ xóa bước là xóa vật lý; thêm A3 "bước không tồn tại → 404
+`RECIPE_STEP_NOT_FOUND`", A4 "stepNumber ngoài khoảng → 400", A5 "xóa bước cuối của recipe Published → 400";
+bỏ 422. Phụ lục B — thêm `RECIPE_STEP_NOT_FOUND`.
 
 ---
 

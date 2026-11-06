@@ -2,6 +2,10 @@ using CulinaryBlog.API.Extensions;
 using CulinaryBlog.Application.Categories.DTOs;
 using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Application.Common.Models;
+using CulinaryBlog.Application.Recipes.Commands;
+using CulinaryBlog.Application.Recipes.Commands.Create;
+using CulinaryBlog.Application.Recipes.Commands.Steps;
+using CulinaryBlog.Application.Recipes.Commands.Update;
 using CulinaryBlog.Application.Recipes.DTOs;
 using CulinaryBlog.Application.Recipes.Queries.GetRecipeBySlug;
 using CulinaryBlog.Application.Recipes.Queries.GetRecipes;
@@ -89,13 +93,51 @@ public static class RecipeEndpoints
         .AllowAnonymous();
 
         // ---- C: commands ----
-        group.MapPost("/", () => NotImplementedResults.Pending("FR-RCP-003", "C"))
+        // FR-RCP-003. CONS-008: endpoint chỉ nhận request → gửi command → trả kết quả.
+        group.MapPost("/", async (
+            CreateRecipeCommand command,
+            HttpResponse response,
+            ISender mediator,
+            CancellationToken ct) =>
+        {
+            var result = await mediator.Send(command, ct);
+            SetETag(response, result.RowVersion);
+            return TypedResults.Created($"/api/v1/recipes/{result.Slug}", result);
+        })
              .RequireAuthorization(Policies.Author)
-             .WithSummary("Tạo công thức (Status = Draft) — slug auto-suffix (D10)");
+             .WithName("CreateRecipe")
+             .WithSummary("Tạo công thức (Status = Draft) — slug auto-suffix (D10)")
+             .WithDescription("Body: { title, description, categoryId, prepTime, cookTime, servings, difficulty, instructions?, nutrition?, steps?, ingredients? } (D69). Trả RecipeDetailDto kèm rowVersion + header ETag (D71).")
+             .Produces<RecipeDetailDto>(StatusCodes.Status201Created)
+             .ProducesProblem(StatusCodes.Status400BadRequest)
+             .ProducesProblem(StatusCodes.Status401Unauthorized)
+             .ProducesProblem(StatusCodes.Status403Forbidden);
 
-        group.MapPut("/{id:guid}", (Guid id) => NotImplementedResults.Pending("FR-RCP-004", "C"))
+        // FR-RCP-004. If-Match chuyển nguyên văn vào command — validator kiểm tra (CONS-008, D71).
+        group.MapPut("/{id:guid}", async (
+            Guid id,
+            UpdateRecipeRequest body,
+            HttpRequest request,
+            HttpResponse response,
+            ISender mediator,
+            CancellationToken ct) =>
+        {
+            var command = new UpdateRecipeCommand(
+                id, request.Headers.IfMatch.ToString(), body.Title, body.Description, body.CategoryId,
+                body.PrepTime, body.CookTime, body.Servings, body.Difficulty, body.Instructions, body.Nutrition);
+            var result = await mediator.Send(command, ct);
+            SetETag(response, result.RowVersion);
+            return TypedResults.Ok(result);
+        })
              .RequireAuthorization(Policies.Author)
-             .WithSummary("Cập nhật — RowVersion mismatch → 409 (D4)");
+             .WithName("UpdateRecipe")
+             .WithSummary("Cập nhật — header If-Match bắt buộc; RowVersion mismatch → 409 (D4, D71)")
+             .WithDescription("Thay toàn bộ thông tin cơ bản (D69), slug không đổi (D13). nutrition vắng/null = giữ nguyên.")
+             .Produces<RecipeDetailDto>(StatusCodes.Status200OK)
+             .ProducesProblem(StatusCodes.Status400BadRequest)
+             .ProducesProblem(StatusCodes.Status403Forbidden)
+             .ProducesProblem(StatusCodes.Status404NotFound)
+             .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPatch("/{id:guid}/publish", (Guid id) => NotImplementedResults.Pending("FR-RCP-005", "C"))
              .RequireAuthorization(Policies.Author)
@@ -114,17 +156,50 @@ public static class RecipeEndpoints
              .WithSummary("SOFT DELETE (D1) — không cascade, không xóa file MinIO");
 
         // ---- C: steps & ingredients ----
-        group.MapPost("/{id:guid}/steps", (Guid id) => NotImplementedResults.Pending("FR-RCP-010", "C"))
+        // FR-RCP-010 — D6 (server đánh số), D73 (hard delete, lưu 2 pha, khóa dòng recipe).
+        group.MapPost("/{id:guid}/steps", async (Guid id, AddStepRequest body, ISender mediator, CancellationToken ct) =>
+        {
+            var result = await mediator.Send(
+                new AddRecipeStepCommand(id, body.Title, body.Description, body.TimerMinutes, body.ImageUrl), ct);
+            return TypedResults.Created((string?)null, result);
+        })
              .RequireAuthorization(Policies.Author)
-             .WithSummary("Thêm bước — server sinh stepNumber, body KHÔNG có stepNumber (D6)");
+             .WithName("AddRecipeStep")
+             .WithSummary("Thêm bước — server sinh stepNumber, body KHÔNG có stepNumber (D6)")
+             .WithDescription("Body: { title, description, timerMinutes?, imageUrl? }. Trả RecipeStepDto.")
+             .Produces<RecipeStepDto>(StatusCodes.Status201Created)
+             .ProducesProblem(StatusCodes.Status400BadRequest)
+             .ProducesProblem(StatusCodes.Status403Forbidden)
+             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        group.MapPut("/{id:guid}/steps/{stepId:guid}", (Guid id, Guid stepId) => NotImplementedResults.Pending("FR-RCP-010", "C"))
+        group.MapPut("/{id:guid}/steps/{stepId:guid}", async (
+            Guid id, Guid stepId, UpdateStepRequest body, ISender mediator, CancellationToken ct) =>
+        {
+            var result = await mediator.Send(
+                new UpdateRecipeStepCommand(id, stepId, body.Title, body.Description, body.TimerMinutes, body.ImageUrl, body.StepNumber), ct);
+            return TypedResults.Ok(result);
+        })
              .RequireAuthorization(Policies.Author)
-             .WithSummary("Sửa bước — stepNumber? để đổi vị trí, server renumber lại");
+             .WithName("UpdateRecipeStep")
+             .WithSummary("Sửa bước — stepNumber? để đổi vị trí, server renumber lại")
+             .WithDescription("Body: { title, description, timerMinutes?, imageUrl?, stepNumber? }. Trả toàn bộ bước theo thứ tự mới (D73).")
+             .Produces<IReadOnlyList<RecipeStepDto>>(StatusCodes.Status200OK)
+             .ProducesProblem(StatusCodes.Status400BadRequest)
+             .ProducesProblem(StatusCodes.Status403Forbidden)
+             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        group.MapDelete("/{id:guid}/steps/{stepId:guid}", (Guid id, Guid stepId) => NotImplementedResults.Pending("FR-RCP-010", "C"))
+        group.MapDelete("/{id:guid}/steps/{stepId:guid}", async (Guid id, Guid stepId, ISender mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new DeleteRecipeStepCommand(id, stepId), ct);
+            return TypedResults.NoContent();
+        })
              .RequireAuthorization(Policies.Author)
-             .WithSummary("Xóa bước — renumber lại cho liên tục 1,2,3…");
+             .WithName("DeleteRecipeStep")
+             .WithSummary("Xóa bước — renumber lại cho liên tục 1,2,3…")
+             .Produces(StatusCodes.Status204NoContent)
+             .ProducesProblem(StatusCodes.Status400BadRequest)
+             .ProducesProblem(StatusCodes.Status403Forbidden)
+             .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapPost("/{id:guid}/ingredients", (Guid id) => NotImplementedResults.Pending("FR-RCP-009", "C"))
              .RequireAuthorization(Policies.Author)
@@ -137,5 +212,32 @@ public static class RecipeEndpoints
         group.MapDelete("/{id:guid}/ingredients/{ingredientId:guid}", (Guid id, Guid ingredientId) => NotImplementedResults.Pending("FR-RCP-009", "C"))
              .RequireAuthorization(Policies.Author)
              .WithSummary("Xóa nguyên liệu");
+    }
+
+    /// <summary>D69 — wire contract của PUT /recipes/{id} (id lấy từ route, RowVersion từ header If-Match).</summary>
+    public sealed record UpdateRecipeRequest(
+        string Title,
+        string Description,
+        Guid CategoryId,
+        int PrepTime,
+        int CookTime,
+        int Servings,
+        [property: System.Text.Json.Serialization.JsonConverter(typeof(StringOrNumberJsonConverter))] string Difficulty,
+        string? Instructions,
+        RecipeNutritionInput? Nutrition);
+
+    /// <summary>D6 — wire contract của POST /recipes/{id}/steps (không có stepNumber).</summary>
+    public sealed record AddStepRequest(string Title, string Description, int? TimerMinutes, string? ImageUrl);
+
+    /// <summary>D6 — wire contract của PUT /recipes/{id}/steps/{stepId}.</summary>
+    public sealed record UpdateStepRequest(string Title, string Description, int? TimerMinutes, string? ImageUrl, int? StepNumber);
+
+    /// <summary>D34/D71 — RowVersion mới (base64) trong header ETag, dạng strong ETag có ngoặc kép.</summary>
+    private static void SetETag(HttpResponse response, string rowVersion)
+    {
+        if (!string.IsNullOrEmpty(rowVersion))
+        {
+            response.Headers.ETag = $"\"{rowVersion}\"";
+        }
     }
 }

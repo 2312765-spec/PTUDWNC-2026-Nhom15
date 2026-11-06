@@ -16,7 +16,7 @@ public sealed class GetRecipeDetailQueryHandler(
     : IRequestHandler<GetRecipeDetailQuery, RecipeDetailDto>
 {
     /// <summary>Tác giả đã bị xóa khỏi hệ thống — công thức vẫn hiển thị được.</summary>
-    public const string DeletedAuthorDisplayName = "Tài khoản đã xóa";
+    public const string DeletedAuthorDisplayName = RecipeDetailDtoMapper.DeletedAuthorDisplayName;
 
     public async Task<RecipeDetailDto> Handle(GetRecipeDetailQuery request, CancellationToken cancellationToken)
     {
@@ -25,50 +25,6 @@ public sealed class GetRecipeDetailQueryHandler(
 
         var author = await identityService.GetUserByIdAsync(recipe.AuthorId, cancellationToken);
 
-        return new RecipeDetailDto(
-            recipe.Id,
-            recipe.Title,
-            recipe.Slug,
-            recipe.Description,
-            recipe.Instructions,
-            (short)recipe.Difficulty,
-            (short)recipe.Status,
-            recipe.PrepTime,
-            recipe.CookTime,
-            recipe.Servings,
-            recipe.PublishedAt,
-            recipe.CreatedAt,
-            recipe.UpdatedAt,
-            new RecipeCategoryDto(
-                recipe.Category?.Id ?? recipe.CategoryId,
-                recipe.Category?.Name ?? string.Empty,
-                recipe.Category?.Slug ?? string.Empty),
-            new RecipeAuthorDto(
-                recipe.AuthorId,
-                author?.DisplayName ?? DeletedAuthorDisplayName,
-                author?.AvatarUrl),
-            // Owned type: EF trả null khi mọi cột Nutrition_* đều null (công thức không khai báo dinh dưỡng).
-            recipe.Nutrition is null ? null : new RecipeNutritionDto(
-                recipe.Nutrition.Calories,
-                recipe.Nutrition.Protein,
-                recipe.Nutrition.Carbohydrates,
-                recipe.Nutrition.Fat,
-                recipe.Nutrition.Fiber,
-                recipe.Nutrition.Sodium),
-            recipe.Ingredients
-                .Where(i => !i.IsDeleted)
-                .OrderBy(i => i.OrderIndex)
-                .Select(i => new RecipeIngredientDto(i.Id, i.Name, i.Quantity, i.Unit, i.Notes, i.OrderIndex))
-                .ToList(),
-            recipe.Steps
-                .Where(s => !s.IsDeleted)
-                .OrderBy(s => s.StepNumber)
-                .Select(s => new RecipeStepDto(s.Id, s.StepNumber, s.Title, s.Description, s.TimerMinutes, s.ImageUrl))
-                .ToList(),
-            recipe.Images
-                .Where(img => !img.IsDeleted)
-                .OrderBy(img => img.OrderIndex)
-                .Select(img => new RecipeImageDto(img.Id, img.OriginalUrl, img.AltText, img.IsPrimary, img.OrderIndex))
-                .ToList());
+        return RecipeDetailDtoMapper.ToDetailDto(recipe, author);
     }
 }

@@ -10,7 +10,7 @@ Nguồn: SRS mục 2.3 (Các lớp Người dùng), NFR-SEC-006, và cột "Auth
 | Tầng | Cơ chế | Câu hỏi nó trả lời | Hiện thực |
 |---|---|---|---|
 | 1 | **Role-Based** | "Anh là ai?" — Guest / Author / Admin | `RequireAuthorization("AuthorPolicy" \| "AdminPolicy")` |
-| 2 | **Resource-Based** | "Đây có phải đồ của anh không?" — `AuthorId == currentUserId` | `IAuthorizationService.AuthorizeAsync(user, recipe, Operations.Update)` trong **Application Layer** |
+| 2 | **Resource-Based** | "Đây có phải đồ của anh không?" — `AuthorId == currentUserId` | `RecipeAuthorizationHandler.EnsureCanModify(recipe)` trong **Application Layer** (D70, ADR-0005) |
 
 > **SRS mục 2.3 nói có ba tầng**, tầng thứ ba là policy `VerifiedAuthor` (yêu cầu email
 > đã xác nhận). **Đã bỏ khỏi v1.0.0 theo D12** — không endpoint nào trong Chương 8 dùng

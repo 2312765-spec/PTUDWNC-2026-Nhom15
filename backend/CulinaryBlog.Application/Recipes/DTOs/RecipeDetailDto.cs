@@ -24,7 +24,14 @@ public sealed record RecipeDetailDto(
     IReadOnlyList<RecipeIngredientDto> Ingredients,
     IReadOnlyList<RecipeStepDto> Steps,
     IReadOnlyList<RecipeImageDto> Images
-);
+)
+{
+    /// <summary>
+    /// D71 — RowVersion hiện tại (base64). Client gửi lại trong header <c>If-Match</c> khi sửa
+    /// (FR-RCP-004); khác giá trị trong DB → 409 RECIPE_CONCURRENCY_CONFLICT.
+    /// </summary>
+    public string RowVersion { get; init; } = string.Empty;
+}
 
 public sealed record RecipeCategoryDto(Guid Id, string Name, string Slug);
 public sealed record RecipeAuthorDto(string Id, string DisplayName, string? AvatarUrl);
