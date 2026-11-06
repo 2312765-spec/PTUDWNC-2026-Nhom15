@@ -5,6 +5,7 @@ using CulinaryBlog.Application.Common.Models;
 using CulinaryBlog.Application.Recipes.Commands;
 using CulinaryBlog.Application.Recipes.Commands.Create;
 using CulinaryBlog.Application.Recipes.Commands.Ingredients;
+using CulinaryBlog.Application.Recipes.Commands.Publish;
 using CulinaryBlog.Application.Recipes.Commands.Steps;
 using CulinaryBlog.Application.Recipes.Commands.Update;
 using CulinaryBlog.Application.Recipes.DTOs;
@@ -15,6 +16,7 @@ using CulinaryBlog.Application.Recipes.Queries.SearchRecipes;
 using CulinaryBlog.Domain.Common;
 using MediatR;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 
 namespace CulinaryBlog.API.Endpoints;
@@ -152,13 +154,30 @@ public static class RecipeEndpoints
              .ProducesProblem(StatusCodes.Status404NotFound)
              .ProducesProblem(StatusCodes.Status409Conflict);
 
-        group.MapPatch("/{id:guid}/publish", (Guid id) => NotImplementedResults.Pending("FR-RCP-005", "C"))
+        // FR-RCP-005 — D3 (điều kiện publish), D77 (idempotent, If-Match tùy chọn, PublishedAt lần đầu).
+        group.MapPatch("/{id:guid}/publish", (Guid id, HttpRequest request, HttpResponse response, ISender mediator, CancellationToken ct) =>
+            SendPublishAsync(new PublishRecipeCommand(id, IsPublish: true, NullIfEmpty(request.Headers.IfMatch.ToString())), response, mediator, ct))
              .RequireAuthorization(Policies.Author)
-             .WithSummary("Publish — cần ≥1 step VÀ ≥1 ingredient (D3)");
+             .WithName("PublishRecipe")
+             .WithSummary("Publish — Draft/Archived → Published, cần ≥1 step VÀ ≥1 ingredient (D3); đã Published → 200 idempotent")
+             .WithDescription("Header If-Match tùy chọn (D77): có thì phải khớp rowVersion, lệch → 409. Trả RecipeDetailDto + ETag mới.")
+             .Produces<RecipeDetailDto>(StatusCodes.Status200OK)
+             .ProducesProblem(StatusCodes.Status400BadRequest)
+             .ProducesProblem(StatusCodes.Status403Forbidden)
+             .ProducesProblem(StatusCodes.Status404NotFound)
+             .ProducesProblem(StatusCodes.Status409Conflict);
 
-        group.MapPatch("/{id:guid}/unpublish", (Guid id) => NotImplementedResults.Pending("FR-RCP-005", "C"))
+        group.MapPatch("/{id:guid}/unpublish", (Guid id, HttpRequest request, HttpResponse response, ISender mediator, CancellationToken ct) =>
+            SendPublishAsync(new PublishRecipeCommand(id, IsPublish: false, NullIfEmpty(request.Headers.IfMatch.ToString())), response, mediator, ct))
              .RequireAuthorization(Policies.Author)
-             .WithSummary("Unpublish — Published → Draft");
+             .WithName("UnpublishRecipe")
+             .WithSummary("Unpublish — Published/Archived → Draft; đã Draft → 200 idempotent (D77)")
+             .WithDescription("Header If-Match tùy chọn (D77). Trả RecipeDetailDto + ETag mới.")
+             .Produces<RecipeDetailDto>(StatusCodes.Status200OK)
+             .ProducesProblem(StatusCodes.Status400BadRequest)
+             .ProducesProblem(StatusCodes.Status403Forbidden)
+             .ProducesProblem(StatusCodes.Status404NotFound)
+             .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPatch("/{id:guid}/archive", (Guid id) => NotImplementedResults.Pending("FR-RCP-006", "C"))
              .RequireAuthorization(Policies.Author)
@@ -281,6 +300,16 @@ public static class RecipeEndpoints
 
     /// <summary>D6 — wire contract của PUT /recipes/{id}/steps/{stepId}.</summary>
     public sealed record UpdateStepRequest(string Title, string Description, int? TimerMinutes, string? ImageUrl, int? StepNumber);
+
+    private static async Task<Ok<RecipeDetailDto>> SendPublishAsync(
+        PublishRecipeCommand command, HttpResponse response, ISender mediator, CancellationToken ct)
+    {
+        var result = await mediator.Send(command, ct);
+        SetETag(response, result.RowVersion);
+        return TypedResults.Ok(result);
+    }
+
+    private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
     /// <summary>D34/D71 — RowVersion mới (base64) trong header ETag, dạng strong ETag có ngoặc kép.</summary>
     private static void SetETag(HttpResponse response, string rowVersion)

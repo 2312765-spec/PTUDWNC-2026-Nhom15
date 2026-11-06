@@ -111,19 +111,46 @@ public class Recipe : BaseEntity, IAggregateRoot
         }
     }
 
-    /// <summary>D3: Chỉ publish được khi có ít nhất 1 step VÀ ít nhất 1 ingredient.</summary>
-    public void Publish()
+    /// <summary>
+    /// FR-RCP-005 — Draft/Archived → Published. D3: cần ít nhất 1 step VÀ ít nhất 1 ingredient.
+    /// D77: đã Published → không đổi gì (idempotent, trả <c>false</c>); <see cref="PublishedAt"/> giữ thời điểm
+    /// xuất bản LẦN ĐẦU, publish lại sau khi unpublish không đổi nó.
+    /// </summary>
+    /// <returns><c>true</c> nếu trạng thái thực sự đổi.</returns>
+    public bool Publish()
     {
+        if (Status == RecipeStatus.Published)
+        {
+            return false;
+        }
+
         if (_steps.Count == 0 || _ingredients.Count == 0)
         {
             throw new DomainException(
-                "Không thể xuất bản công thức khi thiếu bước thực hiện hoặc nguyên liệu.",
+                "Công thức phải có ít nhất 1 nguyên liệu và 1 bước thực hiện.",
                 "RECIPE_PUBLISH_INCOMPLETE");
         }
 
         Status = RecipeStatus.Published;
-        PublishedAt = DateTime.UtcNow;
+        PublishedAt ??= DateTime.UtcNow;
         UpdatedAt = DateTime.UtcNow;
+        return true;
+    }
+
+    /// <summary>
+    /// FR-RCP-005 — Published/Archived → Draft. D77: đã Draft → không đổi gì (idempotent, trả <c>false</c>).
+    /// </summary>
+    /// <returns><c>true</c> nếu trạng thái thực sự đổi.</returns>
+    public bool Unpublish()
+    {
+        if (Status == RecipeStatus.Draft)
+        {
+            return false;
+        }
+
+        Status = RecipeStatus.Draft;
+        UpdatedAt = DateTime.UtcNow;
+        return true;
     }
 
     public void Archive()

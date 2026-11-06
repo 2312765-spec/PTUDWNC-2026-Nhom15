@@ -87,6 +87,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D74 | Token cho lời gọi API từ trình duyệt | Interceptor `apiClient` gắn Bearer từ `getSession()` (Auth.js tự refresh) · cache 30s |
 | D75 | Trang sửa đọc recipe theo id | `GET /recipes/{id:guid}` không cache, quyền như FR-RCP-002 · slug dạng GUID thêm `-1` |
 | D76 | Nguyên liệu (FR-RCP-009) | **Hard delete** · `orderIndex` 0-based, vắng = cuối, server giữ liên tục · `RECIPE_INGREDIENT_NOT_FOUND` (404) · ngoài khoảng → 400 · không xóa nguyên liệu cuối của recipe Published · khóa dòng, lưu 1 lần |
+| D77 | Publish / Unpublish (FR-RCP-005) | Archived publish/unpublish được · đã ở trạng thái đích → 200 không ghi · `PublishedAt` = lần đầu · `If-Match` **tùy chọn**, lệch → 409 · trả `RecipeDetailDto` + `ETag` · khóa dòng |
 
 ---
 
@@ -2112,6 +2113,50 @@ dùng `{id}`, nhưng API chỉ có `GET /recipes/{slug}` (FR-RCP-002) — trang 
 **Sửa SRS:** FR-RCP-009 — `sortOrder` → `orderIndex` (0-based, vắng = cuối); ghi rõ xóa là xóa vật lý; A1 tách
 mã `RECIPE_INGREDIENT_NOT_FOUND`; A3 → 400; thêm "xóa nguyên liệu cuối của recipe Published → 400";
 PUT trả toàn bộ danh sách. Phụ lục B — thêm `RECIPE_INGREDIENT_NOT_FOUND`.
+
+---
+
+## D77 — FR-RCP-005: chuyển trạng thái publish / unpublish
+
+> 2026-11-06. Phát hiện lúc code FR-RCP-005. Bổ sung cho D3, D39, D71.
+
+**Nguồn mâu thuẫn / thiếu:**
+
+- FR-RCP-005 chỉ nói Draft ↔ Published, không nói recipe **Archived** gọi publish/unpublish thì sao (FR-RCP-006
+  có "Unarchive" trong tên nhưng không có endpoint).
+- A2 "đã ở trạng thái mong muốn → 200 idempotent" nhưng không nói có ghi DB / đổi `PublishedAt` / đếm metric không.
+- `Recipe.Publish()` (Sprint 0) gán `PublishedAt = now` mỗi lần — publish lại sau khi unpublish làm "ngày đăng"
+  (JSON-LD `datePublished`, NFR-SEO-001) nhảy lên như bài mới.
+- Không nói có cần `If-Match` không (D71 chỉ chốt cho PUT), response "RecipeDto" là DTO nào.
+- Lệnh publish chạy song song với lệnh xóa bước/nguyên liệu cuối cùng (D73/D76) có thể để lọt recipe Published
+  không có bước/nguyên liệu.
+
+**Chốt:**
+
+1. Domain có hai method: `Publish()` (Draft/**Archived** → Published, kiểm D3) và `Unpublish()` (Published/**Archived**
+   → Draft). Cả hai trả `bool` = trạng thái có thực sự đổi không. `MoveToDraft()` cũ giữ nguyên cho dữ liệu test.
+   Dùng một command `PublishRecipeCommand(RecipeId, IsPublish, IfMatch?)` như SRS bước 2.
+2. **Idempotent:** đã ở trạng thái đích → 200, **không** `SaveChanges` (RowVersion, `UpdatedAt` không đổi),
+   **không** đếm metric. Publish recipe đã Published không kiểm lại D3.
+3. **`PublishedAt` = thời điểm xuất bản lần đầu**: chỉ gán khi đang `null`; unpublish không xóa, publish lại không đổi.
+   "Lần sửa gần nhất" đã có `UpdatedAt`.
+4. **`If-Match` tùy chọn**: vắng → bỏ qua kiểm tra (đổi trạng thái không ghi đè nội dung người khác vừa sửa);
+   có nhưng sai định dạng → 400 `VALIDATION_ERROR` (trường `RowVersion`); có và lệch → **409
+   `RECIPE_CONCURRENCY_CONFLICT`**. Thứ tự: 404 → 403 → 409 → 400 D3.
+5. Response: **`RecipeDetailDto`** đầy đủ (giống PUT) + header **`ETag`** với `rowVersion` mới (đổi Status làm đổi
+   RowVersion).
+6. Handler **khóa dòng recipe** (`GetByIdWithDetailsForUpdateAsync`) trong transaction — publish xếp hàng với lệnh
+   sửa bước/nguyên liệu, và quyền được kiểm tra trên bản ghi đã khóa ngay trước khi ghi (`permissions.md`:
+   "double-check userId ngay trước khi commit").
+7. `RecipeMetrics.RecordPublished()` gọi **sau** transaction thành công, chỉ khi trạng thái thực sự đổi sang Published
+   (D39). Log `Information` "Recipe {RecipeId} chuyển sang {Status} bởi {UserId}" làm audit trail (NFR-SEC-006).
+8. Cache: xóa tag `recipes` + `recipe:{slug}` (D8) — danh sách, chi tiết, tìm kiếm thấy ngay.
+
+**Vì:** cho Author một đường thoát khỏi Archived mà không cần endpoint mới; giữ ngày đăng ổn định cho SEO; không
+request nào tạo ra recipe Published vi phạm D3.
+
+**Sửa SRS:** FR-RCP-005 — mô tả thêm Archived → Published/Draft; A1 → 400 `RECIPE_PUBLISH_INCOMPLETE` (D3, D4);
+bước 6 "PublishedAt chỉ gán lần đầu"; bước 8 → `RecipeDetailDto` + `ETag`; thêm "If-Match tùy chọn, lệch → 409".
 
 ---
 
