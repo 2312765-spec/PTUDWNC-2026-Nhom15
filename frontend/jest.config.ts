@@ -9,6 +9,9 @@ const config: Config = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: { '^@/(.*)$': '<rootDir>/$1' },
   testMatch: ['<rootDir>/__tests__/**/*.test.{ts,tsx}'],
+  // Test tương tác (user-event gõ từng phím) chạy song song nhiều worker có thể vượt 5s mặc định
+  // trên máy chậm/CI — timeout giả, không phải lỗi. 20s vẫn bắt được test treo thật.
+  testTimeout: 20_000,
   collectCoverageFrom: ['lib/**/*.{ts,tsx}', 'app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}'],
 };
 

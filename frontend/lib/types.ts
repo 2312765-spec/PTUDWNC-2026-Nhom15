@@ -138,9 +138,15 @@ export interface RecipeDetailDto {
     isPrimary: boolean;
     orderIndex: number;
   }>;
+  /** D71 — RowVersion (base64), gửi lại trong header If-Match khi sửa (FR-RCP-004). */
+  rowVersion: string;
 }
 
-// TODO(S6 — C): RecipeStepDto (timerMinutes — D6), RecipeIngredientDto (orderIndex — D7)
+/** FR-RCP-010/D6 — khớp RecipeStepDto của backend. */
+export type RecipeStepDto = RecipeDetailDto['steps'][number];
+
+/** FR-RCP-009/D7 — khớp RecipeIngredientDto của backend. */
+export type RecipeIngredientDto = RecipeDetailDto['ingredients'][number];
 
 /**
  * D27 — khớp response `POST /recipes/{id}/images` của backend

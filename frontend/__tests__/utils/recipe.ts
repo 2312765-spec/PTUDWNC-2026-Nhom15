@@ -50,6 +50,7 @@ export function recipeDetail(overrides: Partial<RecipeDetailDto> = {}): RecipeDe
         orderIndex: 0,
       },
     ],
+    rowVersion: 'AQIDBA==',
     ...overrides,
   };
 }
