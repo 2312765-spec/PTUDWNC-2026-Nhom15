@@ -86,6 +86,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D73 | Xóa / đánh số lại bước (FR-RCP-010) | **Hard delete** · lưu **2 pha** + khóa dòng recipe · `RECIPE_STEP_NOT_FOUND` (404) · stepNumber ngoài khoảng → 400 · không xóa bước cuối của recipe Published |
 | D74 | Token cho lời gọi API từ trình duyệt | Interceptor `apiClient` gắn Bearer từ `getSession()` (Auth.js tự refresh) · cache 30s |
 | D75 | Trang sửa đọc recipe theo id | `GET /recipes/{id:guid}` không cache, quyền như FR-RCP-002 · slug dạng GUID thêm `-1` |
+| D76 | Nguyên liệu (FR-RCP-009) | **Hard delete** · `orderIndex` 0-based, vắng = cuối, server giữ liên tục · `RECIPE_INGREDIENT_NOT_FOUND` (404) · ngoài khoảng → 400 · không xóa nguyên liệu cuối của recipe Published · khóa dòng, lưu 1 lần |
 
 ---
 
@@ -597,6 +598,7 @@ nếu không request `/recipes/search` sẽ khớp vào route slug. Kèm theo D1
 | `RECIPE_IMAGE_NOT_FOUND` | 404 | Recipe | 🆕 **thêm mới** — SRS FR-RCP-008 chỉ ghi chung "404", chưa có mã riêng cho ảnh không tồn tại (phát hiện lúc lập kế hoạch FR-RCP-008) |
 | `RECIPE_PRIMARY_IMAGE_REQUIRED` | 400 | Recipe | 🆕 **thêm mới** (D22) — `PATCH` `{ isPrimary: false }` trên ảnh đang là primary bị từ chối, vì recipe phải luôn có đúng 1 ảnh primary nếu còn ảnh |
 | `RECIPE_STEP_NOT_FOUND` | 404 | Recipe | 🆕 **thêm mới** (D73) — bước không tồn tại hoặc thuộc recipe khác |
+| `RECIPE_INGREDIENT_NOT_FOUND` | 404 | Recipe | 🆕 **thêm mới** (D76) — nguyên liệu không tồn tại hoặc thuộc recipe khác |
 | `CATEGORY_NOT_FOUND` | 404 | Category | — |
 | `CATEGORY_NAME_EXISTS` | 409 | Category | — |
 | `CATEGORY_DELETE_HAS_RECIPES` | 409 | Category | — |
@@ -2068,6 +2070,48 @@ dùng `{id}`, nhưng API chỉ có `GET /recipes/{slug}` (FR-RCP-002) — trang 
 **Vì:** cần cho FR-RCP-004 (FE) và chống 409 oan do đọc rowVersion cũ từ cache.
 
 **Sửa SRS:** Chương 8 mục 8.3 — thêm dòng `GET /recipes/{id}`.
+
+---
+
+## D76 — FR-RCP-009: vị trí, xóa, lỗi và tranh chấp của nguyên liệu
+
+> 2026-11-06. Phát hiện lúc code FR-RCP-009. Đi song song với D73 (bước).
+
+**Nguồn mâu thuẫn / thiếu:**
+
+- FR-RCP-009 không nói xóa nguyên liệu là xóa mềm hay xóa vật lý (`BaseEntity` + D1 nói "không xóa vật lý",
+  D1 chỉ áp cho Recipe).
+- Body POST có `sortOrder?` (D7 đổi thành `orderIndex`, "mặc định 0"), nhưng không nói chèn vào giữa thì các
+  nguyên liệu khác ra sao, cũng không nói PUT có đổi vị trí được không.
+- SRS không có mã lỗi cho nguyên liệu không tồn tại; không nói xóa nguyên liệu cuối của recipe Published thì sao.
+- Hai request thêm song song cùng tính `Max + 1` → trùng `OrderIndex` (không có unique index nên không lỗi DB,
+  nhưng thứ tự hiển thị không xác định).
+
+**Chốt:**
+
+1. **Xóa nguyên liệu = hard delete** (giống bước — D73, ảnh — D43). Recipe xóa mềm vẫn giữ nguyên nguyên liệu (D1).
+2. `orderIndex` là **vị trí 0-based** trong danh sách. Server luôn giữ `OrderIndex` liên tục `0..n-1` sau mỗi
+   lệnh chèn / đổi vị trí / xóa.
+   - `POST` — `orderIndex` vắng = xếp cuối; có giá trị `0..n` = chèn vào đó, các nguyên liệu sau dồn xuống.
+   - `PUT` — `orderIndex` vắng = giữ vị trí; có giá trị `0..n-1` = chuyển tới đó.
+   - Ngoài khoảng → **400 `VALIDATION_ERROR`** (âm: validator; vượt cận trên: domain). Không tự kẹp về biên.
+3. `PUT` thay toàn bộ nội dung: `name` bắt buộc; `quantity`/`unit`/`notes` vắng hoặc `null` = **xóa** (giống
+   `timerMinutes`/`imageUrl` ở D73). Chuỗi chỉ có khoảng trắng → `null`.
+4. Mã lỗi mới **`RECIPE_INGREDIENT_NOT_FOUND` (404)** — nguyên liệu không tồn tại hoặc thuộc recipe khác.
+   Thứ tự kiểm tra: 404 recipe → 403 → 404 nguyên liệu.
+5. Response: `POST` → `RecipeIngredientDto` (201); `PUT` → **toàn bộ nguyên liệu** theo thứ tự mới (200), vì
+   đổi vị trí làm đổi `orderIndex` của nguyên liệu khác; `DELETE` → 204.
+6. Xóa nguyên liệu cuối cùng của recipe **Published** → **400 `RECIPE_PUBLISH_INCOMPLETE`** (giữ điều kiện D3).
+   Draft được xóa hết.
+7. **Khóa dòng recipe** (`GetByIdWithDetailsForUpdateAsync`) cho cả thêm/sửa/xóa — các lệnh trên cùng recipe chạy
+   tuần tự. **Không cần lưu 2 pha** (không có unique index trên `OrderIndex`), một lần `SaveChanges`.
+8. Sửa nguyên liệu không đổi `RowVersion` / `UpdatedAt` của recipe (D71).
+
+**Vì:** cùng hành vi với bước (D73) để frontend dùng chung một kiểu trình sửa danh sách; không request nào ra 500.
+
+**Sửa SRS:** FR-RCP-009 — `sortOrder` → `orderIndex` (0-based, vắng = cuối); ghi rõ xóa là xóa vật lý; A1 tách
+mã `RECIPE_INGREDIENT_NOT_FOUND`; A3 → 400; thêm "xóa nguyên liệu cuối của recipe Published → 400";
+PUT trả toàn bộ danh sách. Phụ lục B — thêm `RECIPE_INGREDIENT_NOT_FOUND`.
 
 ---
 

@@ -46,11 +46,7 @@ public static class RecipeDetailDtoMapper
                 recipe.Nutrition.Fat,
                 recipe.Nutrition.Fiber,
                 recipe.Nutrition.Sodium),
-            recipe.Ingredients
-                .Where(i => !i.IsDeleted)
-                .OrderBy(i => i.OrderIndex)
-                .Select(i => new RecipeIngredientDto(i.Id, i.Name, i.Quantity, i.Unit, i.Notes, i.OrderIndex))
-                .ToList(),
+            ToIngredientDtos(recipe),
             ToStepDtos(recipe),
             recipe.Images
                 .Where(img => !img.IsDeleted)
@@ -69,6 +65,18 @@ public static class RecipeDetailDtoMapper
             .OrderBy(s => s.StepNumber)
             .Select(ToStepDto)
             .ToList();
+
+    /// <summary>Danh sách nguyên liệu theo OrderIndex tăng dần (FR-RCP-009 trả về sau khi sửa/đổi vị trí — D76).</summary>
+    public static IReadOnlyList<RecipeIngredientDto> ToIngredientDtos(Recipe recipe) =>
+        recipe.Ingredients
+            .Where(i => !i.IsDeleted)
+            .OrderBy(i => i.OrderIndex)
+            .ThenBy(i => i.CreatedAt)
+            .Select(ToIngredientDto)
+            .ToList();
+
+    public static RecipeIngredientDto ToIngredientDto(RecipeIngredient i) =>
+        new(i.Id, i.Name, i.Quantity, i.Unit, i.Notes, i.OrderIndex);
 
     public static RecipeStepDto ToStepDto(RecipeStep s) =>
         new(s.Id, s.StepNumber, s.Title, s.Description, s.TimerMinutes, s.ImageUrl);

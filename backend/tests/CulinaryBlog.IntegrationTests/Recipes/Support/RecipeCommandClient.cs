@@ -115,9 +115,9 @@ public sealed class RecipeCommandClient(PostgresApiFactory factory)
     }
 
     /// <summary>Tạo recipe qua API (FR-RCP-003) và trả DTO — dùng làm dữ liệu đầu vào cho test FR khác.</summary>
-    public async Task<RecipeDetailDto> CreateRecipeAsync(TestUser user, Guid categoryId, object? steps = null)
+    public async Task<RecipeDetailDto> CreateRecipeAsync(TestUser user, Guid categoryId, object? steps = null, object? ingredients = null)
     {
-        var response = await SendAsync(HttpMethod.Post, "/api/v1/recipes", user.Token, CreateBody(categoryId, steps: steps));
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/recipes", user.Token, CreateBody(categoryId, steps: steps, ingredients: ingredients));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<RecipeDetailDto>(JsonOptions))!;
     }

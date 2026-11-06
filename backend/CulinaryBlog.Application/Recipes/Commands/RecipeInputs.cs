@@ -155,18 +155,33 @@ public sealed class RecipeIngredientInputValidator : AbstractValidator<RecipeIng
 {
     public RecipeIngredientInputValidator()
     {
-        RuleFor(x => x.Name)
+        RecipeIngredientRules.Apply(this, x => x.Name, x => x.Quantity, x => x.Unit, x => x.Notes);
+    }
+}
+
+/// <summary>D7 — dùng chung cho ingredient trong body tạo recipe (FR-RCP-003) và endpoint ingredient (FR-RCP-009).</summary>
+public static class RecipeIngredientRules
+{
+    public static void Apply<T>(
+        AbstractValidator<T> validator,
+        System.Linq.Expressions.Expression<Func<T, string>> name,
+        System.Linq.Expressions.Expression<Func<T, decimal?>> quantity,
+        System.Linq.Expressions.Expression<Func<T, string?>> unit,
+        System.Linq.Expressions.Expression<Func<T, string?>> notes)
+    {
+        validator.RuleFor(name)
             .NotEmpty().WithMessage("Tên nguyên liệu không được để trống.")
             .MaximumLength(200).WithMessage("Tên nguyên liệu không được vượt quá 200 ký tự.");
 
         // decimal(10,3), nếu có thì phải > 0 (D7).
-        RuleFor(x => x.Quantity)
+        var getQuantity = quantity.Compile();
+        validator.RuleFor(quantity)
             .GreaterThan(0).WithMessage("Số lượng phải lớn hơn 0 (bỏ trống nếu \"vừa đủ\").")
             .LessThan(10_000_000m).WithMessage("Số lượng quá lớn.")
-            .When(x => x.Quantity is not null);
+            .When(x => getQuantity(x) is not null);
 
-        RuleFor(x => x.Unit).MaximumLength(50).WithMessage("Đơn vị không được vượt quá 50 ký tự.");
-        RuleFor(x => x.Notes).MaximumLength(500).WithMessage("Ghi chú không được vượt quá 500 ký tự.");
+        validator.RuleFor(unit).MaximumLength(50).WithMessage("Đơn vị không được vượt quá 50 ký tự.");
+        validator.RuleFor(notes).MaximumLength(500).WithMessage("Ghi chú không được vượt quá 500 ký tự.");
     }
 }
 
