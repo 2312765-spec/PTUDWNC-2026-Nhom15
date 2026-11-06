@@ -2,7 +2,9 @@ using CulinaryBlog.API.Extensions;
 using CulinaryBlog.Application.Categories.DTOs;
 using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Application.Common.Models;
+using CulinaryBlog.Application.Recipes.Commands;
 using CulinaryBlog.Application.Recipes.Commands.Create;
+using CulinaryBlog.Application.Recipes.Commands.Update;
 using CulinaryBlog.Application.Recipes.DTOs;
 using CulinaryBlog.Application.Recipes.Queries.GetRecipeBySlug;
 using CulinaryBlog.Application.Recipes.Queries.GetRecipes;
@@ -110,9 +112,31 @@ public static class RecipeEndpoints
              .ProducesProblem(StatusCodes.Status401Unauthorized)
              .ProducesProblem(StatusCodes.Status403Forbidden);
 
-        group.MapPut("/{id:guid}", (Guid id) => NotImplementedResults.Pending("FR-RCP-004", "C"))
+        // FR-RCP-004. If-Match chuyển nguyên văn vào command — validator kiểm tra (CONS-008, D71).
+        group.MapPut("/{id:guid}", async (
+            Guid id,
+            UpdateRecipeRequest body,
+            HttpRequest request,
+            HttpResponse response,
+            ISender mediator,
+            CancellationToken ct) =>
+        {
+            var command = new UpdateRecipeCommand(
+                id, request.Headers.IfMatch.ToString(), body.Title, body.Description, body.CategoryId,
+                body.PrepTime, body.CookTime, body.Servings, body.Difficulty, body.Instructions, body.Nutrition);
+            var result = await mediator.Send(command, ct);
+            SetETag(response, result.RowVersion);
+            return TypedResults.Ok(result);
+        })
              .RequireAuthorization(Policies.Author)
-             .WithSummary("Cập nhật — RowVersion mismatch → 409 (D4)");
+             .WithName("UpdateRecipe")
+             .WithSummary("Cập nhật — header If-Match bắt buộc; RowVersion mismatch → 409 (D4, D71)")
+             .WithDescription("Thay toàn bộ thông tin cơ bản (D69), slug không đổi (D13). nutrition vắng/null = giữ nguyên.")
+             .Produces<RecipeDetailDto>(StatusCodes.Status200OK)
+             .ProducesProblem(StatusCodes.Status400BadRequest)
+             .ProducesProblem(StatusCodes.Status403Forbidden)
+             .ProducesProblem(StatusCodes.Status404NotFound)
+             .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPatch("/{id:guid}/publish", (Guid id) => NotImplementedResults.Pending("FR-RCP-005", "C"))
              .RequireAuthorization(Policies.Author)
@@ -155,6 +179,18 @@ public static class RecipeEndpoints
              .RequireAuthorization(Policies.Author)
              .WithSummary("Xóa nguyên liệu");
     }
+
+    /// <summary>D69 — wire contract của PUT /recipes/{id} (id lấy từ route, RowVersion từ header If-Match).</summary>
+    public sealed record UpdateRecipeRequest(
+        string Title,
+        string Description,
+        Guid CategoryId,
+        int PrepTime,
+        int CookTime,
+        int Servings,
+        [property: System.Text.Json.Serialization.JsonConverter(typeof(StringOrNumberJsonConverter))] string Difficulty,
+        string? Instructions,
+        RecipeNutritionInput? Nutrition);
 
     /// <summary>D34/D71 — RowVersion mới (base64) trong header ETag, dạng strong ETag có ngoặc kép.</summary>
     private static void SetETag(HttpResponse response, string rowVersion)

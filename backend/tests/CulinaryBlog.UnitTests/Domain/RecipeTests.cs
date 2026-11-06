@@ -48,6 +48,46 @@ public class RecipeTests
         act.Should().Throw<DomainException>().Which.ErrorCode.Should().Be("VALIDATION_ERROR");
     }
 
+    [Fact(DisplayName = "FR-RCP-004/D13: Update đổi mọi trường cơ bản nhưng KHÔNG đổi slug")]
+    public void Update_ChangesFields_KeepsSlug()
+    {
+        var recipe = NewRecipe(instructions: "Cũ");
+        var newCategory = Guid.NewGuid();
+
+        recipe.Update("Gỏi cuốn chay", "Không tôm thịt", null, 25, 0, 2, RecipeDifficulty.Medium, newCategory);
+
+        recipe.Title.Should().Be("Gỏi cuốn chay");
+        recipe.Slug.Should().Be("goi-cuon", "D13 — slug bất biến sau khi tạo");
+        recipe.Description.Should().Be("Không tôm thịt");
+        recipe.Instructions.Should().BeNull("D69 — PUT thay toàn bộ, instructions null = xóa");
+        recipe.PrepTime.Should().Be(25);
+        recipe.CookTime.Should().Be(0);
+        recipe.Servings.Should().Be(2);
+        recipe.Difficulty.Should().Be(RecipeDifficulty.Medium);
+        recipe.CategoryId.Should().Be(newCategory);
+        recipe.UpdatedAt.Should().NotBeNull();
+    }
+
+    [Fact(DisplayName = "FR-RCP-004/D19: Update với servings = 0 → DomainException")]
+    public void Update_InvalidNumbers_Throws()
+    {
+        var act = () => NewRecipe().Update("Gỏi cuốn", "Mô tả", null, 10, 10, 0, RecipeDifficulty.Easy, Guid.NewGuid());
+
+        act.Should().Throw<DomainException>();
+    }
+
+    [Fact(DisplayName = "FR-RCP-004: Update không đổi trạng thái (Published vẫn Published)")]
+    public void Update_KeepsStatus()
+    {
+        var recipe = Recipe.Create("Phở bò", "pho-bo", "Phở", 30, 120, 4, RecipeDifficulty.Hard,
+            Guid.NewGuid(), "author-1", RecipeStatus.Published);
+
+        recipe.Update("Phở bò tái", "Phở", null, 30, 120, 4, RecipeDifficulty.Hard, recipe.CategoryId);
+
+        recipe.Status.Should().Be(RecipeStatus.Published);
+        recipe.PublishedAt.Should().NotBeNull();
+    }
+
     [Fact(DisplayName = "FR-RCP-010/D6: AppendStep đánh số Max + 1, bắt đầu từ 1")]
     public void AppendStep_NumbersSequentially()
     {

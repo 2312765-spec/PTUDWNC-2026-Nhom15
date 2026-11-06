@@ -25,6 +25,12 @@ public interface IRecipeRepository
     void Update(Recipe recipe);
     void Delete(Recipe recipe);
     Task<Recipe?> GetByIdWithImagesAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// FR-RCP-004/010 — recipe (chưa xóa mềm) kèm Steps, Ingredients, Images, ĐƯỢC TRACK để sửa rồi
+    /// SaveChanges. KHÔNG nạp Category: lệnh sửa có thể đổi CategoryId, handler tự đọc category mới.
+    /// </summary>
+    Task<Recipe?> GetByIdWithDetailsAsync(Guid id, CancellationToken ct = default);
     Task<(IReadOnlyList<Recipe> Items, int TotalCount)> GetPagedByCategoryIdAsync(
         Guid categoryId, RecipeStatus? status, int page, int pageSize, CancellationToken cancellationToken = default);
     Task<string?> GetAuthorIdAsync(Guid id, CancellationToken ct = default);

@@ -62,6 +62,15 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
             .Include(r => r.Images)
             .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted, ct);
 
+    /// <summary>NFR-PERF-004: Include + AsSplitQuery (ba collection trong một JOIN gây cartesian explosion).</summary>
+    public async Task<Recipe?> GetByIdWithDetailsAsync(Guid id, CancellationToken ct = default) =>
+        await context.Recipes
+            .AsSplitQuery()
+            .Include(r => r.Steps)
+            .Include(r => r.Ingredients)
+            .Include(r => r.Images)
+            .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted, ct);
+
     public async Task<string?> GetAuthorIdAsync(Guid id, CancellationToken ct = default) =>
         await context.Recipes
             .AsNoTracking()

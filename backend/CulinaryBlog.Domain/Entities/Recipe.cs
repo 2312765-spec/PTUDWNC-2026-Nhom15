@@ -138,6 +138,25 @@ public class Recipe : BaseEntity, IAggregateRoot
         UpdatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// FR-RCP-004 — thay toàn bộ thông tin cơ bản (D69). KHÔNG đổi Slug (D13) và Status.
+    /// Nutrition đổi riêng qua <see cref="SetNutrition"/>; steps/ingredients qua FR-RCP-009/010.
+    /// </summary>
+    public void Update(
+        string title,
+        string description,
+        string? instructions,
+        int prepTime,
+        int cookTime,
+        int servings,
+        RecipeDifficulty difficulty,
+        Guid categoryId)
+    {
+        EnsureValidTimes(prepTime, cookTime, servings);
+        UpdateDetails(title, description, prepTime, cookTime, servings, difficulty, categoryId);
+        Instructions = instructions;
+    }
+
     public void UpdateDetails(
         string title,
         string description,
@@ -147,6 +166,7 @@ public class Recipe : BaseEntity, IAggregateRoot
         RecipeDifficulty difficulty,
         Guid categoryId)
     {
+        EnsureValidTimes(prepTime, cookTime, servings);
         Title = title;
         Description = description;
         PrepTime = prepTime;
