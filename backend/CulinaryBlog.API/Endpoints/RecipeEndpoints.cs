@@ -4,6 +4,7 @@ using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Application.Common.Models;
 using CulinaryBlog.Application.Recipes.Commands;
 using CulinaryBlog.Application.Recipes.Commands.Create;
+using CulinaryBlog.Application.Recipes.Commands.Delete;
 using CulinaryBlog.Application.Recipes.Commands.Ingredients;
 using CulinaryBlog.Application.Recipes.Commands.Publish;
 using CulinaryBlog.Application.Recipes.Commands.Steps;
@@ -183,9 +184,21 @@ public static class RecipeEndpoints
              .RequireAuthorization(Policies.Author)
              .WithSummary("Archive — ẩn khỏi listing công khai");
 
-        group.MapDelete("/{id:guid}", (Guid id) => NotImplementedResults.Pending("FR-RCP-007", "C"))
+        // FR-RCP-007 — D1 (soft delete), D78 (If-Match tùy chọn, 404 sau khi xóa).
+        group.MapDelete("/{id:guid}", async (Guid id, HttpRequest request, ISender mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new DeleteRecipeCommand(id, NullIfEmpty(request.Headers.IfMatch.ToString())), ct);
+            return TypedResults.NoContent();
+        })
              .RequireAuthorization(Policies.Author)
-             .WithSummary("SOFT DELETE (D1) — không cascade, không xóa file MinIO");
+             .WithName("DeleteRecipe")
+             .WithSummary("SOFT DELETE (D1) — không cascade, không xóa file MinIO, slug không tái dùng")
+             .WithDescription("Header If-Match tùy chọn (D78): có thì phải khớp rowVersion, lệch → 409. Sau khi xóa mọi thao tác trên recipe → 404.")
+             .Produces(StatusCodes.Status204NoContent)
+             .ProducesProblem(StatusCodes.Status400BadRequest)
+             .ProducesProblem(StatusCodes.Status403Forbidden)
+             .ProducesProblem(StatusCodes.Status404NotFound)
+             .ProducesProblem(StatusCodes.Status409Conflict);
 
         // ---- C: steps & ingredients ----
         // FR-RCP-010 — D6 (server đánh số), D73 (hard delete, lưu 2 pha, khóa dòng recipe).
