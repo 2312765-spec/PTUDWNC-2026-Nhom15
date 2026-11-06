@@ -236,6 +236,70 @@ public class Recipe : BaseEntity, IAggregateRoot
         return step;
     }
 
+    /// <summary>
+    /// FR-RCP-010/D6 — sửa nội dung bước; <paramref name="newPosition"/> (1..số bước) để đổi vị trí, null = giữ
+    /// nguyên. Sau khi đổi vị trí, mọi bước được đánh số lại liên tục 1, 2, 3…
+    /// </summary>
+    public RecipeStep UpdateStep(Guid stepId, string title, string description, int? timerMinutes, string? imageUrl, int? newPosition)
+    {
+        var step = FindStep(stepId);
+
+        if (newPosition is { } position && (position < 1 || position > _steps.Count))
+        {
+            throw new DomainException(
+                $"Vị trí bước phải nằm trong khoảng 1 đến {_steps.Count}.",
+                "VALIDATION_ERROR");
+        }
+
+        step.Update(title, description, timerMinutes, imageUrl);
+
+        if (newPosition is { } target)
+        {
+            var ordered = _steps.OrderBy(s => s.StepNumber).ToList();
+            ordered.Remove(step);
+            ordered.Insert(target - 1, step);
+            Renumber(ordered);
+        }
+
+        return step;
+    }
+
+    /// <summary>
+    /// FR-RCP-010/D6 — bỏ bước khỏi recipe và đánh số lại các bước còn lại 1, 2, 3…
+    /// D3/D73: recipe đang Published phải còn ít nhất 1 bước.
+    /// </summary>
+    public RecipeStep RemoveStep(Guid stepId)
+    {
+        var step = FindStep(stepId);
+
+        if (Status == RecipeStatus.Published && _steps.Count == 1)
+        {
+            throw new DomainException(
+                "Công thức đã xuất bản phải còn ít nhất 1 bước thực hiện.",
+                "RECIPE_PUBLISH_INCOMPLETE");
+        }
+
+        _steps.Remove(step);
+        Renumber(_steps.OrderBy(s => s.StepNumber).ToList());
+        return step;
+    }
+
+    private RecipeStep FindStep(Guid stepId) =>
+        _steps.FirstOrDefault(s => s.Id == stepId)
+        ?? throw new DomainException("Không tìm thấy bước thực hiện.", "RECIPE_STEP_NOT_FOUND");
+
+    /// <summary>Gán StepNumber 1..n theo đúng thứ tự danh sách; chỉ ghi khi số thay đổi.</summary>
+    private static void Renumber(IReadOnlyList<RecipeStep> ordered)
+    {
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            if (ordered[i].StepNumber != i + 1)
+            {
+                ordered[i].StepNumber = i + 1;
+            }
+        }
+    }
+
     /// <summary>Chỉ dùng cho seed/test dựng dữ liệu có sẵn số thứ tự. Luồng nghiệp vụ dùng <see cref="AppendStep"/>.</summary>
     public void AddStep(int stepNumber, string title, string description, int? timerMinutes = null, string? imageUrl = null)
     {

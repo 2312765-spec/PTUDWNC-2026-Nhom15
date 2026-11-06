@@ -71,6 +71,52 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
             .Include(r => r.Images)
             .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted, ct);
 
+    public async Task<Recipe?> GetByIdWithDetailsForUpdateAsync(Guid id, CancellationToken ct = default)
+    {
+        // Tham số hóa qua FormattableString (CONS-006) — cùng cách GetByIdWithImagesForUpdateAsync.
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"""SELECT 1 FROM "Recipes" WHERE "Id" = {id} FOR UPDATE""", ct);
+
+        return await GetByIdWithDetailsAsync(id, ct);
+    }
+
+    /// <summary>
+    /// D73 — pha 1 đẩy mọi step bị đổi StepNumber ra vùng tạm (≥ <see cref="StepNumberParkingBase"/>, không
+    /// trùng số thật nào) và áp dụng xóa/thêm; pha 2 gán số cuối cùng. Không đổi số thì chỉ một lần SaveChanges.
+    /// </summary>
+    public async Task SaveStepsAsync(Recipe recipe, CancellationToken ct = default)
+    {
+        var renumbered = context.ChangeTracker.Entries<RecipeStep>()
+            .Where(e => e.Entity.RecipeId == recipe.Id
+                && e.State == EntityState.Modified
+                && e.Property(s => s.StepNumber).IsModified)
+            .Select(e => (Step: e.Entity, Final: e.Entity.StepNumber))
+            .ToList();
+
+        if (renumbered.Count == 0)
+        {
+            await context.SaveChangesAsync(ct);
+            return;
+        }
+
+        for (var i = 0; i < renumbered.Count; i++)
+        {
+            renumbered[i].Step.StepNumber = StepNumberParkingBase + i;
+        }
+
+        await context.SaveChangesAsync(ct);
+
+        foreach (var (step, final) in renumbered)
+        {
+            step.StepNumber = final;
+        }
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Vùng số tạm cho pha 1 của <see cref="SaveStepsAsync"/> — thỏa CHECK StepNumber &gt; 0.</summary>
+    private const int StepNumberParkingBase = 1_000_000;
+
     public async Task<string?> GetAuthorIdAsync(Guid id, CancellationToken ct = default) =>
         await context.Recipes
             .AsNoTracking()

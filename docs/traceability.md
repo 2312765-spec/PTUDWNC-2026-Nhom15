@@ -14,7 +14,7 @@
 > Tóm tắt: **A** = FR-AUTH + FR-JOB-001 · **B** = FR-CAT + FR-RCP-001/002 + FR-SRCH ·
 > **C** = FR-RCP-003/004/005/006/007/009/010 · **D** = FR-RCP-008 + FR-FILE + FR-JOB-002/003 + FR-OBS.
 
-**Tiến độ:** 27 / 34 FR (79%) — A 7/8 (AUTH-001→005, AUTH-007, JOB-001; AUTH-006 🟡) · B 11/11 (CAT-001→005, RCP-001→002, SRCH-001→004) · C 2/7 (RCP-003, RCP-004) ·
+**Tiến độ:** 28 / 34 FR (82%) — A 7/8 (AUTH-001→005, AUTH-007, JOB-001; AUTH-006 🟡) · B 11/11 (CAT-001→005, RCP-001→002, SRCH-001→004) · C 3/7 (RCP-003, RCP-004, RCP-010) ·
 D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 🟡)
 
 ---
@@ -80,7 +80,7 @@ D 7/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002; FR-OBS-003 �
 | FR-RCP-007 | Xóa công thức | M | `DELETE /api/v1/recipes/{id}` → 204 | S7 | `DeleteRecipeCommand(+Handler)` | **Soft delete** — không cascade, không xóa file MinIO | `Recipes/DeleteTests.cs` | **D1** | ⬜ |
 | FR-RCP-008 | Quản lý ảnh | M | `POST /recipes/{id}/images` · `PATCH .../{imageId}` · `DELETE .../{imageId}` | S8 | `UploadRecipeImageCommand`, `UpdateRecipeImageCommand`, `DeleteRecipeImageCommand` | `Recipe.AttachImage/UpdateImage/RemoveImage`, `MinioFileStorageService`, magic-byte validation | `Recipes/ImagesTests.cs` (17 test, gồm hồi quy đổi primary qua lại + upload đồng thời + PATCH primary đồng thời) + 6 file `UnitTests/Images` + `UnitTests/Domain/RecipeImageTests.cs`. **FE:** `components/upload/*`, `lib/hooks/useRecipeImage{s,Gallery}.ts` — `__tests__/components/upload/*`, `__tests__/lib/**` (79 test Jest) | **D22, D27, D28, D30, D31**, D16 | ✅ |
 | FR-RCP-009 | CRUD nguyên liệu | M | `POST/PUT/DELETE /recipes/{id}/ingredients/{ingId?}` | S6 | `Add/Update/DeleteIngredientCommand` | `RecipeIngredient.Create()` | `Recipes/IngredientsTests.cs` | **D7** | ⬜ |
-| FR-RCP-010 | CRUD bước thực hiện | M | `POST/PUT/DELETE /recipes/{id}/steps/{stepId?}` | S6 | `Add/Update/DeleteStepCommand` | Auto-renumber `StepNumber` | `Recipes/StepsTests.cs` | **D6** | ⬜ |
+| FR-RCP-010 | CRUD bước thực hiện | M | `POST /recipes/{id}/steps` → 201 · `PUT /recipes/{id}/steps/{stepId}` → 200 (toàn bộ bước) · `DELETE …/{stepId}` → 204 | S6 | `Add/Update/DeleteRecipeStepCommand(+Handler,+Validator)` (`Recipes/Commands/Steps/`), `RecipeStepRules` dùng chung, `RecipeAuthorizationHandler` (D70), mã lỗi `RECIPE_STEP_NOT_FOUND` (D73) | `Recipe.AppendStep/UpdateStep/RemoveStep` + renumber liên tục (D6), `RecipeRepository.GetByIdWithDetailsForUpdateAsync` (khóa dòng) + `SaveStepsAsync` (lưu 2 pha, D73), `IRepository<RecipeStep>.AddAsync` tường minh (D31) | `IntegrationTests/Recipes/StepsTests.cs` (21 test: thêm 201 + bỏ qua stepNumber client, xóa đầu/giữa/cuối renumber, đổi vị trí lên đầu/xuống cuối/đổi chỗ kề nhau, sửa nội dung giữ vị trí, vị trí sai 400, body sai 400, Author khác 403 cả 3 lệnh, Admin 201, recipe 404, bước của recipe khác 404, 401, xóa bước cuối của Published 400, xóa cache, không đổi RowVersion recipe, 5 request song song, recipe xóa mềm 404, Draft xóa hết bước) · `UnitTests/Recipes/RecipeStepCommand{Handler,Validator}Tests.cs`, `UnitTests/Domain/RecipeTests.cs` (4 ca renumber) | **D6**, D3, D31, D70, D71, D73 | ✅ |
 
 **Điểm kiểm thử bắt buộc**
 

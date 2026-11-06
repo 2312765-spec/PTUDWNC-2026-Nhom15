@@ -31,6 +31,20 @@ public interface IRecipeRepository
     /// SaveChanges. KHÔNG nạp Category: lệnh sửa có thể đổi CategoryId, handler tự đọc category mới.
     /// </summary>
     Task<Recipe?> GetByIdWithDetailsAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// FR-RCP-010/D73 — như <see cref="GetByIdWithDetailsAsync"/> nhưng khóa dòng recipe (<c>FOR UPDATE</c>)
+    /// trước khi đọc: các lệnh sửa step cùng recipe chạy tuần tự, không tính trùng StepNumber.
+    /// PHẢI gọi bên trong <see cref="IUnitOfWork.ExecuteInTransactionAsync(Func{CancellationToken, Task}, CancellationToken)"/>.
+    /// </summary>
+    Task<Recipe?> GetByIdWithDetailsForUpdateAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// FR-RCP-010/D73 — lưu thay đổi step (kể cả đánh số lại). Unique index (RecipeId, StepNumber) không
+    /// deferrable nên đổi chỗ / dồn số trong một lần SaveChanges sẽ vi phạm index giữa chừng; hiện thực lưu
+    /// 2 pha. PHẢI gọi bên trong transaction.
+    /// </summary>
+    Task SaveStepsAsync(Recipe recipe, CancellationToken ct = default);
     Task<(IReadOnlyList<Recipe> Items, int TotalCount)> GetPagedByCategoryIdAsync(
         Guid categoryId, RecipeStatus? status, int page, int pageSize, CancellationToken cancellationToken = default);
     Task<string?> GetAuthorIdAsync(Guid id, CancellationToken ct = default);

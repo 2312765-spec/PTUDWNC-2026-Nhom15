@@ -83,6 +83,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D70 | Phân quyền Recipe ở Application | `RecipeAuthorizationHandler` dùng `ICurrentUser` (không `IAuthorizationService`) — ADR-0005 |
 | D71 | `If-Match`/`RowVersion` (FR-RCP-004) | DTO có `rowVersion` + header `ETag` · PUT thiếu `If-Match` → **400** · lệch → **409** |
 | D72 | Chi tiết slug recipe | Gộp `-`, cắt 200, rỗng → `cong-thuc`, slug cấm thêm `-1`, trùng (kể cả đã xóa mềm) → `-2`… |
+| D73 | Xóa / đánh số lại bước (FR-RCP-010) | **Hard delete** · lưu **2 pha** + khóa dòng recipe · `RECIPE_STEP_NOT_FOUND` (404) · stepNumber ngoài khoảng → 400 · không xóa bước cuối của recipe Published |
 
 ---
 
@@ -593,6 +594,7 @@ nếu không request `/recipes/search` sẽ khớp vào route slug. Kèm theo D1
 | `RECIPE_CONCURRENCY_CONFLICT` | **409** | Recipe | ✏️ đổi từ 422 (D4) |
 | `RECIPE_IMAGE_NOT_FOUND` | 404 | Recipe | 🆕 **thêm mới** — SRS FR-RCP-008 chỉ ghi chung "404", chưa có mã riêng cho ảnh không tồn tại (phát hiện lúc lập kế hoạch FR-RCP-008) |
 | `RECIPE_PRIMARY_IMAGE_REQUIRED` | 400 | Recipe | 🆕 **thêm mới** (D22) — `PATCH` `{ isPrimary: false }` trên ảnh đang là primary bị từ chối, vì recipe phải luôn có đúng 1 ảnh primary nếu còn ảnh |
+| `RECIPE_STEP_NOT_FOUND` | 404 | Recipe | 🆕 **thêm mới** (D73) — bước không tồn tại hoặc thuộc recipe khác |
 | `CATEGORY_NOT_FOUND` | 404 | Category | — |
 | `CATEGORY_NAME_EXISTS` | 409 | Category | — |
 | `CATEGORY_DELETE_HAS_RECIPES` | 409 | Category | — |
@@ -1977,6 +1979,46 @@ unique index phủ cả chúng (D1) → tạo trùng slug với recipe đã xóa
 **Vì:** đúng D10, D1; không sửa hành vi slug của Category đang chạy.
 
 **Sửa SRS:** không cần (đã nằm trong D10). Gợi ý cho B: đưa bước 1–3 vào `SlugHelper` để Category dùng chung.
+
+---
+
+## D73 — FR-RCP-010: xóa bước, đánh số lại, lỗi và tranh chấp
+
+> 2026-11-06. Phát hiện lúc code FR-RCP-010.
+
+**Nguồn mâu thuẫn / thiếu:**
+
+- `BaseEntity` và D1 nói "không bao giờ xóa vật lý", nhưng unique index `(RecipeId, StepNumber)` (SRS 7.3)
+  phủ cả dòng đã xóa mềm: bước đã xóa vẫn giữ số của nó, renumber các bước còn lại sẽ đụng index.
+- Unique index đó **không deferrable**: đổi chỗ hai bước hoặc dồn số trong một lần `SaveChanges` vi phạm
+  index giữa chừng (Postgres kiểm tra từng câu UPDATE).
+- Hai request thêm bước song song cùng tính `Max + 1` → trùng số → lỗi DB 500.
+- SRS không có mã lỗi cho bước không tồn tại, không nói `stepNumber` ở PUT vượt số bước thì sao, không nói
+  xóa bước cuối của recipe đã Published thì sao.
+
+**Chốt:**
+
+1. **Xóa bước = hard delete** (giống ảnh — D43). D1 chỉ áp cho Recipe: recipe xóa mềm vẫn giữ nguyên bước.
+2. **Lưu 2 pha** trong `RecipeRepository.SaveStepsAsync`: pha 1 đẩy các bước bị đổi số ra vùng tạm
+  (≥ 1 000 000, thỏa CHECK `StepNumber > 0`) và áp dụng xóa; pha 2 gán số cuối. Cả hai pha nằm trong một
+  transaction (`IUnitOfWork.ExecuteInTransactionAsync` có execution strategy).
+3. **Khóa dòng recipe** (`SELECT … FOR UPDATE`, tham số hóa) trước khi đọc, cho cả thêm/sửa/xóa bước — các
+  lệnh trên cùng recipe chạy tuần tự.
+4. Mã lỗi mới **`RECIPE_STEP_NOT_FOUND` (404)** — bước không tồn tại hoặc thuộc recipe khác.
+5. `PUT` với `stepNumber` ngoài `1..số bước` → **400 `VALIDATION_ERROR`** (không tự kẹp về biên).
+   `stepNumber` vắng = giữ vị trí. `timerMinutes`/`imageUrl` vắng = xóa (PUT thay nội dung bước).
+6. `POST` bỏ qua `stepNumber` nếu client lỡ gửi (D6). Response: POST → `RecipeStepDto` (201);
+   PUT → **toàn bộ bước** theo thứ tự mới (200), vì đổi vị trí làm đổi số của các bước khác; DELETE → 204.
+7. Xóa bước cuối cùng của recipe **Published** → **400 `RECIPE_PUBLISH_INCOMPLETE`** (giữ điều kiện D3 sau
+  khi publish). Draft được xóa hết bước.
+8. Sửa bước không đổi `RowVersion` / `UpdatedAt` của recipe (D71).
+
+**Vì:** giữ đúng ràng buộc dữ liệu SRS 7.3 (StepNumber liên tục, unique) mà không đổi schema; không request
+nào kết thúc bằng 500.
+
+**Sửa SRS:** FR-RCP-010 — ghi rõ xóa bước là xóa vật lý; thêm A3 "bước không tồn tại → 404
+`RECIPE_STEP_NOT_FOUND`", A4 "stepNumber ngoài khoảng → 400", A5 "xóa bước cuối của recipe Published → 400";
+bỏ 422. Phụ lục B — thêm `RECIPE_STEP_NOT_FOUND`.
 
 ---
 
