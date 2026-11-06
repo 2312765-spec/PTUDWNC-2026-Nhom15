@@ -19,6 +19,7 @@ public interface IRecipeRepository
         CancellationToken cancellationToken = default);
     Task<Recipe?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<Recipe?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default);
+    /// <summary>D1/D10 — slug đã bị dùng chưa, TÍNH CẢ recipe đã xóa mềm (slug không tái sử dụng).</summary>
     Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken = default);
     Task AddAsync(Recipe recipe, CancellationToken cancellationToken = default);
     void Update(Recipe recipe);

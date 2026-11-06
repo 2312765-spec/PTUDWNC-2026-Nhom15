@@ -2,6 +2,7 @@ using CulinaryBlog.API.Extensions;
 using CulinaryBlog.Application.Categories.DTOs;
 using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Application.Common.Models;
+using CulinaryBlog.Application.Recipes.Commands.Create;
 using CulinaryBlog.Application.Recipes.DTOs;
 using CulinaryBlog.Application.Recipes.Queries.GetRecipeBySlug;
 using CulinaryBlog.Application.Recipes.Queries.GetRecipes;
@@ -89,9 +90,25 @@ public static class RecipeEndpoints
         .AllowAnonymous();
 
         // ---- C: commands ----
-        group.MapPost("/", () => NotImplementedResults.Pending("FR-RCP-003", "C"))
+        // FR-RCP-003. CONS-008: endpoint chỉ nhận request → gửi command → trả kết quả.
+        group.MapPost("/", async (
+            CreateRecipeCommand command,
+            HttpResponse response,
+            ISender mediator,
+            CancellationToken ct) =>
+        {
+            var result = await mediator.Send(command, ct);
+            SetETag(response, result.RowVersion);
+            return TypedResults.Created($"/api/v1/recipes/{result.Slug}", result);
+        })
              .RequireAuthorization(Policies.Author)
-             .WithSummary("Tạo công thức (Status = Draft) — slug auto-suffix (D10)");
+             .WithName("CreateRecipe")
+             .WithSummary("Tạo công thức (Status = Draft) — slug auto-suffix (D10)")
+             .WithDescription("Body: { title, description, categoryId, prepTime, cookTime, servings, difficulty, instructions?, nutrition?, steps?, ingredients? } (D69). Trả RecipeDetailDto kèm rowVersion + header ETag (D71).")
+             .Produces<RecipeDetailDto>(StatusCodes.Status201Created)
+             .ProducesProblem(StatusCodes.Status400BadRequest)
+             .ProducesProblem(StatusCodes.Status401Unauthorized)
+             .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapPut("/{id:guid}", (Guid id) => NotImplementedResults.Pending("FR-RCP-004", "C"))
              .RequireAuthorization(Policies.Author)
@@ -137,5 +154,14 @@ public static class RecipeEndpoints
         group.MapDelete("/{id:guid}/ingredients/{ingredientId:guid}", (Guid id, Guid ingredientId) => NotImplementedResults.Pending("FR-RCP-009", "C"))
              .RequireAuthorization(Policies.Author)
              .WithSummary("Xóa nguyên liệu");
+    }
+
+    /// <summary>D34/D71 — RowVersion mới (base64) trong header ETag, dạng strong ETag có ngoặc kép.</summary>
+    private static void SetETag(HttpResponse response, string rowVersion)
+    {
+        if (!string.IsNullOrEmpty(rowVersion))
+        {
+            response.Headers.ETag = $"\"{rowVersion}\"";
+        }
     }
 }

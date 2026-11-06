@@ -1,6 +1,7 @@
 using System.Reflection;
 using CulinaryBlog.Application.Common.Behaviors;
 using CulinaryBlog.Application.Common.Observability;
+using CulinaryBlog.Application.Recipes.Authorization;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +32,9 @@ public static class DependencyInjection
 
         // FR-OBS-003/D39 — IMeterFactory do host .NET đăng ký sẵn.
         services.AddSingleton<RecipeMetrics>();
+
+        // NFR-SEC-006/D70 — phân quyền resource-based cho Recipe ở Application Layer.
+        services.AddScoped<RecipeAuthorizationHandler>();
 
         return services;
     }

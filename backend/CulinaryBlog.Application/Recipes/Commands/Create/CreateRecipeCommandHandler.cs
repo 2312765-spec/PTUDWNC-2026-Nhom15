@@ -1,0 +1,123 @@
+using System.Text.RegularExpressions;
+using CulinaryBlog.Application.Common.Interfaces;
+using CulinaryBlog.Application.Common.Observability;
+using CulinaryBlog.Application.Recipes.Authorization;
+using CulinaryBlog.Application.Recipes.DTOs;
+using CulinaryBlog.Domain.Entities;
+using CulinaryBlog.Domain.Interfaces;
+using FluentValidation;
+using FluentValidation.Results;
+using MediatR;
+
+namespace CulinaryBlog.Application.Recipes.Commands.Create;
+
+/// <summary>
+/// FR-RCP-003 — tạo recipe Draft. D10/D72 slug auto-suffix (không bao giờ 409), D39 metric
+/// <c>recipes.created</c> sau khi lưu thành công, NFR-SEC-006 kiểm tra quyền ở Application.
+/// </summary>
+public sealed partial class CreateRecipeCommandHandler(
+    IRecipeRepository recipeRepository,
+    ICategoryRepository categoryRepository,
+    IUnitOfWork unitOfWork,
+    ISlugHelper slugHelper,
+    IIdentityService identityService,
+    RecipeAuthorizationHandler authorization,
+    ICurrentUser currentUser,
+    RecipeMetrics metrics)
+    : IRequestHandler<CreateRecipeCommand, RecipeDetailDto>
+{
+    /// <summary>D10 — slug trùng route của frontend/API.</summary>
+    private static readonly string[] ReservedSlugs = ["search", "new", "edit"];
+
+    /// <summary>D72 — title không còn ký tự a-z0-9 nào (vd. "!!!!!") vẫn phải có slug.</summary>
+    public const string FallbackSlug = "cong-thuc";
+
+    private const int MaxSlugLength = 200;
+
+    public async Task<RecipeDetailDto> Handle(CreateRecipeCommand request, CancellationToken cancellationToken)
+    {
+        authorization.EnsureCanCreate();
+
+        // Validator đã kiểm tra; đọc lại để có tên category cho DTO. Nếu category bị xóa ngay giữa
+        // hai bước thì vẫn trả 400 như validator (D69), không để FK lỗi thành 500.
+        var category = await categoryRepository.GetByIdAsync(request.CategoryId, cancellationToken)
+            ?? throw new ValidationException([new ValidationFailure(nameof(request.CategoryId), "Danh mục không hợp lệ.")]);
+
+        var title = request.Title.Trim();
+        var slug = await GenerateUniqueSlugAsync(title, cancellationToken);
+
+        var recipe = Recipe.Create(
+            title: title,
+            slug: slug,
+            description: request.Description.Trim(),
+            prepTime: request.PrepTime,
+            cookTime: request.CookTime,
+            servings: request.Servings,
+            difficulty: RecipeDifficultyParser.Parse(request.Difficulty),
+            categoryId: category.Id,
+            authorId: currentUser.UserId!,
+            instructions: string.IsNullOrWhiteSpace(request.Instructions) ? null : request.Instructions.Trim(),
+            status: Domain.Enums.RecipeStatus.Draft);
+
+        if (request.Nutrition is { } n)
+        {
+            recipe.SetNutrition(n.Calories, n.Protein, n.Carbohydrates, n.Fat, n.Fiber, n.Sodium);
+        }
+
+        foreach (var step in request.Steps ?? [])
+        {
+            recipe.AppendStep(step.Title.Trim(), step.Description.Trim(), step.TimerMinutes, NullIfBlank(step.ImageUrl));
+        }
+
+        foreach (var ingredient in request.Ingredients ?? [])
+        {
+            recipe.AddIngredient(ingredient.Name.Trim(), ingredient.Quantity, NullIfBlank(ingredient.Unit), NullIfBlank(ingredient.Notes));
+        }
+
+        // Cả graph đều mới → AddAsync một lần cho Recipe là đủ (D31 chỉ áp dụng khi aggregate đã được track).
+        await recipeRepository.AddAsync(recipe, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        metrics.RecordCreated();
+
+        var author = await identityService.GetUserByIdAsync(recipe.AuthorId, cancellationToken);
+        return RecipeDetailDtoMapper.ToDetailDto(recipe, author, category);
+    }
+
+    /// <summary>
+    /// D10 + D72: SlugHelper.Generate → gộp '-' liên tiếp, cắt 200 ký tự → slug cấm thì thêm "-1" →
+    /// trùng (kể cả recipe đã xóa mềm, vì unique index phủ cả bản ghi đã xóa — D1) thì thêm "-2", "-3"…
+    /// </summary>
+    private async Task<string> GenerateUniqueSlugAsync(string title, CancellationToken ct)
+    {
+        var baseSlug = MultipleDashes().Replace(slugHelper.Generate(title), "-").Trim('-');
+        if (baseSlug.Length > MaxSlugLength)
+        {
+            baseSlug = baseSlug[..MaxSlugLength].TrimEnd('-');
+        }
+
+        if (baseSlug.Length == 0)
+        {
+            baseSlug = FallbackSlug;
+        }
+
+        if (ReservedSlugs.Contains(baseSlug))
+        {
+            baseSlug += "-1";
+        }
+
+        var candidate = baseSlug;
+        var suffix = 2;
+        while (await recipeRepository.ExistsBySlugAsync(candidate, ct))
+        {
+            candidate = $"{baseSlug}-{suffix++}";
+        }
+
+        return candidate;
+    }
+
+    private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    [GeneratedRegex("-{2,}")]
+    private static partial Regex MultipleDashes();
+}

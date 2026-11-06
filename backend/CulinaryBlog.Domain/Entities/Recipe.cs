@@ -71,8 +71,11 @@ public class Recipe : BaseEntity, IAggregateRoot
         RecipeDifficulty difficulty = RecipeDifficulty.Easy,
         Guid? categoryId = null,
         string authorId = "test-author",
-        RecipeStatus status = RecipeStatus.Draft)
+        RecipeStatus status = RecipeStatus.Draft,
+        string? instructions = null)
     {
+        EnsureValidTimes(prepTime, cookTime, servings);
+
         var recipe = new Recipe(
             title,
             slug,
@@ -84,6 +87,7 @@ public class Recipe : BaseEntity, IAggregateRoot
             authorId,
             categoryId ?? Guid.NewGuid());
 
+        recipe.Instructions = instructions;
         recipe.Status = status;
         if (status == RecipeStatus.Published)
         {
@@ -91,6 +95,20 @@ public class Recipe : BaseEntity, IAggregateRoot
         }
 
         return recipe;
+    }
+
+    /// <summary>
+    /// D19 + CHECK constraint SRS 7.2: prepTime &gt; 0, cookTime &gt;= 0 (0 = món không cần nấu), servings &gt; 0.
+    /// Validator đã chặn từ trước (400) — đây là lớp bảo vệ cuối của aggregate.
+    /// </summary>
+    private static void EnsureValidTimes(int prepTime, int cookTime, int servings)
+    {
+        if (prepTime <= 0 || cookTime < 0 || servings <= 0)
+        {
+            throw new DomainException(
+                "Thời gian chuẩn bị và khẩu phần phải lớn hơn 0, thời gian nấu không được âm.",
+                "VALIDATION_ERROR");
+        }
     }
 
     /// <summary>D3: Chỉ publish được khi có ít nhất 1 step VÀ ít nhất 1 ingredient.</summary>
@@ -178,6 +196,27 @@ public class Recipe : BaseEntity, IAggregateRoot
         return image;
     }
 
+    /// <summary>
+    /// FR-RCP-010/D6 — thêm bước vào cuối: StepNumber = Max + 1 (hoặc 1 nếu chưa có bước nào).
+    /// Server sinh số thứ tự, client không gửi.
+    /// </summary>
+    public RecipeStep AppendStep(string title, string description, int? timerMinutes, string? imageUrl)
+    {
+        var step = new RecipeStep
+        {
+            RecipeId = Id,
+            StepNumber = _steps.Count == 0 ? 1 : _steps.Max(s => s.StepNumber) + 1,
+            Title = title,
+            Description = description,
+            TimerMinutes = timerMinutes,
+            ImageUrl = imageUrl,
+        };
+
+        _steps.Add(step);
+        return step;
+    }
+
+    /// <summary>Chỉ dùng cho seed/test dựng dữ liệu có sẵn số thứ tự. Luồng nghiệp vụ dùng <see cref="AppendStep"/>.</summary>
     public void AddStep(int stepNumber, string title, string description, int? timerMinutes = null, string? imageUrl = null)
     {
         _steps.Add(new RecipeStep
