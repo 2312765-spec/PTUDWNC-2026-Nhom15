@@ -314,9 +314,19 @@ public class Recipe : BaseEntity, IAggregateRoot
         });
     }
 
-    /// <summary>SRS 7.4 — nguyên liệu mới xếp cuối danh sách (OrderIndex = max + 1).</summary>
-    public RecipeIngredient AddIngredient(string name, decimal? quantity, string? unit, string? notes = null)
+    /// <summary>
+    /// SRS 7.4 / FR-RCP-009 / D76 — <paramref name="position"/> null: xếp cuối danh sách (OrderIndex = max + 1).
+    /// Có giá trị (0..số nguyên liệu): chèn vào vị trí đó, mọi nguyên liệu được đánh lại 0, 1, 2…
+    /// </summary>
+    public RecipeIngredient AddIngredient(string name, decimal? quantity, string? unit, string? notes = null, int? position = null)
     {
+        if (position is { } p && (p < 0 || p > _ingredients.Count))
+        {
+            throw new DomainException(
+                $"Vị trí nguyên liệu phải nằm trong khoảng 0 đến {_ingredients.Count}.",
+                "VALIDATION_ERROR");
+        }
+
         var ingredient = new RecipeIngredient
         {
             RecipeId = Id,
@@ -327,8 +337,83 @@ public class Recipe : BaseEntity, IAggregateRoot
             OrderIndex = _ingredients.Count == 0 ? 0 : _ingredients.Max(i => i.OrderIndex) + 1,
         };
 
+        if (position is { } target)
+        {
+            var ordered = OrderedIngredients();
+            ordered.Insert(target, ingredient);
+            ReindexIngredients(ordered);
+        }
+
         _ingredients.Add(ingredient);
         return ingredient;
+    }
+
+    /// <summary>
+    /// FR-RCP-009/D76 — thay nội dung nguyên liệu (quantity/unit/notes null = xóa). <paramref name="newPosition"/>
+    /// (0..số nguyên liệu - 1) để đổi vị trí, null = giữ nguyên; sau khi đổi, đánh lại OrderIndex 0, 1, 2…
+    /// </summary>
+    public RecipeIngredient UpdateIngredient(Guid ingredientId, string name, decimal? quantity, string? unit, string? notes, int? newPosition)
+    {
+        var ingredient = FindIngredient(ingredientId);
+
+        if (newPosition is { } p && (p < 0 || p >= _ingredients.Count))
+        {
+            throw new DomainException(
+                $"Vị trí nguyên liệu phải nằm trong khoảng 0 đến {_ingredients.Count - 1}.",
+                "VALIDATION_ERROR");
+        }
+
+        ingredient.Update(name, quantity, unit, notes);
+
+        if (newPosition is { } target)
+        {
+            var ordered = OrderedIngredients();
+            ordered.Remove(ingredient);
+            ordered.Insert(target, ingredient);
+            ReindexIngredients(ordered);
+        }
+
+        return ingredient;
+    }
+
+    /// <summary>
+    /// FR-RCP-009/D76 — bỏ nguyên liệu khỏi recipe, đánh lại OrderIndex các nguyên liệu còn lại.
+    /// D3: recipe đang Published phải còn ít nhất 1 nguyên liệu.
+    /// </summary>
+    public RecipeIngredient RemoveIngredient(Guid ingredientId)
+    {
+        var ingredient = FindIngredient(ingredientId);
+
+        if (Status == RecipeStatus.Published && _ingredients.Count == 1)
+        {
+            throw new DomainException(
+                "Công thức đã xuất bản phải còn ít nhất 1 nguyên liệu.",
+                "RECIPE_PUBLISH_INCOMPLETE");
+        }
+
+        _ingredients.Remove(ingredient);
+        ReindexIngredients(OrderedIngredients());
+        return ingredient;
+    }
+
+    private RecipeIngredient FindIngredient(Guid ingredientId) =>
+        _ingredients.FirstOrDefault(i => i.Id == ingredientId)
+        ?? throw new DomainException("Không tìm thấy nguyên liệu.", "RECIPE_INGREDIENT_NOT_FOUND");
+
+    /// <summary>Thứ tự hiển thị hiện tại; dữ liệu cũ trùng OrderIndex thì nguyên liệu tạo trước đứng trước.</summary>
+    private List<RecipeIngredient> OrderedIngredients() =>
+        _ingredients.OrderBy(i => i.OrderIndex).ThenBy(i => i.CreatedAt).ToList();
+
+    /// <summary>Gán OrderIndex 0..n-1 theo đúng thứ tự danh sách; chỉ ghi khi giá trị thay đổi.</summary>
+    private static void ReindexIngredients(IReadOnlyList<RecipeIngredient> ordered)
+    {
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            if (ordered[i].OrderIndex != i)
+            {
+                ordered[i].OrderIndex = i;
+            }
+        }
     }
 
     /// <summary>SRS 7.2.1 — thay toàn bộ thông tin dinh dưỡng (giá trị trên 1 khẩu phần, null = không khai báo).</summary>

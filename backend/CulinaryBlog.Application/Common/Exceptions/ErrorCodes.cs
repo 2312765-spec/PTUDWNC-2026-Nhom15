@@ -27,6 +27,7 @@ public static class ErrorCodes
     public const string RecipeImageNotFound = "RECIPE_IMAGE_NOT_FOUND";             // 404 (D27)
     public const string RecipePrimaryImageRequired = "RECIPE_PRIMARY_IMAGE_REQUIRED"; // 400 (D22)
     public const string RecipeStepNotFound = "RECIPE_STEP_NOT_FOUND";                // 404 (D73)
+    public const string RecipeIngredientNotFound = "RECIPE_INGREDIENT_NOT_FOUND";    // 404 (D76)
 
     // Category
     public const string CategoryNotFound = "CATEGORY_NOT_FOUND";                     // 404

@@ -4,6 +4,7 @@ using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Application.Common.Models;
 using CulinaryBlog.Application.Recipes.Commands;
 using CulinaryBlog.Application.Recipes.Commands.Create;
+using CulinaryBlog.Application.Recipes.Commands.Ingredients;
 using CulinaryBlog.Application.Recipes.Commands.Steps;
 using CulinaryBlog.Application.Recipes.Commands.Update;
 using CulinaryBlog.Application.Recipes.DTOs;
@@ -213,18 +214,55 @@ public static class RecipeEndpoints
              .ProducesProblem(StatusCodes.Status403Forbidden)
              .ProducesProblem(StatusCodes.Status404NotFound);
 
-        group.MapPost("/{id:guid}/ingredients", (Guid id) => NotImplementedResults.Pending("FR-RCP-009", "C"))
+        // FR-RCP-009 — D7 (quantity/unit nullable, orderIndex), D76 (vị trí, hard delete, khóa dòng recipe).
+        group.MapPost("/{id:guid}/ingredients", async (Guid id, IngredientRequest body, ISender mediator, CancellationToken ct) =>
+        {
+            var result = await mediator.Send(
+                new AddRecipeIngredientCommand(id, body.Name, body.Quantity, body.Unit, body.Notes, body.OrderIndex), ct);
+            return TypedResults.Created((string?)null, result);
+        })
              .RequireAuthorization(Policies.Author)
-             .WithSummary("Thêm nguyên liệu — quantity/unit NULLABLE (D7)");
+             .WithName("AddRecipeIngredient")
+             .WithSummary("Thêm nguyên liệu — quantity/unit NULLABLE (D7), orderIndex vắng = xếp cuối (D76)")
+             .WithDescription("Body: { name, quantity?, unit?, notes?, orderIndex? }. Trả RecipeIngredientDto.")
+             .Produces<RecipeIngredientDto>(StatusCodes.Status201Created)
+             .ProducesProblem(StatusCodes.Status400BadRequest)
+             .ProducesProblem(StatusCodes.Status403Forbidden)
+             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        group.MapPut("/{id:guid}/ingredients/{ingredientId:guid}", (Guid id, Guid ingredientId) => NotImplementedResults.Pending("FR-RCP-009", "C"))
+        group.MapPut("/{id:guid}/ingredients/{ingredientId:guid}", async (
+            Guid id, Guid ingredientId, IngredientRequest body, ISender mediator, CancellationToken ct) =>
+        {
+            var result = await mediator.Send(
+                new UpdateRecipeIngredientCommand(id, ingredientId, body.Name, body.Quantity, body.Unit, body.Notes, body.OrderIndex), ct);
+            return TypedResults.Ok(result);
+        })
              .RequireAuthorization(Policies.Author)
-             .WithSummary("Sửa nguyên liệu");
+             .WithName("UpdateRecipeIngredient")
+             .WithSummary("Sửa nguyên liệu — orderIndex? để đổi vị trí, server đánh lại 0..n-1 (D76)")
+             .WithDescription("Body: { name, quantity?, unit?, notes?, orderIndex? }. Trả toàn bộ nguyên liệu theo thứ tự mới.")
+             .Produces<IReadOnlyList<RecipeIngredientDto>>(StatusCodes.Status200OK)
+             .ProducesProblem(StatusCodes.Status400BadRequest)
+             .ProducesProblem(StatusCodes.Status403Forbidden)
+             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        group.MapDelete("/{id:guid}/ingredients/{ingredientId:guid}", (Guid id, Guid ingredientId) => NotImplementedResults.Pending("FR-RCP-009", "C"))
+        group.MapDelete("/{id:guid}/ingredients/{ingredientId:guid}", async (
+            Guid id, Guid ingredientId, ISender mediator, CancellationToken ct) =>
+        {
+            await mediator.Send(new DeleteRecipeIngredientCommand(id, ingredientId), ct);
+            return TypedResults.NoContent();
+        })
              .RequireAuthorization(Policies.Author)
-             .WithSummary("Xóa nguyên liệu");
+             .WithName("DeleteRecipeIngredient")
+             .WithSummary("Xóa nguyên liệu — hard delete, đánh lại orderIndex (D76)")
+             .Produces(StatusCodes.Status204NoContent)
+             .ProducesProblem(StatusCodes.Status400BadRequest)
+             .ProducesProblem(StatusCodes.Status403Forbidden)
+             .ProducesProblem(StatusCodes.Status404NotFound);
     }
+
+    /// <summary>D7/D76 — wire contract của POST và PUT /recipes/{id}/ingredients.</summary>
+    public sealed record IngredientRequest(string Name, decimal? Quantity, string? Unit, string? Notes, int? OrderIndex);
 
     /// <summary>D69 — wire contract của PUT /recipes/{id} (id lấy từ route, RowVersion từ header If-Match).</summary>
     public sealed record UpdateRecipeRequest(
