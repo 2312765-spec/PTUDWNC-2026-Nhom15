@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import EditRecipePage from '@/app/dashboard/recipes/[id]/edit/page';
 import { apiClient } from '@/lib/api-client';
 import type { CategoryDto } from '@/lib/types';
@@ -14,7 +15,7 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('@/lib/api-client', () => ({
   ...jest.requireActual('@/lib/api-client'),
-  apiClient: { get: jest.fn(), post: jest.fn(), put: jest.fn(), delete: jest.fn() },
+  apiClient: { get: jest.fn(), post: jest.fn(), put: jest.fn(), patch: jest.fn(), delete: jest.fn() },
 }));
 const api = apiClient as jest.Mocked<typeof apiClient>;
 
@@ -41,7 +42,7 @@ beforeEach(() => {
   jest.resetAllMocks();
 });
 
-describe('/dashboard/recipes/[id]/edit — FR-RCP-004 + FR-RCP-010 (D75)', () => {
+describe('/dashboard/recipes/[id]/edit — FR-RCP-004/005/007/009/010 (D75)', () => {
   it('NFR-USE-004: đang tải → skeleton', () => {
     api.get.mockReturnValue(new Promise(() => {}) as never);
     renderWithProviders(<EditRecipePage />);
@@ -77,5 +78,35 @@ describe('/dashboard/recipes/[id]/edit — FR-RCP-004 + FR-RCP-010 (D75)', () =>
     renderWithProviders(<EditRecipePage />);
 
     expect(await screen.findByRole('heading', { name: 'Không tìm thấy công thức' })).toBeInTheDocument();
+  });
+  it('FR-RCP-005/D77: Xuất bản → badge "Đã xuất bản"; lần lưu thông tin chung sau đó gửi If-Match = rowVersion MỚI', async () => {
+    const draft = recipeDetail({ id: 'r1', status: 0, rowVersion: 'AQIDBA==' });
+    mockGet(draft);
+    api.patch.mockResolvedValue({ data: { ...draft, status: 1, rowVersion: 'BQYHCA==' } } as never);
+    api.put.mockResolvedValue({ data: { ...draft, status: 1, title: 'Phở bò Nam Định', rowVersion: 'CQoLDA==' } } as never);
+    const user = userEvent.setup();
+    renderWithProviders(<EditRecipePage />);
+
+    await user.click(await screen.findByRole('button', { name: 'Xuất bản' }));
+    expect(await screen.findByText('Đã xuất bản', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hủy xuất bản' })).toBeInTheDocument();
+
+    const title = screen.getByLabelText('Tiêu đề');
+    await user.clear(title);
+    await user.type(title, 'Phở bò Nam Định');
+    await user.click(screen.getByRole('button', { name: 'Lưu thông tin chung' }));
+
+    await waitFor(() => expect(api.put).toHaveBeenCalled());
+    expect(api.put.mock.calls[0][2]).toEqual({ headers: { 'If-Match': '"BQYHCA=="' } });
+  });
+
+  it('FR-RCP-009: phần nguyên liệu có nút thêm / sửa / xóa', async () => {
+    mockGet(recipeDetail({ id: 'r1', status: 0 }));
+    renderWithProviders(<EditRecipePage />);
+
+    expect(await screen.findByRole('list', { name: 'Danh sách nguyên liệu' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Thêm nguyên liệu' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sửa xương bò' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Xóa công thức' })).toBeInTheDocument();
   });
 });

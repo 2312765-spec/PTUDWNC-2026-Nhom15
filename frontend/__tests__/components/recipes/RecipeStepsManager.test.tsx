@@ -130,7 +130,7 @@ describe('RecipeStepsManager — FR-RCP-010 quản lý bước trên trang sửa
     await user.click(screen.getByRole('button', { name: 'Xóa bước 1' }));
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xóa bước' }));
 
-    expect(await screen.findByText('Công thức đã xuất bản phải còn ít nhất 1 bước thực hiện.')).toBeInTheDocument();
+    expect(await screen.findByText(/Công thức cần ít nhất 1 nguyên liệu và 1 bước thực hiện/)).toBeInTheDocument();
     expect(titlesInOrder()).toEqual(['Bước 1: Sơ chế xương']);
   });
 
