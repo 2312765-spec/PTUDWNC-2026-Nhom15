@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 /**
  * E2E luồng "create recipe" + "publish" (CLAUDE.md mục 7) — FR-RCP-003 wizard, FR-RCP-004 sửa thông tin chung
  * (If-Match — D71), FR-RCP-010 quản lý bước (D6, D73), FR-RCP-009 nguyên liệu (D76), FR-RCP-005 xuất bản (D77),
- * FR-RCP-006 lưu trữ (D79), FR-RCP-007 xóa (D78). Chạy trên backend thật: kiểm tra luôn việc
+ * FR-RCP-006 lưu trữ (D79), FR-RCP-007 xóa (D78), /dashboard/recipes — công thức của tôi (FR-RCP-001/D81). Chạy trên backend thật: kiểm tra luôn việc
  * apiClient gắn Bearer token từ phiên Auth.js (D74) — thiếu token thì mọi lệnh ghi trả 401.
  *
  * Rate limit /auth/* (D15/D63): mỗi test đăng ký đúng một tài khoản qua UI.
@@ -66,7 +66,7 @@ async function createViaWizard(page: Page, title: string) {
 }
 
 test.describe('Tạo, sửa, xuất bản, lưu trữ, xóa công thức (FR-RCP-003/004/005/006/007/009/010)', () => {
-  test('FR-RCP-003: wizard tạo công thức → Draft, sang trang sửa với đủ nguyên liệu và các bước', async ({ page }) => {
+  test('FR-RCP-003 + D81: wizard tạo công thức → Draft, sang trang sửa; /dashboard/recipes thấy ở tab Nháp', async ({ page }) => {
     await registerViaUi(page);
     const title = `Gỏi cuốn E2E ${Date.now()}`;
 
@@ -78,6 +78,19 @@ test.describe('Tạo, sửa, xuất bản, lưu trữ, xóa công thức (FR-RCP
     await expect(page.getByText('vừa đủ', { exact: true })).toBeVisible();
     const steps = page.getByRole('list', { name: 'Các bước thực hiện' });
     await expect(steps.getByRole('heading', { level: 3 })).toHaveText(['Bước 1: Sơ chế', 'Bước 2: Cuốn']);
+
+    // D81: danh sách công thức của tôi — có ở tab Nháp, không có ở tab Đã xuất bản.
+    await page.goto('/dashboard/recipes', NAVIGATION);
+    const mine = page.getByRole('list', { name: 'Công thức của tôi' });
+    await expect(mine.getByRole('link', { name: title, exact: true })).toBeVisible(NAVIGATION);
+    await page.getByRole('tab', { name: 'Nháp' }).click();
+    await expect(page).toHaveURL(/\/dashboard\/recipes\?status=draft$/);
+    await expect(mine.getByRole('link', { name: title, exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: 'Đã xuất bản' }).click();
+    await expect(page.getByText('Không có công thức nào ở trạng thái Đã xuất bản.')).toBeVisible();
+    await page.getByRole('tab', { name: 'Nháp' }).click();
+    await page.getByRole('link', { name: `Sửa ${title}` }).click();
+    await expect(page).toHaveURL(/\/dashboard\/recipes\/[0-9a-f-]{36}\/edit$/, NAVIGATION);
   });
 
   test('FR-RCP-004 + FR-RCP-010: sửa tiêu đề (If-Match), thêm / đổi chỗ / xóa bước — tải lại trang vẫn đúng', async ({
@@ -128,6 +141,8 @@ test.describe('Tạo, sửa, xuất bản, lưu trữ, xóa công thức (FR-RCP
   test('FR-RCP-009 + FR-RCP-005 + FR-RCP-006 + FR-RCP-007: sửa nguyên liệu, xuất bản → công khai, lưu trữ → ẩn, rồi xóa', async ({
     page,
   }) => {
+    // Luồng dài nhất (9 FR, nhiều lần chuyển trang, `next dev` biên dịch route lần đầu) — chạy riêng ~25s, sát 30s.
+    test.slow();
     await registerViaUi(page);
     const title = `Canh chua E2E ${Date.now()}`;
     await createViaWizard(page, title);
@@ -178,11 +193,12 @@ test.describe('Tạo, sửa, xuất bản, lưu trữ, xóa công thức (FR-RCP
     const archivedPage = await page.goto(`/recipes/${slug}`, NAVIGATION);
     expect(archivedPage?.status()).toBe(404);
 
-    // FR-RCP-007: xóa → về /dashboard; mở lại trang sửa → không tìm thấy.
+    // FR-RCP-007: xóa → về /dashboard/recipes (D81), không còn trong danh sách; mở lại trang sửa → không tìm thấy.
     await page.goto(editUrl, NAVIGATION);
     await page.getByRole('button', { name: 'Xóa công thức' }).click();
     await page.getByRole('dialog', { name: 'Xóa công thức này?' }).getByRole('button', { name: 'Xóa công thức' }).click();
-    await expect(page).toHaveURL(/\/dashboard$/, NAVIGATION);
+    await expect(page).toHaveURL(/\/dashboard\/recipes$/, NAVIGATION);
+    await expect(page.getByText('Bạn chưa có công thức nào.')).toBeVisible(NAVIGATION);
     await page.goto(editUrl, NAVIGATION);
     await expect(page.getByRole('heading', { name: 'Không tìm thấy công thức' })).toBeVisible(NAVIGATION);
   });

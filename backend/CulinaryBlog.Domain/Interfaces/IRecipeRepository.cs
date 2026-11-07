@@ -58,6 +58,8 @@ public interface IRecipeRepository
     /// Phạm vi trạng thái do Application quyết định:
     /// <paramref name="includeAllStatuses"/> = true → không lọc Status (Admin);
     /// ngược lại chỉ Published, cộng Draft/Archived có AuthorId == <paramref name="nonPublishedOwnerId"/> (nếu có).
+    /// D81: sau bộ lọc quyền, <paramref name="authorId"/> (nếu có) giữ lại recipe của đúng tác giả đó và
+    /// <paramref name="status"/> (nếu có) giữ lại đúng trạng thái đó.
     /// </summary>
     Task<(IReadOnlyList<Recipe> Items, int TotalCount)> GetPagedRecipesAsync(
         Guid? categoryId,
@@ -67,6 +69,8 @@ public interface IRecipeRepository
         string? sort,
         bool includeAllStatuses,
         string? nonPublishedOwnerId,
+        string? authorId,
+        RecipeStatus? status,
         int page,
         int pageSize,
         CancellationToken cancellationToken = default);

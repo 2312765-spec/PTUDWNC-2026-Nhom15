@@ -91,6 +91,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D78 | Xóa recipe (FR-RCP-007) | Soft delete, con không bị đụng · mọi trạng thái xóa được · sau khi xóa mọi thao tác (kể cả DELETE lần 2) → **404** · `If-Match` tùy chọn · khóa dòng |
 | D79 | Archive recipe (FR-RCP-006) | Từ Draft/Published · đã Archived → 200 không ghi · `If-Match` tùy chọn · trả `RecipeDetailDto` + `ETag` · khóa dòng · giữ `PublishedAt` |
 | D80 | Xóa cache Next sau khi đổi trạng thái recipe | Server Action `revalidateRecipeAction(slug)` → `updateTag('recipes')` + `updateTag('recipe:{slug}')` sau publish/unpublish/archive/delete · fetch trang chủ + trang danh mục gắn tag `recipes` |
+| D81 | Danh sách "công thức của tôi" (`/dashboard/recipes`) | `GET /recipes?mine=true` (chưa đăng nhập → 401) + lọc `status` sau bộ lọc quyền · không route `/recipes/mine` · Admin cũng chỉ thấy bài của mình · DTO giữ nguyên |
 
 ---
 
@@ -2255,6 +2256,38 @@ thêm "If-Match tùy chọn, lệch → 409"; kết quả trả `RecipeDetailDto
 **Vì:** nội dung tác giả đã ẩn phải biến mất ngay; giữ được ISR cho hiệu năng (NFR-PERF-005).
 
 **Sửa SRS:** mục 5.1 — thêm "trang ISR bị xóa cache theo tag khi recipe đổi trạng thái hiển thị".
+
+---
+
+## D81 — Danh sách "công thức của tôi" cho `/dashboard/recipes`
+
+> 2026-11-07. Phát hiện lúc Explore trang `/dashboard/recipes`. Bổ sung cho FR-RCP-001, D8, D14.
+
+**Nguồn mâu thuẫn / thiếu:**
+
+- SRS 5.1 có route `/dashboard/recipes` — "Quản lý danh sách recipe của user" (CSR, bắt buộc đăng nhập) — nhưng bảng
+  8.3 không có endpoint nào trả recipe của riêng người dùng.
+- FR-RCP-001 trả Author tập "Published của mọi người + Draft/Archived của mình": trộn bài người khác, không dùng làm
+  trang quản lý được; cũng không có cách lọc theo trạng thái.
+
+**Chốt:**
+
+1. Thêm tham số **`mine=true`** vào `GET /api/v1/recipes`: chỉ recipe có `AuthorId == currentUserId`, mọi trạng thái
+   (trừ đã xóa mềm — D1). **Không** tạo route `/recipes/mine`: đụng `/recipes/{slug}` (recipe tên "Mine" có slug `mine`).
+2. `mine=true` khi chưa đăng nhập → **401** `AUTH_TOKEN_INVALID` (endpoint vẫn `AllowAnonymous` cho Guest xem danh sách).
+3. Thêm bộ lọc **`status`** (`Draft|Published|Archived`, không phân biệt hoa thường), áp **sau** bộ lọc quyền của
+   FR-RCP-001 — Guest gửi `status=Draft` chỉ nhận danh sách rỗng, không lộ gì. Giá trị lạ → 400 `VALIDATION_ERROR` (D4).
+4. Cache Redis (D8): key `recipes:list:{hash}` thêm `mine` + `status`; key vốn đã tách theo người xem, tag `recipes`
+   vẫn bị xóa sau mọi lệnh ghi recipe — danh sách thấy thay đổi ngay.
+5. **Admin** vào `/dashboard/recipes` cũng chỉ thấy bài của mình (SRS: "của user"). Màn quản lý toàn bộ recipe cho Admin
+   ngoài scope v1.
+6. `RecipeSummaryDto` giữ nguyên (đã có `status`, `createdAt`).
+
+**Vì:** dùng lại toàn bộ phân trang/sắp xếp/validator/cache của FR-RCP-001, không thêm route dễ đụng slug, không lộ dữ
+liệu vì bộ lọc quyền luôn chạy trước.
+
+**Sửa SRS:** FR-RCP-001 — thêm tham số `mine` (cần đăng nhập, 401) và `status`; bảng 8.3 dòng `GET /recipes` thêm
+`&mine&status`.
 
 ---
 

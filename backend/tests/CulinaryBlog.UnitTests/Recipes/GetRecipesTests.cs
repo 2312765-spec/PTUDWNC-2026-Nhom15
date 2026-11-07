@@ -1,3 +1,4 @@
+using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Application.Recipes.Queries.GetRecipes;
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Enums;
@@ -16,7 +17,7 @@ public sealed class GetRecipesTests
     public GetRecipesTests()
     {
         _repository.GetPagedRecipesAsync(
-                default, default, default, default, default, default, default, default, default, default)
+                default, default, default, default, default, default, default, default, default, default, default, default)
             .ReturnsForAnyArgs(((IReadOnlyList<Recipe>)[], 0));
     }
 
@@ -75,7 +76,7 @@ public sealed class GetRecipesTests
         await Handle(new GetRecipesQuery());
 
         await _repository.Received(1).GetPagedRecipesAsync(
-            null, null, null, null, Arg.Any<string?>(), false, Arg.Is<string?>(x => x == null), 1, 12, Arg.Any<CancellationToken>());
+            null, null, null, null, Arg.Any<string?>(), false, Arg.Is<string?>(x => x == null), Arg.Is<string?>(x => x == null), Arg.Is<RecipeStatus?>(x => x == null), 1, 12, Arg.Any<CancellationToken>());
     }
 
     [Fact(DisplayName = "FR-RCP-001: Author → Published + Draft/Archived của chính mình")]
@@ -84,7 +85,7 @@ public sealed class GetRecipesTests
         await Handle(new GetRecipesQuery(CurrentUserId: "author-1"));
 
         await _repository.Received(1).GetPagedRecipesAsync(
-            null, null, null, null, Arg.Any<string?>(), false, "author-1", 1, 12, Arg.Any<CancellationToken>());
+            null, null, null, null, Arg.Any<string?>(), false, "author-1", Arg.Is<string?>(x => x == null), Arg.Is<RecipeStatus?>(x => x == null), 1, 12, Arg.Any<CancellationToken>());
     }
 
     [Fact(DisplayName = "FR-RCP-001: Admin → mọi trạng thái")]
@@ -93,7 +94,7 @@ public sealed class GetRecipesTests
         await Handle(new GetRecipesQuery(CurrentUserId: "admin-1", IsAdmin: true));
 
         await _repository.Received(1).GetPagedRecipesAsync(
-            null, null, null, null, Arg.Any<string?>(), true, Arg.Is<string?>(x => x == null), 1, 12, Arg.Any<CancellationToken>());
+            null, null, null, null, Arg.Any<string?>(), true, Arg.Is<string?>(x => x == null), Arg.Is<string?>(x => x == null), Arg.Is<RecipeStatus?>(x => x == null), 1, 12, Arg.Any<CancellationToken>());
     }
 
     [Fact(DisplayName = "FR-SRCH-002/004: difficulty chuyển sang enum, pageSize > 50 clamp về 50")]
@@ -103,7 +104,73 @@ public sealed class GetRecipesTests
 
         result.PageSize.Should().Be(50);
         await _repository.Received(1).GetPagedRecipesAsync(
-            null, RecipeDifficulty.Expert, null, null, Arg.Any<string?>(), false, Arg.Is<string?>(x => x == null), 1, 50, Arg.Any<CancellationToken>());
+            null, RecipeDifficulty.Expert, null, null, Arg.Any<string?>(), false, Arg.Is<string?>(x => x == null), Arg.Is<string?>(x => x == null), Arg.Is<RecipeStatus?>(x => x == null), 1, 50, Arg.Any<CancellationToken>());
+    }
+
+    // ---- D81: mine + status ----
+
+    [Theory(DisplayName = "FR-RCP-001/D81: status Draft|Published|Archived (không phân biệt hoa thường) hợp lệ")]
+    [InlineData("Draft")]
+    [InlineData("published")]
+    [InlineData("ARCHIVED")]
+    public void Validator_ValidStatus_Passes(string status) =>
+        _validator.Validate(new GetRecipesQuery(Status: status)).IsValid.Should().BeTrue();
+
+    [Theory(DisplayName = "FR-RCP-001/D4/D81: status lạ → lỗi validation (400)")]
+    [InlineData("Deleted")]
+    [InlineData("0")]
+    [InlineData("draft,published")]
+    public void Validator_UnknownStatus_Fails(string status) =>
+        _validator.Validate(new GetRecipesQuery(Status: status)).Errors.Should().Contain(e => e.PropertyName == "Status");
+
+    [Fact(DisplayName = "FR-RCP-001/D8/D81: cache key khác nhau khi mine / status khác nhau")]
+    public void CacheKey_ScopedByMineAndStatus()
+    {
+        var all = new GetRecipesQuery(CurrentUserId: "author-1").CacheKey;
+        var mine = new GetRecipesQuery(CurrentUserId: "author-1", Mine: true).CacheKey;
+        var mineDraft = new GetRecipesQuery(CurrentUserId: "author-1", Mine: true, Status: "Draft").CacheKey;
+        var mineDraftUpper = new GetRecipesQuery(CurrentUserId: "author-1", Mine: true, Status: "DRAFT").CacheKey;
+        var minePublished = new GetRecipesQuery(CurrentUserId: "author-1", Mine: true, Status: "Published").CacheKey;
+
+        new[] { all, mine, mineDraft, minePublished }.Should().OnlyHaveUniqueItems();
+        mineDraftUpper.Should().Be(mineDraft);
+    }
+
+    [Fact(DisplayName = "FR-RCP-001/D81: mine khi chưa đăng nhập → UnauthorizedException AUTH_TOKEN_INVALID (401)")]
+    public async Task Handle_MineAnonymous_Throws401()
+    {
+        var act = () => Handle(new GetRecipesQuery(Mine: true));
+
+        (await act.Should().ThrowAsync<UnauthorizedException>()).Which.ErrorCode.Should().Be(ErrorCodes.AuthTokenInvalid);
+        await _repository.DidNotReceiveWithAnyArgs().GetPagedRecipesAsync(
+            default, default, default, default, default, default, default, default, default, default, default, default);
+    }
+
+    [Fact(DisplayName = "FR-RCP-001/D81: Author mine → lọc AuthorId == mình, status chuyển sang enum")]
+    public async Task Handle_AuthorMine_FiltersByAuthorAndStatus()
+    {
+        await Handle(new GetRecipesQuery(CurrentUserId: "author-1", Mine: true, Status: "archived"));
+
+        await _repository.Received(1).GetPagedRecipesAsync(
+            null, null, null, null, Arg.Any<string?>(), false, "author-1", "author-1", RecipeStatus.Archived, 1, 12, Arg.Any<CancellationToken>());
+    }
+
+    [Fact(DisplayName = "FR-RCP-001/D81: Admin mine → vẫn chỉ bài của Admin")]
+    public async Task Handle_AdminMine_FiltersByAdminId()
+    {
+        await Handle(new GetRecipesQuery(CurrentUserId: "admin-1", IsAdmin: true, Mine: true));
+
+        await _repository.Received(1).GetPagedRecipesAsync(
+            null, null, null, null, Arg.Any<string?>(), true, Arg.Is<string?>(x => x == null), "admin-1", Arg.Is<RecipeStatus?>(x => x == null), 1, 12, Arg.Any<CancellationToken>());
+    }
+
+    [Fact(DisplayName = "FR-RCP-001/D81: Guest status=Published → truyền status, vẫn không owner/all")]
+    public async Task Handle_GuestStatus_PassesStatusOnly()
+    {
+        await Handle(new GetRecipesQuery(Status: "Published"));
+
+        await _repository.Received(1).GetPagedRecipesAsync(
+            null, null, null, null, Arg.Any<string?>(), false, Arg.Is<string?>(x => x == null), Arg.Is<string?>(x => x == null), RecipeStatus.Published, 1, 12, Arg.Any<CancellationToken>());
     }
 
     private Task<Application.Common.Models.PagedResult<Application.Categories.DTOs.RecipeSummaryDto>> Handle(GetRecipesQuery query) =>

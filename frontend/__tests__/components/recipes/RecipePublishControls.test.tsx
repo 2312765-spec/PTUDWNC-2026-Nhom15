@@ -138,7 +138,7 @@ describe('RecipePublishControls — FR-RCP-005 xuất bản / FR-RCP-006 lưu tr
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('FR-RCP-007: Xóa → hộp thoại xác nhận → DELETE → toast, về /dashboard', async () => {
+  it('FR-RCP-007/D81: Xóa → hộp thoại xác nhận → DELETE → toast, về /dashboard/recipes', async () => {
     api.delete.mockResolvedValue({ data: undefined } as never);
     const { user } = setup(recipeDetail({ id: 'r1' }));
 
@@ -147,7 +147,7 @@ describe('RecipePublishControls — FR-RCP-005 xuất bản / FR-RCP-006 lưu tr
     expect(within(dialog).getByText(/\/recipes\/pho-bo-ha-noi sẽ không dùng lại được/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'Xóa công thức' }));
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard/recipes'));
     expect(api.delete).toHaveBeenCalledWith('/recipes/r1');
     expect(await screen.findByText('Đã xóa công thức')).toBeInTheDocument();
   });
@@ -190,14 +190,14 @@ describe('RecipePublishControls — FR-RCP-005 xuất bản / FR-RCP-006 lưu tr
       expect(revalidate).toHaveBeenCalledWith('pho-bo-ha-noi');
     });
 
-    it('Xóa thành công → gọi revalidateRecipeAction(slug) rồi mới về /dashboard', async () => {
+    it('Xóa thành công → gọi revalidateRecipeAction(slug) rồi mới về /dashboard/recipes', async () => {
       api.delete.mockResolvedValue({ data: undefined } as never);
       const { user } = setup(recipeDetail({ id: 'r1', slug: 'pho-bo-ha-noi' }));
 
       await user.click(screen.getByRole('button', { name: 'Xóa công thức' }));
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xóa công thức' }));
 
-      await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard'));
+      await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard/recipes'));
       expect(revalidate).toHaveBeenCalledWith('pho-bo-ha-noi');
     });
 
