@@ -6,6 +6,7 @@ using CulinaryBlog.Application.Recipes.Commands;
 using CulinaryBlog.Application.Recipes.Commands.Create;
 using CulinaryBlog.Application.Recipes.Commands.Delete;
 using CulinaryBlog.Application.Recipes.Commands.Ingredients;
+using CulinaryBlog.Application.Recipes.Commands.Archive;
 using CulinaryBlog.Application.Recipes.Commands.Publish;
 using CulinaryBlog.Application.Recipes.Commands.Steps;
 using CulinaryBlog.Application.Recipes.Commands.Update;
@@ -157,7 +158,7 @@ public static class RecipeEndpoints
 
         // FR-RCP-005 — D3 (điều kiện publish), D77 (idempotent, If-Match tùy chọn, PublishedAt lần đầu).
         group.MapPatch("/{id:guid}/publish", (Guid id, HttpRequest request, HttpResponse response, ISender mediator, CancellationToken ct) =>
-            SendPublishAsync(new PublishRecipeCommand(id, IsPublish: true, NullIfEmpty(request.Headers.IfMatch.ToString())), response, mediator, ct))
+            SendWithETagAsync(new PublishRecipeCommand(id, IsPublish: true, NullIfEmpty(request.Headers.IfMatch.ToString())), response, mediator, ct))
              .RequireAuthorization(Policies.Author)
              .WithName("PublishRecipe")
              .WithSummary("Publish — Draft/Archived → Published, cần ≥1 step VÀ ≥1 ingredient (D3); đã Published → 200 idempotent")
@@ -169,7 +170,7 @@ public static class RecipeEndpoints
              .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPatch("/{id:guid}/unpublish", (Guid id, HttpRequest request, HttpResponse response, ISender mediator, CancellationToken ct) =>
-            SendPublishAsync(new PublishRecipeCommand(id, IsPublish: false, NullIfEmpty(request.Headers.IfMatch.ToString())), response, mediator, ct))
+            SendWithETagAsync(new PublishRecipeCommand(id, IsPublish: false, NullIfEmpty(request.Headers.IfMatch.ToString())), response, mediator, ct))
              .RequireAuthorization(Policies.Author)
              .WithName("UnpublishRecipe")
              .WithSummary("Unpublish — Published/Archived → Draft; đã Draft → 200 idempotent (D77)")
@@ -180,9 +181,18 @@ public static class RecipeEndpoints
              .ProducesProblem(StatusCodes.Status404NotFound)
              .ProducesProblem(StatusCodes.Status409Conflict);
 
-        group.MapPatch("/{id:guid}/archive", (Guid id) => NotImplementedResults.Pending("FR-RCP-006", "C"))
+        // FR-RCP-006 — D1 (không xóa gì), D79 (Draft/Published → Archived, idempotent, If-Match tùy chọn).
+        group.MapPatch("/{id:guid}/archive", (Guid id, HttpRequest request, HttpResponse response, ISender mediator, CancellationToken ct) =>
+            SendWithETagAsync(new ArchiveRecipeCommand(id, NullIfEmpty(request.Headers.IfMatch.ToString())), response, mediator, ct))
              .RequireAuthorization(Policies.Author)
-             .WithSummary("Archive — ẩn khỏi listing công khai");
+             .WithName("ArchiveRecipe")
+             .WithSummary("Archive — Draft/Published → Archived, ẩn khỏi listing công khai; đã Archived → 200 idempotent (D79)")
+             .WithDescription("Không xóa dữ liệu (D1). Thoát khỏi Archived bằng publish/unpublish (D77). Header If-Match tùy chọn: lệch → 409. Trả RecipeDetailDto + ETag mới.")
+             .Produces<RecipeDetailDto>(StatusCodes.Status200OK)
+             .ProducesProblem(StatusCodes.Status400BadRequest)
+             .ProducesProblem(StatusCodes.Status403Forbidden)
+             .ProducesProblem(StatusCodes.Status404NotFound)
+             .ProducesProblem(StatusCodes.Status409Conflict);
 
         // FR-RCP-007 — D1 (soft delete), D78 (If-Match tùy chọn, 404 sau khi xóa).
         group.MapDelete("/{id:guid}", async (Guid id, HttpRequest request, ISender mediator, CancellationToken ct) =>
@@ -314,8 +324,8 @@ public static class RecipeEndpoints
     /// <summary>D6 — wire contract của PUT /recipes/{id}/steps/{stepId}.</summary>
     public sealed record UpdateStepRequest(string Title, string Description, int? TimerMinutes, string? ImageUrl, int? StepNumber);
 
-    private static async Task<Ok<RecipeDetailDto>> SendPublishAsync(
-        PublishRecipeCommand command, HttpResponse response, ISender mediator, CancellationToken ct)
+    private static async Task<Ok<RecipeDetailDto>> SendWithETagAsync(
+        IRequest<RecipeDetailDto> command, HttpResponse response, ISender mediator, CancellationToken ct)
     {
         var result = await mediator.Send(command, ct);
         SetETag(response, result.RowVersion);

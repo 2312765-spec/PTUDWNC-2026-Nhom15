@@ -153,10 +153,21 @@ public class Recipe : BaseEntity, IAggregateRoot
         return true;
     }
 
-    public void Archive()
+    /// <summary>
+    /// FR-RCP-006 — Draft/Published → Archived (ẩn khỏi public, không xóa gì — D1). D79: đã Archived → không đổi gì
+    /// (idempotent, trả <c>false</c>); <see cref="PublishedAt"/> giữ nguyên. Thoát khỏi Archived qua Publish/Unpublish (D77).
+    /// </summary>
+    /// <returns><c>true</c> nếu trạng thái thực sự đổi.</returns>
+    public bool Archive()
     {
+        if (Status == RecipeStatus.Archived)
+        {
+            return false;
+        }
+
         Status = RecipeStatus.Archived;
         UpdatedAt = DateTime.UtcNow;
+        return true;
     }
 
     public void MoveToDraft()

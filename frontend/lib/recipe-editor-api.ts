@@ -93,6 +93,15 @@ export async function setRecipePublished(id: string, publish: boolean): Promise<
   return data;
 }
 
+/**
+ * FR-RCP-006/D79 — lưu trữ (ẩn khỏi trang công khai, không xóa dữ liệu). Không gửi If-Match, giống publish.
+ * Trả RecipeDetailDto với rowVersion mới — trang PHẢI cập nhật cache. Thoát khỏi Archived bằng setRecipePublished (D77).
+ */
+export async function archiveRecipe(id: string): Promise<RecipeDetailDto> {
+  const { data } = await apiClient.patch<RecipeDetailDto>(`/recipes/${id}/archive`);
+  return data;
+}
+
 /** FR-RCP-007/D1/D78 — xóa mềm. */
 export async function deleteRecipe(id: string): Promise<void> {
   await apiClient.delete(`/recipes/${id}`);

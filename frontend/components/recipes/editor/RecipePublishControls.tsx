@@ -1,11 +1,11 @@
 'use client';
 
-import { Eye, EyeOff, Trash2 } from 'lucide-react';
+import { Archive, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button, Dialog, useToast } from '@/components/ui';
 import { toProblemDetails } from '@/lib/api-client';
-import { deleteRecipe, RECIPE_ERROR_MESSAGES, setRecipePublished } from '@/lib/recipe-editor-api';
+import { archiveRecipe, deleteRecipe, RECIPE_ERROR_MESSAGES, setRecipePublished } from '@/lib/recipe-editor-api';
 import { RecipeStatus, type RecipeDetailDto } from '@/lib/types';
 
 export interface RecipePublishControlsProps {
@@ -20,14 +20,16 @@ function describeError(error: unknown): string {
 }
 
 /**
- * FR-RCP-005 (publish / unpublish — D3, D77) + FR-RCP-007 (xóa mềm — D1, D78) trên trang sửa công thức.
- * Nút "Xuất bản" bị khóa khi còn thiếu nguyên liệu hoặc bước (D3) và nói rõ thiếu gì — backend vẫn tự kiểm tra.
- * Xóa cần xác nhận qua hộp thoại; xong thì về /dashboard (công thức đã xóa không mở lại được — 404).
+ * FR-RCP-005 (publish / unpublish — D3, D77) + FR-RCP-006 (lưu trữ — D79) + FR-RCP-007 (xóa mềm — D1, D78)
+ * trên trang sửa công thức. Nút "Xuất bản" bị khóa khi còn thiếu nguyên liệu hoặc bước (D3) và nói rõ thiếu gì —
+ * backend vẫn tự kiểm tra. Lưu trữ và xóa cần xác nhận qua hộp thoại; xóa xong thì về /dashboard (công thức đã xóa
+ * không mở lại được — 404). Recipe Archived thoát ra bằng "Xuất bản" / "Chuyển về nháp" (D77).
  */
 export function RecipePublishControls({ recipe, onChange }: RecipePublishControlsProps) {
   const toast = useToast();
   const router = useRouter();
-  const [busy, setBusy] = useState<'publish' | 'delete' | null>(null);
+  const [busy, setBusy] = useState<'publish' | 'archive' | 'delete' | null>(null);
+  const [confirmingArchive, setConfirmingArchive] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const isPublished = recipe.status === RecipeStatus.Published;
@@ -50,6 +52,20 @@ export function RecipePublishControls({ recipe, onChange }: RecipePublishControl
       });
     } catch (error) {
       toast.show({ variant: 'error', title: 'Không đổi được trạng thái', description: describeError(error) });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function confirmArchive() {
+    setConfirmingArchive(false);
+    setBusy('archive');
+    try {
+      const updated = await archiveRecipe(recipe.id);
+      onChange(updated);
+      toast.show({ variant: 'success', title: 'Đã lưu trữ', description: `"${updated.title}" đã ẩn khỏi trang công khai.` });
+    } catch (error) {
+      toast.show({ variant: 'error', title: 'Không lưu trữ được công thức', description: describeError(error) });
     } finally {
       setBusy(null);
     }
@@ -91,6 +107,17 @@ export function RecipePublishControls({ recipe, onChange }: RecipePublishControl
             Chuyển về nháp
           </Button>
         )}
+        {!isArchived && (
+          <Button
+            type="button"
+            variant="outline"
+            loading={busy === 'archive'}
+            disabled={busy !== null}
+            onClick={() => setConfirmingArchive(true)}
+          >
+            <Archive className="size-4" aria-hidden="true" /> Lưu trữ
+          </Button>
+        )}
         <Button
           type="button"
           variant="danger"
@@ -106,6 +133,22 @@ export function RecipePublishControls({ recipe, onChange }: RecipePublishControl
           Cần thêm ít nhất {missing.join(' và ')} để xuất bản.
         </p>
       )}
+
+      <Dialog
+        open={confirmingArchive}
+        onClose={() => setConfirmingArchive(false)}
+        title="Lưu trữ công thức này?"
+        description={`"${recipe.title}" sẽ ẩn khỏi trang công khai và kết quả tìm kiếm. Dữ liệu vẫn giữ nguyên — bạn có thể xuất bản lại hoặc chuyển về nháp bất cứ lúc nào.`}
+      >
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => setConfirmingArchive(false)}>
+            Hủy
+          </Button>
+          <Button type="button" onClick={confirmArchive}>
+            Lưu trữ
+          </Button>
+        </div>
+      </Dialog>
 
       <Dialog
         open={confirmingDelete}
