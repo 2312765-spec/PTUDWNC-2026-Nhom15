@@ -83,6 +83,15 @@ describe('DashboardPage — trang đích của link trong email chào mừng (FR
     render(<DashboardPage />);
 
     expect(screen.queryByRole('link', { name: /Tạo công thức mới/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Công thức của tôi/ })).not.toBeInTheDocument();
+  });
+
+  it('D81: Author thấy lối tắt "Công thức của tôi" → /dashboard/recipes', () => {
+    signedInAs(author);
+
+    render(<DashboardPage />);
+
+    expect(screen.getByRole('link', { name: /Công thức của tôi/ })).toHaveAttribute('href', '/dashboard/recipes');
   });
 
   it('permissions.md: Admin thấy lối tắt quản lý danh mục', () => {

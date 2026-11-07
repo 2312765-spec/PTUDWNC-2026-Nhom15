@@ -242,6 +242,8 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
         string? sort,
         bool includeAllStatuses,
         string? nonPublishedOwnerId,
+        string? authorId,
+        RecipeStatus? status,
         int page,
         int pageSize,
         CancellationToken cancellationToken = default)
@@ -257,6 +259,17 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
             query = string.IsNullOrEmpty(nonPublishedOwnerId)
                 ? query.Where(r => r.Status == RecipeStatus.Published)
                 : query.Where(r => r.Status == RecipeStatus.Published || r.AuthorId == nonPublishedOwnerId);
+        }
+
+        // D81: lọc SAU bộ lọc quyền — "công thức của tôi" và tab theo trạng thái không mở rộng được quyền xem.
+        if (!string.IsNullOrEmpty(authorId))
+        {
+            query = query.Where(r => r.AuthorId == authorId);
+        }
+
+        if (status.HasValue)
+        {
+            query = query.Where(r => r.Status == status.Value);
         }
 
         // FR-SRCH-002: Lọc công thức (AND logic)

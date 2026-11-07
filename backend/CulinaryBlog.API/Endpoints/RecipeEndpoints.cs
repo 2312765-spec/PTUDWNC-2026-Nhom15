@@ -47,6 +47,8 @@ public static class RecipeEndpoints
             string? sort,
             int? page,
             int? pageSize,
+            bool? mine,
+            string? status,
             ICurrentUser currentUser,
             ISender mediator,
             CancellationToken ct) =>
@@ -54,15 +56,19 @@ public static class RecipeEndpoints
             var query = new GetRecipesQuery(
                 categoryId, difficulty, maxCookTime, minServings, sort ?? "-createdAt",
                 page ?? 1, pageSize ?? PagedResult<RecipeSummaryDto>.DefaultPageSize,
-                CurrentUserId: currentUser.UserId, IsAdmin: currentUser.IsAdmin);
+                CurrentUserId: currentUser.UserId, IsAdmin: currentUser.IsAdmin,
+                Mine: mine ?? false, Status: status);
             var result = await mediator.Send(query, ct);
             return TypedResults.Ok(result);
         })
         .WithName("GetRecipes")
         .WithSummary("Danh sách — authorization filter + filter/sort/paging (FR-SRCH-002/003/004)")
-        .WithDescription("Guest thấy Published; Author thấy thêm Draft/Archived của mình; Admin thấy tất cả.")
+        .WithDescription("Guest thấy Published; Author thấy thêm Draft/Archived của mình; Admin thấy tất cả. " +
+            "D81: mine=true → chỉ công thức của người đang đăng nhập (mọi trạng thái; chưa đăng nhập → 401); " +
+            "status=Draft|Published|Archived lọc sau bộ lọc quyền.")
         .Produces<PagedResult<RecipeSummaryDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
         .AllowAnonymous();
           
         // FR-SRCH-001: Tìm kiếm toàn văn công thức (BẮT BUỘC ĐỨNG TRƯỚC /{slug})

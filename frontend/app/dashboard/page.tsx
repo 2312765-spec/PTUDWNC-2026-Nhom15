@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpen, FolderTree, PlusCircle, UserRound } from 'lucide-react';
+import { BookOpen, FolderTree, ListChecks, PlusCircle, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -23,6 +23,8 @@ const baseShortcuts: Shortcut[] = [
 
 /** FR-RCP-003 — Author và Admin đều tạo được công thức. */
 const authorShortcuts: Shortcut[] = [
+  // D81 — SRS 5.1 /dashboard/recipes: quản lý danh sách công thức của mình (Nháp / Đã xuất bản / Đã lưu trữ).
+  { href: '/dashboard/recipes', label: 'Công thức của tôi', description: 'Xem, lọc theo trạng thái và sửa công thức bạn đã viết.', icon: ListChecks },
   { href: '/dashboard/recipes/new', label: 'Tạo công thức mới', description: 'Viết công thức theo từng bước, lưu nháp trước khi xuất bản.', icon: PlusCircle },
 ];
 

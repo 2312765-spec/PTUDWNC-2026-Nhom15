@@ -20,8 +20,15 @@ public sealed class GetRecipesQueryValidator : AbstractValidator<GetRecipesQuery
         "easy", "medium", "hard", "expert", "1", "2", "3", "4"
     ];
 
+    // D81: lọc theo trạng thái cho /dashboard/recipes — chỉ tên (không nhận số để tránh nhầm thứ tự enum).
+    private static readonly string[] _allowedStatuses = ["draft", "published", "archived"];
+
     public GetRecipesQueryValidator()
     {
+        RuleFor(x => x.Status)
+            .Must(s => string.IsNullOrEmpty(s) || _allowedStatuses.Contains(s.Trim().ToLowerInvariant()))
+            .WithMessage("Trạng thái không hợp lệ. Chỉ chấp nhận: Draft, Published, Archived.");
+
         // FR-SRCH-004: page < 1 -> báo lỗi 400
         RuleFor(x => x.Page)
             .GreaterThanOrEqualTo(1)

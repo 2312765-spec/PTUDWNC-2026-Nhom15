@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import type { CategoryDto, RecipeDetailDto, RecipeIngredientDto, RecipeStepDto } from '@/lib/types';
+import type { CategoryDto, PagedResult, RecipeDetailDto, RecipeIngredientDto, RecipeStepDto, RecipeSummaryDto } from '@/lib/types';
 import type { toCreateRecipeRequest, toIngredientRequest, toRecipeBasicsRequest, toStepRequest } from '@/lib/recipe-schema';
 
 /**
@@ -8,13 +8,30 @@ import type { toCreateRecipeRequest, toIngredientRequest, toRecipeBasicsRequest,
  * FR-RCP-010 (D6, D73) · D75 (GET theo id).
  */
 
+/** D81 — trạng thái lọc ở /dashboard/recipes; khớp tham số `status` của GET /recipes. */
+export type MyRecipesStatus = 'Draft' | 'Published' | 'Archived';
+
+export const MY_RECIPES_PAGE_SIZE = 10;
+
 export const recipeEditorKeys = {
   recipe: (id: string) => ['dashboard', 'recipe', id] as const,
+  /** Tiền tố chung — invalidate cả mọi tab/trang của danh sách sau khi đổi trạng thái hoặc xóa. */
+  myRecipesAll: ['dashboard', 'my-recipes'] as const,
+  myRecipes: (status: MyRecipesStatus | null, page: number) => ['dashboard', 'my-recipes', status ?? 'all', page] as const,
   categories: ['dashboard', 'recipe-categories'] as const,
 };
 
 export async function fetchCategoryOptions(): Promise<CategoryDto[]> {
   const { data } = await apiClient.get<CategoryDto[]>('/categories');
+  return data;
+}
+
+/** D81 — công thức của người đang đăng nhập (mọi trạng thái), lọc theo `status` nếu có. */
+export async function fetchMyRecipes(status: MyRecipesStatus | null, page: number): Promise<PagedResult<RecipeSummaryDto>> {
+  const params = status
+    ? { mine: true, status, page, pageSize: MY_RECIPES_PAGE_SIZE }
+    : { mine: true, page, pageSize: MY_RECIPES_PAGE_SIZE };
+  const { data } = await apiClient.get<PagedResult<RecipeSummaryDto>>('/recipes', { params });
   return data;
 }
 

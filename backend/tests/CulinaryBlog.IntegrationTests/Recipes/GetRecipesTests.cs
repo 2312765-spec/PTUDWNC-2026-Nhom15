@@ -160,6 +160,7 @@ public sealed class GetRecipesTests(PostgresApiFactory factory) : IClassFixture<
     [InlineData("sort=servings")]
     [InlineData("difficulty=Legendary")]
     [InlineData("minServings=0")]
+    [InlineData("status=Deleted")] // D81
     public async Task List_InvalidParams_Returns400(string queryString)
     {
         var response = await _client.GetAsync($"/api/v1/recipes?{queryString}");
@@ -167,6 +168,94 @@ public sealed class GetRecipesTests(PostgresApiFactory factory) : IClassFixture<
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
         problem!.Type.Should().Be(ErrorCodes.ValidationError);
+    }
+
+    // ---- D81: ?mine=true & status= cho /dashboard/recipes ----
+
+    [Fact(DisplayName = "FR-RCP-001/D81: mine=true → chỉ bài của mình, đủ Draft/Published/Archived, không bài người khác, không bài xóa mềm")]
+    public async Task List_Mine_OnlyOwnRecipesAllStatuses()
+    {
+        var (token, authorId) = await RegisterAuthorAsync();
+        var (_, otherId) = await RegisterAuthorAsync();
+        var categoryId = await SeedCategoryAsync();
+        var draft = await SeedRecipeAsync(categoryId, authorId, RecipeStatus.Draft);
+        var published = await SeedRecipeAsync(categoryId, authorId, RecipeStatus.Published);
+        var archived = await SeedRecipeAsync(categoryId, authorId, RecipeStatus.Archived);
+        var deleted = await SeedRecipeAsync(categoryId, authorId, RecipeStatus.Draft);
+        await SoftDeleteAsync(deleted);
+        await SeedRecipeAsync(categoryId, otherId, RecipeStatus.Published);
+
+        var body = await ListAsync("mine=true", token);
+
+        body.Items.Select(r => r.Id).Should().BeEquivalentTo([draft, published, archived]);
+        body.TotalCount.Should().Be(3);
+    }
+
+    [Fact(DisplayName = "FR-RCP-001/D81: mine=true + status=Draft → chỉ bản nháp của mình (status không phân biệt hoa thường)")]
+    public async Task List_MineWithStatus_FiltersByStatus()
+    {
+        var (token, authorId) = await RegisterAuthorAsync();
+        var categoryId = await SeedCategoryAsync();
+        var draft = await SeedRecipeAsync(categoryId, authorId, RecipeStatus.Draft);
+        await SeedRecipeAsync(categoryId, authorId, RecipeStatus.Published);
+        await SeedRecipeAsync(categoryId, authorId, RecipeStatus.Archived);
+
+        var body = await ListAsync("mine=true&status=draft", token);
+
+        body.Items.Select(r => r.Id).Should().Equal(draft);
+        body.Items.Single().Status.Should().Be("Draft");
+    }
+
+    [Fact(DisplayName = "FR-RCP-001/D81: Admin mine=true → chỉ bài của Admin, không phải mọi bài")]
+    public async Task List_AdminMine_OnlyAdminsOwn()
+    {
+        var (_, authorId) = await RegisterAuthorAsync();
+        var (adminToken, adminId) = await RegisterAdminWithIdAsync();
+        var categoryId = await SeedCategoryAsync();
+        var adminDraft = await SeedRecipeAsync(categoryId, adminId, RecipeStatus.Draft);
+        await SeedRecipeAsync(categoryId, authorId, RecipeStatus.Draft);
+
+        var body = await ListAsync("mine=true", adminToken);
+
+        body.Items.Select(r => r.Id).Should().Equal(adminDraft);
+    }
+
+    [Fact(DisplayName = "FR-RCP-001/D81: mine=true khi chưa đăng nhập → 401 AUTH_TOKEN_INVALID")]
+    public async Task List_MineAnonymous_Returns401()
+    {
+        var response = await _client.GetAsync("/api/v1/recipes?mine=true");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(JsonOptions);
+        problem!.Type.Should().Be(ErrorCodes.AuthTokenInvalid);
+    }
+
+    [Fact(DisplayName = "FR-RCP-001/D81/NFR-SEC-006: Guest gửi status=Draft → rỗng (bộ lọc quyền chạy trước)")]
+    public async Task List_GuestStatusDraft_ReturnsEmpty()
+    {
+        var (_, authorId) = await RegisterAuthorAsync();
+        var categoryId = await SeedCategoryAsync();
+        await SeedRecipeAsync(categoryId, authorId, RecipeStatus.Draft);
+        var published = await SeedRecipeAsync(categoryId, authorId, RecipeStatus.Published);
+
+        (await ListAsync($"categoryId={categoryId}&status=Draft")).Items.Should().BeEmpty();
+        (await ListAsync($"categoryId={categoryId}&status=Published")).Items.Select(r => r.Id).Should().Equal(published);
+    }
+
+    [Fact(DisplayName = "FR-RCP-001/D8/D81: archive qua API → mine&status=Archived thấy ngay (cache bị xóa theo tag)")]
+    public async Task List_Mine_SeesStatusChangeImmediately()
+    {
+        var (token, authorId) = await RegisterAuthorAsync();
+        var categoryId = await SeedCategoryAsync();
+        var recipe = await SeedRecipeAsync(categoryId, authorId, RecipeStatus.Draft);
+        (await ListAsync("mine=true&status=Archived", token)).Items.Should().BeEmpty();
+
+        using var archive = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/recipes/{recipe}/archive");
+        archive.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        (await _client.SendAsync(archive)).EnsureSuccessStatusCode();
+
+        (await ListAsync("mine=true&status=Archived", token)).Items.Select(r => r.Id).Should().Equal(recipe);
+        (await ListAsync("mine=true&status=Draft", token)).Items.Should().BeEmpty();
     }
 
     private async Task<PagedResult<RecipeSummaryDto>> ListAsync(string queryString, string? token = null)
@@ -193,7 +282,9 @@ public sealed class GetRecipesTests(PostgresApiFactory factory) : IClassFixture<
     }
 
     /// <summary>D11: không có endpoint quản lý user — gán role Admin qua UserManager rồi đăng nhập lại.</summary>
-    private async Task<string> RegisterAdminAsync()
+    private async Task<string> RegisterAdminAsync() => (await RegisterAdminWithIdAsync()).Token;
+
+    private async Task<(string Token, string UserId)> RegisterAdminWithIdAsync()
     {
         var email = $"admin-{Guid.NewGuid():N}@example.com";
         const string password = "Str0ng!Pass1";
@@ -212,7 +303,16 @@ public sealed class GetRecipesTests(PostgresApiFactory factory) : IClassFixture<
         var loginResponse = await _client.PostAsJsonAsync("/api/v1/auth/login", new { email, password });
         loginResponse.EnsureSuccessStatusCode();
         var body = await loginResponse.Content.ReadFromJsonAsync<AuthResponseDto>(JsonOptions);
-        return body!.AccessToken;
+        return (body!.AccessToken, body.User.Id);
+    }
+
+    private async Task SoftDeleteAsync(Guid recipeId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
+        var recipe = await db.Recipes.FindAsync(recipeId);
+        recipe!.SoftDelete();
+        await db.SaveChangesAsync();
     }
 
     private async Task<Guid> SeedCategoryAsync()

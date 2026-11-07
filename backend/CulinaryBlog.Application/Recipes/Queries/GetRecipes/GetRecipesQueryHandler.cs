@@ -1,4 +1,5 @@
 using CulinaryBlog.Application.Categories.DTOs;
+using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Application.Common.Models;
 using CulinaryBlog.Domain.Enums;
 using CulinaryBlog.Domain.Interfaces;
@@ -21,6 +22,14 @@ public sealed class GetRecipesQueryHandler(
         var includeAllStatuses = request.IsAdmin;
         var nonPublishedOwnerId = includeAllStatuses ? null : request.CurrentUserId;
 
+        // D81: "công thức của tôi" cần biết "tôi" là ai — chưa đăng nhập → 401 (không trả rỗng gây hiểu nhầm).
+        if (request.Mine && string.IsNullOrEmpty(request.CurrentUserId))
+        {
+            throw new UnauthorizedException(ErrorCodes.AuthTokenInvalid, "Cần đăng nhập để xem công thức của bạn.");
+        }
+
+        var authorId = request.Mine ? request.CurrentUserId : null;
+
         var (recipes, totalCount) = await recipeRepository.GetPagedRecipesAsync(
             request.CategoryId,
             ParseDifficulty(request.Difficulty),
@@ -29,6 +38,8 @@ public sealed class GetRecipesQueryHandler(
             request.Sort,
             includeAllStatuses,
             nonPublishedOwnerId,
+            authorId,
+            ParseStatus(request.Status),
             page,
             pageSize,
             cancellationToken);
@@ -56,6 +67,12 @@ public sealed class GetRecipesQueryHandler(
 
         return new PagedResult<RecipeSummaryDto>(dtos, totalCount, page, pageSize);
     }
+
+    // Validator đã chặn giá trị lạ (D81: Draft|Published|Archived) — ở đây chỉ chuyển kiểu.
+    private static RecipeStatus? ParseStatus(string? status) =>
+        string.IsNullOrWhiteSpace(status)
+            ? null
+            : Enum.TryParse<RecipeStatus>(status.Trim(), ignoreCase: true, out var s) && Enum.IsDefined(s) ? s : null;
 
     // Validator đã chặn giá trị lạ (D14: Easy|Medium|Hard|Expert, hoặc 1–4) — ở đây chỉ chuyển kiểu.
     private static RecipeDifficulty? ParseDifficulty(string? difficulty) =>
