@@ -138,6 +138,46 @@ test.describe('Tạo, sửa, xuất bản, lưu trữ, xóa công thức (FR-RCP
       'Bước 2: Cuốn',
     ]);
   });
+
+  test('NFR-USE-004: đổi chỗ / xóa bước mà API lỗi → giao diện hoàn tác, toast lỗi; server không đổi', async ({ page }) => {
+    await registerViaUi(page);
+    await createViaWizard(page, `Chả giò E2E ${Date.now()}`);
+    const steps = page.getByRole('list', { name: 'Các bước thực hiện' });
+    const original = ['Bước 1: Sơ chế', 'Bước 2: Cuốn'];
+    await expect(steps.getByRole('heading', { level: 3 })).toHaveText(original);
+
+    // Mọi lệnh ghi lên một bước (PUT đổi chỗ, DELETE xóa) đều trả 500.
+    await page.route('**/api/v1/recipes/*/steps/*', (route) => {
+      const method = route.request().method();
+      if (method !== 'PUT' && method !== 'DELETE') return route.continue();
+      return route.fulfill({
+        status: 500,
+        contentType: 'application/problem+json',
+        body: JSON.stringify({ type: 'about:blank', title: 'Internal Server Error', status: 500 }),
+      });
+    });
+    const errorToast = page.getByRole('alert').filter({ hasText: 'Không lưu được thay đổi' });
+
+    // Đổi chỗ lỗi → về thứ tự cũ.
+    await page.getByRole('button', { name: 'Chuyển bước 2 lên' }).click();
+    await expect(errorToast).toBeVisible();
+    await expect(steps.getByRole('heading', { level: 3 })).toHaveText(original);
+    await errorToast.getByRole('button', { name: 'Đóng thông báo' }).click();
+    await expect(errorToast).toHaveCount(0);
+
+    // Xóa lỗi → bước quay lại, đánh số như cũ.
+    await page.getByRole('button', { name: 'Xóa bước 1' }).click();
+    await page.getByRole('dialog', { name: 'Xóa bước này?' }).getByRole('button', { name: 'Xóa bước' }).click();
+    await expect(errorToast).toBeVisible();
+    await expect(steps.getByRole('heading', { level: 3 })).toHaveText(original);
+
+    // Server không bị đổi gì.
+    await page.unroute('**/api/v1/recipes/*/steps/*');
+    await page.reload();
+    await expect(page.getByRole('list', { name: 'Các bước thực hiện' }).getByRole('heading', { level: 3 })).toHaveText(
+      original,
+    );
+  });
   test('FR-RCP-009 + FR-RCP-005 + FR-RCP-006 + FR-RCP-007: sửa nguyên liệu, xuất bản → công khai, lưu trữ → ẩn, rồi xóa', async ({
     page,
   }) => {
