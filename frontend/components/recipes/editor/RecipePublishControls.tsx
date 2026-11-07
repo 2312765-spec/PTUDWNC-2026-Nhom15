@@ -3,6 +3,7 @@
 import { Archive, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { revalidateRecipeAction } from '@/app/dashboard/recipes/actions';
 import { Button, Dialog, useToast } from '@/components/ui';
 import { toProblemDetails } from '@/lib/api-client';
 import { archiveRecipe, deleteRecipe, RECIPE_ERROR_MESSAGES, setRecipePublished } from '@/lib/recipe-editor-api';
@@ -17,6 +18,18 @@ export interface RecipePublishControlsProps {
 function describeError(error: unknown): string {
   const problem = toProblemDetails(error);
   return RECIPE_ERROR_MESSAGES[problem.type] ?? problem.detail ?? 'Có lỗi xảy ra, vui lòng thử lại.';
+}
+
+/**
+ * D80 — xóa cache ISR của trang công khai sau khi đổi trạng thái hiển thị. API đã ghi xong nên lỗi ở đây KHÔNG được
+ * làm hỏng thao tác: nuốt lỗi, cache tự hết hạn theo chu kỳ ISR.
+ */
+async function refreshPublicPages(slug: string): Promise<void> {
+  try {
+    await revalidateRecipeAction(slug);
+  } catch {
+    // Bỏ qua — xem D80.2.
+  }
 }
 
 /**
@@ -44,6 +57,7 @@ export function RecipePublishControls({ recipe, onChange }: RecipePublishControl
     setBusy('publish');
     try {
       const updated = await setRecipePublished(recipe.id, publish);
+      await refreshPublicPages(recipe.slug);
       onChange(updated);
       toast.show({
         variant: 'success',
@@ -62,6 +76,7 @@ export function RecipePublishControls({ recipe, onChange }: RecipePublishControl
     setBusy('archive');
     try {
       const updated = await archiveRecipe(recipe.id);
+      await refreshPublicPages(recipe.slug);
       onChange(updated);
       toast.show({ variant: 'success', title: 'Đã lưu trữ', description: `"${updated.title}" đã ẩn khỏi trang công khai.` });
     } catch (error) {
@@ -76,6 +91,7 @@ export function RecipePublishControls({ recipe, onChange }: RecipePublishControl
     setBusy('delete');
     try {
       await deleteRecipe(recipe.id);
+      await refreshPublicPages(recipe.slug);
       toast.show({ variant: 'success', title: 'Đã xóa công thức', description: recipe.title });
       router.push('/dashboard');
     } catch (error) {
@@ -131,6 +147,12 @@ export function RecipePublishControls({ recipe, onChange }: RecipePublishControl
       {!isPublished && !canPublish && (
         <p id="publish-hint" className="text-sm text-ink-muted">
           Cần thêm ít nhất {missing.join(' và ')} để xuất bản.
+        </p>
+      )}
+      {isArchived && (
+        <p className="text-sm text-ink-muted">
+          Công thức đang được lưu trữ: đã ẩn khỏi trang công khai và kết quả tìm kiếm, dữ liệu vẫn giữ nguyên. Xuất bản
+          lại hoặc chuyển về nháp để tiếp tục.
         </p>
       )}
 

@@ -13,6 +13,9 @@ jest.mock('next/navigation', () => ({
   usePathname: () => '/dashboard/recipes/r1/edit',
 }));
 
+// D80 — Server Action (next/cache + Auth.js) không chạy được trong jsdom; logic riêng có test ở actions.test.ts.
+jest.mock('@/app/dashboard/recipes/actions', () => ({ revalidateRecipeAction: jest.fn() }));
+
 jest.mock('@/lib/api-client', () => ({
   ...jest.requireActual('@/lib/api-client'),
   apiClient: { get: jest.fn(), post: jest.fn(), put: jest.fn(), patch: jest.fn(), delete: jest.fn() },

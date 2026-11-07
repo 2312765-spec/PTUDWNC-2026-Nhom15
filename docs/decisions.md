@@ -90,6 +90,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D77 | Publish / Unpublish (FR-RCP-005) | Archived publish/unpublish được · đã ở trạng thái đích → 200 không ghi · `PublishedAt` = lần đầu · `If-Match` **tùy chọn**, lệch → 409 · trả `RecipeDetailDto` + `ETag` · khóa dòng |
 | D78 | Xóa recipe (FR-RCP-007) | Soft delete, con không bị đụng · mọi trạng thái xóa được · sau khi xóa mọi thao tác (kể cả DELETE lần 2) → **404** · `If-Match` tùy chọn · khóa dòng |
 | D79 | Archive recipe (FR-RCP-006) | Từ Draft/Published · đã Archived → 200 không ghi · `If-Match` tùy chọn · trả `RecipeDetailDto` + `ETag` · khóa dòng · giữ `PublishedAt` |
+| D80 | Xóa cache Next sau khi đổi trạng thái recipe | Server Action `revalidateRecipeAction(slug)` → `updateTag('recipes')` + `updateTag('recipe:{slug}')` sau publish/unpublish/archive/delete · fetch trang chủ + trang danh mục gắn tag `recipes` |
 
 ---
 
@@ -2222,6 +2223,38 @@ của tab khác.
 
 **Sửa SRS:** FR-RCP-006 — tiền điều kiện "Status là Draft hoặc Published"; thêm A3 "đã Archived → 200 idempotent";
 thêm "If-Match tùy chọn, lệch → 409"; kết quả trả `RecipeDetailDto` + `ETag`; bỏ "Unarchive" khỏi tên (xem D77).
+
+---
+
+## D80 — Xóa cache Next.js sau khi đổi trạng thái recipe
+
+> 2026-11-07. Phát hiện bằng E2E lúc làm frontend FR-RCP-006. Bổ sung cho D8, D77, D78, D79 và SRS 5.1.
+
+**Nguồn mâu thuẫn / thiếu:**
+
+- SRS 5.1 bắt trang công khai render ISR (`/` 3600, `/recipes/[slug]` 300, `/categories/[slug]` 600). D8 chỉ nói
+  xóa cache **Redis** ở backend; không ai xóa data cache của Next.js.
+- Hệ quả: recipe vừa hủy xuất bản / lưu trữ / xóa vẫn hiện cho Guest tới 5 phút (chi tiết), 10 phút (danh mục),
+  1 giờ (trang chủ) — trái "kết quả mong đợi" của FR-RCP-005/006/007 ("không còn xuất hiện trong public listing")
+  và để lộ nội dung tác giả đã muốn ẩn. E2E `recipe-editor.spec.ts` bắt được: archive xong `/recipes/{slug}` vẫn 200.
+- Fetch trang chủ và trang danh mục không gắn tag nên không thể xóa theo tag.
+
+**Chốt:**
+
+1. Server Action `revalidateRecipeAction(slug)` (`frontend/app/dashboard/recipes/actions.ts`): chỉ chạy khi có phiên
+   Auth.js; gọi `updateTag('recipes')` và `updateTag('recipe:{slug}')` (slug phải đúng dạng D72, sai thì bỏ qua tag
+   thứ hai). Dùng `updateTag` (hết hạn ngay) thay `revalidateTag(tag, 'max')` (stale-while-revalidate — người đầu
+   tiên vẫn thấy bản cũ).
+2. Gọi **sau khi API thành công** của publish, unpublish, archive, delete — trước khi báo toast. Lỗi của action
+   **không** làm hỏng thao tác (API đã ghi xong): nuốt lỗi, cache tự hết hạn theo ISR.
+3. Gắn tag `recipes` cho fetch danh sách ở trang chủ (`lib/recipes.ts`) và chi tiết danh mục (`lib/categories.ts`).
+4. **Không** gọi sau các lệnh sửa nội dung (FR-RCP-004/008/009/010): nội dung đổi chậm tối đa một chu kỳ ISR là chấp
+   nhận được theo SRS 5.1; chỉ thay đổi **quyền xem** mới phải có hiệu lực ngay.
+5. Không đụng backend: backend không biết Next.js (CONS-001 tinh thần tách lớp), không cần webhook hay secret mới.
+
+**Vì:** nội dung tác giả đã ẩn phải biến mất ngay; giữ được ISR cho hiệu năng (NFR-PERF-005).
+
+**Sửa SRS:** mục 5.1 — thêm "trang ISR bị xóa cache theo tag khi recipe đổi trạng thái hiển thị".
 
 ---
 

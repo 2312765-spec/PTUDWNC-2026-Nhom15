@@ -38,7 +38,8 @@ export async function getCategoryBySlug(
 ): Promise<CategoryDetailResponseDto | null> {
   const res = await fetch(
     `${API_BASE_URL}/categories/${encodeURIComponent(slug)}?page=${page}&pageSize=${pageSize}`,
-    { next: { revalidate: 600 } },
+    // D80: trang danh mục nhúng danh sách recipe → tag `recipes` để xóa ngay khi recipe bị ẩn / xóa.
+    { next: { revalidate: 600, tags: ['recipes'] } },
   );
   if (res.status === 404) return null;
   if (!res.ok) throw await toApiError(res);
