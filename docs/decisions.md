@@ -89,6 +89,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D76 | Nguyên liệu (FR-RCP-009) | **Hard delete** · `orderIndex` 0-based, vắng = cuối, server giữ liên tục · `RECIPE_INGREDIENT_NOT_FOUND` (404) · ngoài khoảng → 400 · không xóa nguyên liệu cuối của recipe Published · khóa dòng, lưu 1 lần |
 | D77 | Publish / Unpublish (FR-RCP-005) | Archived publish/unpublish được · đã ở trạng thái đích → 200 không ghi · `PublishedAt` = lần đầu · `If-Match` **tùy chọn**, lệch → 409 · trả `RecipeDetailDto` + `ETag` · khóa dòng |
 | D78 | Xóa recipe (FR-RCP-007) | Soft delete, con không bị đụng · mọi trạng thái xóa được · sau khi xóa mọi thao tác (kể cả DELETE lần 2) → **404** · `If-Match` tùy chọn · khóa dòng |
+| D79 | Archive recipe (FR-RCP-006) | Từ Draft/Published · đã Archived → 200 không ghi · `If-Match` tùy chọn · trả `RecipeDetailDto` + `ETag` · khóa dòng · giữ `PublishedAt` |
 
 ---
 
@@ -2189,6 +2190,38 @@ unpublish trước không; có cần `If-Match` không; lệnh xóa chạy song 
 
 **Sửa SRS:** FR-RCP-007 — như D1 (soft delete, bỏ cascade và bước 3–5 về MinIO/Hangfire); thêm "If-Match tùy chọn,
 lệch → 409"; A1 ghi rõ "kể cả recipe đã xóa".
+
+---
+
+## D79 — FR-RCP-006: lưu trữ (archive) recipe
+
+> 2026-11-07. Phát hiện lúc Explore FR-RCP-006. Bổ sung cho D71, D77, D78.
+
+**Nguồn mâu thuẫn / thiếu:**
+
+- FR-RCP-006 không nói recipe ở trạng thái nào được archive, cũng không nói gọi lại khi đã Archived thì sao.
+- Chỉ ghi "HTTP 200 OK", không nói body là gì; không nhắc `If-Match` / concurrency.
+- Tên FR có "Unarchive" nhưng không có endpoint (đã chốt ở D77: dùng publish/unpublish).
+- `Recipe.Archive()` (Sprint 0) trả `void`, ghi đè `UpdatedAt` mỗi lần gọi — lệch với `Publish()`/`Unpublish()`.
+
+**Chốt:**
+
+1. Archive được từ **Draft và Published**. Thoát khỏi Archived bằng publish/unpublish (D77).
+2. **Idempotent:** `Recipe.Archive()` trả `bool`; đã Archived → 200, **không** `SaveChanges` (RowVersion, `UpdatedAt`
+   giữ nguyên).
+3. **`If-Match` tùy chọn** giống D77/D78: vắng → bỏ qua; sai định dạng → 400 `VALIDATION_ERROR` (trường `RowVersion`);
+   lệch → 409 `RECIPE_CONCURRENCY_CONFLICT`. Thứ tự: 404 → 403 → 409.
+4. Response **`RecipeDetailDto`** + header **`ETag`** (giống publish).
+5. Command riêng `ArchiveRecipeCommand` (CONS-002). Handler **khóa dòng recipe** trong transaction; log `Information`
+   "Recipe {RecipeId} chuyển sang Archived bởi {UserId}" làm audit trail (NFR-SEC-006).
+6. **`PublishedAt` giữ nguyên** khi archive — publish lại không đổi ngày đăng (D77.3).
+7. **Không thêm metric** — D39 chỉ đếm publish. Cache: xóa tag `recipes` + `recipe:{slug}` (D8).
+
+**Vì:** cùng hành vi với publish/unpublish/delete, client dùng chung một cách xử lý; gọi lặp không làm hỏng `ETag`
+của tab khác.
+
+**Sửa SRS:** FR-RCP-006 — tiền điều kiện "Status là Draft hoặc Published"; thêm A3 "đã Archived → 200 idempotent";
+thêm "If-Match tùy chọn, lệch → 409"; kết quả trả `RecipeDetailDto` + `ETag`; bỏ "Unarchive" khỏi tên (xem D77).
 
 ---
 

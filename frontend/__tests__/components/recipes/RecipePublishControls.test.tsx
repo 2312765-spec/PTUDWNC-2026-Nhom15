@@ -29,7 +29,7 @@ beforeEach(() => {
   jest.resetAllMocks();
 });
 
-describe('RecipePublishControls — FR-RCP-005 xuất bản / FR-RCP-007 xóa', () => {
+describe('RecipePublishControls — FR-RCP-005 xuất bản / FR-RCP-006 lưu trữ / FR-RCP-007 xóa', () => {
   it('FR-RCP-005: Draft đủ điều kiện → Xuất bản → PATCH publish, trả DTO mới (rowVersion mới) cho trang cha', async () => {
     const published = recipeDetail({ id: 'r1', status: RecipeStatus.Published, rowVersion: 'BQYHCA==' });
     api.patch.mockResolvedValue({ data: published } as never);
@@ -80,6 +80,50 @@ describe('RecipePublishControls — FR-RCP-005 xuất bản / FR-RCP-007 xóa', 
 
     expect(await screen.findByText('Không đổi được trạng thái')).toBeInTheDocument();
     expect(screen.getByText(/Công thức cần ít nhất 1 nguyên liệu và 1 bước thực hiện/)).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it.each([RecipeStatus.Draft, RecipeStatus.Published])(
+    'FR-RCP-006/D79: status %s → Lưu trữ → hộp thoại xác nhận → PATCH archive, trả DTO mới cho trang cha',
+    async (status) => {
+      const archived = recipeDetail({ id: 'r1', status: RecipeStatus.Archived, rowVersion: 'CQoLDA==' });
+      api.patch.mockResolvedValue({ data: archived } as never);
+      const { user, onChange } = setup(recipeDetail({ id: 'r1', status }));
+
+      await user.click(screen.getByRole('button', { name: 'Lưu trữ' }));
+      const dialog = screen.getByRole('dialog', { name: 'Lưu trữ công thức này?' });
+      await user.click(within(dialog).getByRole('button', { name: 'Lưu trữ' }));
+
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith(archived));
+      expect(api.patch).toHaveBeenCalledWith('/recipes/r1/archive');
+      expect(await screen.findByText('Đã lưu trữ')).toBeInTheDocument();
+    },
+  );
+
+  it('FR-RCP-006: recipe đã Archived → không có nút Lưu trữ', () => {
+    setup(recipeDetail({ status: RecipeStatus.Archived }));
+
+    expect(screen.queryByRole('button', { name: 'Lưu trữ' })).not.toBeInTheDocument();
+  });
+
+  it('FR-RCP-006: hủy hộp thoại lưu trữ → không gọi API', async () => {
+    const { user } = setup(recipeDetail({ id: 'r1' }));
+
+    await user.click(screen.getByRole('button', { name: 'Lưu trữ' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Hủy' }));
+
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it('FR-RCP-006/D79: lưu trữ lỗi 409 → toast lỗi, không gọi onChange', async () => {
+    api.patch.mockRejectedValue(problemError({ type: 'RECIPE_CONCURRENCY_CONFLICT', title: 'Xung đột', status: 409 }));
+    const { user, onChange } = setup(recipeDetail({ id: 'r1' }));
+
+    await user.click(screen.getByRole('button', { name: 'Lưu trữ' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Lưu trữ' }));
+
+    expect(await screen.findByText('Không lưu trữ được công thức')).toBeInTheDocument();
+    expect(screen.getByText(/Công thức vừa được thay đổi ở nơi khác/)).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
   });
 
