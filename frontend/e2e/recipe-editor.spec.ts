@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 /**
  * E2E luồng "create recipe" + "publish" (CLAUDE.md mục 7) — FR-RCP-003 wizard, FR-RCP-004 sửa thông tin chung
  * (If-Match — D71), FR-RCP-010 quản lý bước (D6, D73), FR-RCP-009 nguyên liệu (D76), FR-RCP-005 xuất bản (D77),
- * FR-RCP-007 xóa (D78). Chạy trên backend thật: kiểm tra luôn việc
+ * FR-RCP-006 lưu trữ (D79), FR-RCP-007 xóa (D78). Chạy trên backend thật: kiểm tra luôn việc
  * apiClient gắn Bearer token từ phiên Auth.js (D74) — thiếu token thì mọi lệnh ghi trả 401.
  *
  * Rate limit /auth/* (D15/D63): mỗi test đăng ký đúng một tài khoản qua UI.
@@ -65,7 +65,7 @@ async function createViaWizard(page: Page, title: string) {
   await expect(page.getByRole('heading', { level: 1, name: 'Sửa công thức' })).toBeVisible(NAVIGATION);
 }
 
-test.describe('Tạo, sửa, xuất bản, xóa công thức (FR-RCP-003/004/005/007/009/010)', () => {
+test.describe('Tạo, sửa, xuất bản, lưu trữ, xóa công thức (FR-RCP-003/004/005/006/007/009/010)', () => {
   test('FR-RCP-003: wizard tạo công thức → Draft, sang trang sửa với đủ nguyên liệu và các bước', async ({ page }) => {
     await registerViaUi(page);
     const title = `Gỏi cuốn E2E ${Date.now()}`;
@@ -125,7 +125,7 @@ test.describe('Tạo, sửa, xuất bản, xóa công thức (FR-RCP-003/004/005
       'Bước 2: Cuốn',
     ]);
   });
-  test('FR-RCP-009 + FR-RCP-005 + FR-RCP-007: sửa nguyên liệu, xuất bản → trang công khai xem được, rồi xóa công thức', async ({
+  test('FR-RCP-009 + FR-RCP-005 + FR-RCP-006 + FR-RCP-007: sửa nguyên liệu, xuất bản → công khai, lưu trữ → ẩn, rồi xóa', async ({
     page,
   }) => {
     await registerViaUi(page);
@@ -168,6 +168,15 @@ test.describe('Tạo, sửa, xuất bản, xóa công thức (FR-RCP-003/004/005
     const publicPage = await page.goto(`/recipes/${slug}`, NAVIGATION);
     expect(publicPage?.status()).toBe(200);
     await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+
+    // FR-RCP-006: lưu trữ (hộp thoại xác nhận) → badge "Đã lưu trữ"; Guest mở trang công khai → 404 (D79).
+    await page.goto(editUrl, NAVIGATION);
+    await page.getByRole('button', { name: 'Lưu trữ' }).click();
+    await page.getByRole('dialog', { name: 'Lưu trữ công thức này?' }).getByRole('button', { name: 'Lưu trữ' }).click();
+    await expect(page.getByText('Đã lưu trữ', { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Lưu trữ' })).toHaveCount(0);
+    const archivedPage = await page.goto(`/recipes/${slug}`, NAVIGATION);
+    expect(archivedPage?.status()).toBe(404);
 
     // FR-RCP-007: xóa → về /dashboard; mở lại trang sửa → không tìm thấy.
     await page.goto(editUrl, NAVIGATION);

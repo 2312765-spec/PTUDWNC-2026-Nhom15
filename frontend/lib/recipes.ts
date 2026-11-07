@@ -93,7 +93,8 @@ export async function getRecipes(
  */
 export async function getLatestRecipes(pageSize: number): Promise<PagedResult<RecipeSummaryDto>> {
   const res = await fetch(`${API_BASE_URL}/recipes?${toRecipeListQuery({}, pageSize)}`, {
-    next: { revalidate: 3600 },
+    // D80: tag `recipes` để revalidateRecipeAction xóa ngay khi recipe bị ẩn / xóa.
+    next: { revalidate: 3600, tags: ['recipes'] },
   });
   if (!res.ok) throw await toApiError(res);
   return res.json();

@@ -101,7 +101,7 @@ describe('lib/recipes — trang chủ (FR-RCP-001)', () => {
     expect(parsed.searchParams.get('pageSize')).toBe('6');
     // Sort mặc định của backend là -createdAt (mới nhất) → không gửi, giữ cache key ổn định.
     expect(parsed.searchParams.has('sort')).toBe(false);
-    expect(init).toEqual({ next: { revalidate: 3600 } });
+    expect(init).toEqual({ next: { revalidate: 3600, tags: ['recipes'] } });
   });
 
   it('NFR-USE-003: getLatestRecipes lỗi API → ApiError', async () => {

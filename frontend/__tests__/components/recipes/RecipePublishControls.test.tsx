@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { revalidateRecipeAction } from '@/app/dashboard/recipes/actions';
 import { RecipePublishControls } from '@/components/recipes/editor/RecipePublishControls';
 import { apiClient } from '@/lib/api-client';
 import { RecipeStatus, type RecipeDetailDto } from '@/lib/types';
@@ -17,6 +18,9 @@ jest.mock('@/lib/api-client', () => ({
   apiClient: { get: jest.fn(), post: jest.fn(), put: jest.fn(), patch: jest.fn(), delete: jest.fn() },
 }));
 const api = apiClient as jest.Mocked<typeof apiClient>;
+
+jest.mock('@/app/dashboard/recipes/actions', () => ({ revalidateRecipeAction: jest.fn() }));
+const revalidate = revalidateRecipeAction as jest.MockedFunction<typeof revalidateRecipeAction>;
 
 function setup(recipe: RecipeDetailDto) {
   const user = userEvent.setup();
@@ -100,10 +104,17 @@ describe('RecipePublishControls — FR-RCP-005 xuất bản / FR-RCP-006 lưu tr
     },
   );
 
-  it('FR-RCP-006: recipe đã Archived → không có nút Lưu trữ', () => {
+  it('FR-RCP-006/D77: recipe đã Archived → không có nút Lưu trữ, giải thích cách thoát khỏi lưu trữ', () => {
     setup(recipeDetail({ status: RecipeStatus.Archived }));
 
     expect(screen.queryByRole('button', { name: 'Lưu trữ' })).not.toBeInTheDocument();
+    expect(screen.getByText(/Công thức đang được lưu trữ/)).toBeInTheDocument();
+  });
+
+  it('FR-RCP-006: recipe chưa Archived → không hiện dòng giải thích lưu trữ', () => {
+    setup(recipeDetail({ status: RecipeStatus.Published }));
+
+    expect(screen.queryByText(/Công thức đang được lưu trữ/)).not.toBeInTheDocument();
   });
 
   it('FR-RCP-006: hủy hộp thoại lưu trữ → không gọi API', async () => {
@@ -159,5 +170,58 @@ describe('RecipePublishControls — FR-RCP-005 xuất bản / FR-RCP-006 lưu tr
 
     expect(await screen.findByText('Không xóa được công thức')).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
+  });
+
+  describe('D80 — xóa cache trang công khai sau khi đổi trạng thái', () => {
+    it.each([
+      ['Xuất bản', RecipeStatus.Draft, undefined],
+      ['Hủy xuất bản', RecipeStatus.Published, undefined],
+      ['Lưu trữ', RecipeStatus.Draft, 'Lưu trữ công thức này?'],
+    ])('%s thành công → gọi revalidateRecipeAction(slug)', async (button, status, dialogName) => {
+      api.patch.mockResolvedValue({ data: recipeDetail({ id: 'r1', slug: 'pho-bo-ha-noi' }) } as never);
+      const { user, onChange } = setup(recipeDetail({ id: 'r1', slug: 'pho-bo-ha-noi', status }));
+
+      await user.click(screen.getByRole('button', { name: button }));
+      if (dialogName) {
+        await user.click(within(screen.getByRole('dialog', { name: dialogName })).getByRole('button', { name: button }));
+      }
+
+      await waitFor(() => expect(onChange).toHaveBeenCalled());
+      expect(revalidate).toHaveBeenCalledWith('pho-bo-ha-noi');
+    });
+
+    it('Xóa thành công → gọi revalidateRecipeAction(slug) rồi mới về /dashboard', async () => {
+      api.delete.mockResolvedValue({ data: undefined } as never);
+      const { user } = setup(recipeDetail({ id: 'r1', slug: 'pho-bo-ha-noi' }));
+
+      await user.click(screen.getByRole('button', { name: 'Xóa công thức' }));
+      await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xóa công thức' }));
+
+      await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard'));
+      expect(revalidate).toHaveBeenCalledWith('pho-bo-ha-noi');
+    });
+
+    it('API lỗi → không gọi revalidateRecipeAction', async () => {
+      api.patch.mockRejectedValue(problemError({ type: 'RECIPE_FORBIDDEN', title: 'Không có quyền', status: 403 }));
+      const { user } = setup(recipeDetail({ status: RecipeStatus.Draft }));
+
+      await user.click(screen.getByRole('button', { name: 'Xuất bản' }));
+
+      expect(await screen.findByText('Không đổi được trạng thái')).toBeInTheDocument();
+      expect(revalidate).not.toHaveBeenCalled();
+    });
+
+    it('revalidateRecipeAction lỗi → thao tác vẫn thành công (toast thành công, onChange được gọi)', async () => {
+      revalidate.mockRejectedValue(new Error('network'));
+      const archived = recipeDetail({ id: 'r1', status: RecipeStatus.Archived });
+      api.patch.mockResolvedValue({ data: archived } as never);
+      const { user, onChange } = setup(recipeDetail({ id: 'r1' }));
+
+      await user.click(screen.getByRole('button', { name: 'Lưu trữ' }));
+      await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Lưu trữ' }));
+
+      await waitFor(() => expect(onChange).toHaveBeenCalledWith(archived));
+      expect(await screen.findByText('Đã lưu trữ')).toBeInTheDocument();
+    });
   });
 });

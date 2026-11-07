@@ -37,7 +37,7 @@ function toImageDtos(recipe: RecipeDetailDto): RecipeImageDto[] {
 
 /**
  * Trang sửa công thức — FR-RCP-004 (thông tin chung, If-Match — D71), FR-RCP-005 (xuất bản — D77),
- * FR-RCP-007 (xóa — D78), FR-RCP-009 (nguyên liệu — D76), FR-RCP-010 (các bước), FR-RCP-008 (ảnh, component của D). Đọc theo id qua GET /recipes/{id} (D75), không cache để luôn có
+ * FR-RCP-006 (lưu trữ — D79), FR-RCP-007 (xóa — D78), FR-RCP-009 (nguyên liệu — D76), FR-RCP-010 (các bước), FR-RCP-008 (ảnh, component của D). Đọc theo id qua GET /recipes/{id} (D75), không cache để luôn có
  * rowVersion mới nhất. Quyền: chỉ owner hoặc Admin (backend trả 403 RECIPE_FORBIDDEN). SRS 5.1: CSR.
  */
 export default function EditRecipePage() {
