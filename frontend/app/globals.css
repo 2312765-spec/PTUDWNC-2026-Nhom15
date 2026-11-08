@@ -2,20 +2,25 @@
 
 /*
   Design token — chủ sở hữu: C (Sprint 0).
-  NFR-USE-002: mọi cặp màu chữ/nền phải đạt contrast >= 4.5:1 (WCAG 2.1 AA).
+  NFR-USE-002: mọi cặp màu chữ/nền phải đạt contrast >= 4.5:1, viền thành phần UI >= 3:1 (WCAG 2.1 AA, 1.4.3 + 1.4.11).
+  D83 (2026-11-08): brand-600/700 đậm thêm một bậc — #ea580c chỉ đạt 3.55:1 với chữ trắng trên nút chính.
+    brand-600 #c2410c: chữ trắng 5.18:1, viền focus trên nền trắng 5.18:1.
+    brand-700 #9a3412: nút hover / link ~7.3:1.
+    border-strong #78716c: viền ô nhập ~4.8:1 (border #e7e5e4 chỉ 1.26:1 — để cho đường kẻ trang trí, không cho ô nhập).
 */
 @theme {
   --color-brand-50: #fff7ed;
   --color-brand-100: #ffedd5;
   --color-brand-500: #f97316;
-  --color-brand-600: #ea580c;
-  --color-brand-700: #c2410c;
+  --color-brand-600: #c2410c;
+  --color-brand-700: #9a3412;
 
   --color-ink: #1c1917;
   --color-ink-muted: #57534e;
   --color-surface: #ffffff;
   --color-surface-subtle: #fafaf9;
   --color-border: #e7e5e4;
+  --color-border-strong: #78716c;
 
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }

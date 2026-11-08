@@ -92,6 +92,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D79 | Archive recipe (FR-RCP-006) | Từ Draft/Published · đã Archived → 200 không ghi · `If-Match` tùy chọn · trả `RecipeDetailDto` + `ETag` · khóa dòng · giữ `PublishedAt` |
 | D80 | Xóa cache Next sau khi đổi trạng thái recipe | Server Action `revalidateRecipeAction(slug)` → `updateTag('recipes')` + `updateTag('recipe:{slug}')` sau publish/unpublish/archive/delete · fetch trang chủ + trang danh mục gắn tag `recipes` |
 | D81 | Danh sách "công thức của tôi" (`/dashboard/recipes`) | `GET /recipes?mine=true` (chưa đăng nhập → 401) + lọc `status` sau bộ lọc quyền · không route `/recipes/mine` · Admin cũng chỉ thấy bài của mình · DTO giữ nguyên |
+| D83 | Cách đo a11y (NFR-USE-002) | Screen reader **chỉ NVDA** (nhóm không có Mac/iPhone), VoiceOver "chưa kiểm" · axe-core trong E2E (0 vi phạm WCAG 2.1 A/AA) + checklist tay `docs/a11y-checklist.md` |
 
 ---
 
@@ -2288,6 +2289,33 @@ liệu vì bộ lọc quyền luôn chạy trước.
 
 **Sửa SRS:** FR-RCP-001 — thêm tham số `mine` (cần đăng nhập, 401) và `status`; bảng 8.3 dòng `GET /recipes` thêm
 `&mine&status`.
+
+---
+
+## D83 — Cách đo Accessibility (NFR-USE-002)
+
+> 2026-11-08. Phát hiện lúc Explore NFR-USE-002. Bổ sung cho NFR-USE-002, NFR-MAINT-002.
+
+**Nguồn mâu thuẫn / thiếu:**
+
+- SRS NFR-USE-002 bắt thử screen reader với **NVDA (Windows) và VoiceOver (macOS/iOS)**. Cả nhóm 4 người chỉ có máy
+  Windows — không thử được VoiceOver.
+- SRS không nói "đạt WCAG 2.1 AA" được chứng minh bằng cách nào (traceability ghi "axe + NVDA/VoiceOver").
+
+**Chốt:**
+
+1. Screen reader v1 **chỉ thử NVDA** trên Windows. VoiceOver ghi "chưa kiểm" trong `traceability.md` — không coi là đạt.
+2. Kiểm tra tự động: `frontend/e2e/a11y.spec.ts` chạy axe-core (`@axe-core/playwright`) với tag `wcag2a`, `wcag2aa`,
+   `wcag21a`, `wcag21aa` trên mọi route của SRS 5.1 (kể cả trang cần đăng nhập) — **0 vi phạm** mới đạt. Không tắt
+   rule nào; ngoại lệ phải ghi D mới.
+3. Kiểm tra tay (axe không phát hiện được): `docs/a11y-checklist.md` — điều hướng bàn phím từng luồng chính, NVDA đọc
+   form/lỗi/toast, tương phản thành phần UI ≥ 3:1 (WCAG 1.4.11, ví dụ viền ô nhập).
+4. NFR-USE-002 chỉ ✅ khi (2) xanh **và** (3) đã chạy hết, ghi ngày + người chạy.
+
+**Vì:** không có thiết bị Apple thì ghi rõ phạm vi còn hơn đánh dấu đạt mà không thử; axe trong E2E chặn hồi quy tương
+phản/ARIA cho các thay đổi sau.
+
+**Sửa SRS:** NFR-USE-002 — "Screen reader: test với NVDA (Windows). VoiceOver ngoài phạm vi v1."
 
 ---
 
