@@ -92,6 +92,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D79 | Archive recipe (FR-RCP-006) | Từ Draft/Published · đã Archived → 200 không ghi · `If-Match` tùy chọn · trả `RecipeDetailDto` + `ETag` · khóa dòng · giữ `PublishedAt` |
 | D80 | Xóa cache Next sau khi đổi trạng thái recipe | Server Action `revalidateRecipeAction(slug)` → `updateTag('recipes')` + `updateTag('recipe:{slug}')` sau publish/unpublish/archive/delete · fetch trang chủ + trang danh mục gắn tag `recipes` |
 | D81 | Danh sách "công thức của tôi" (`/dashboard/recipes`) | `GET /recipes?mine=true` (chưa đăng nhập → 401) + lọc `status` sau bộ lọc quyền · không route `/recipes/mine` · Admin cũng chỉ thấy bài của mình · DTO giữ nguyên |
+| D82 | Trang tổng quan Author (`/dashboard`) | 4 ô số Tổng/Nháp/Đã xuất bản/Đã lưu trữ (link sang `/dashboard/recipes?status=`) + 5 bài mới nhất · dùng 4 lời gọi `GET /recipes?mine=true` có sẵn, **không thêm endpoint** · chỉ Author/Admin · lỗi chỉ hỏng phần tổng quan |
 | D83 | Cách đo a11y (NFR-USE-002) | Screen reader **chỉ NVDA** (nhóm không có Mac/iPhone), VoiceOver "chưa kiểm" · axe-core trong E2E (0 vi phạm WCAG 2.1 A/AA) + checklist tay `docs/a11y-checklist.md` |
 
 ---
@@ -2289,6 +2290,39 @@ liệu vì bộ lọc quyền luôn chạy trước.
 
 **Sửa SRS:** FR-RCP-001 — thêm tham số `mine` (cần đăng nhập, 401) và `status`; bảng 8.3 dòng `GET /recipes` thêm
 `&mine&status`.
+
+---
+
+## D82 — Trang tổng quan Author cho `/dashboard`
+
+> 2026-11-08. Phát hiện lúc Explore trang `/dashboard`. Bổ sung cho SRS 5.1, FR-RCP-001, D81.
+
+**Nguồn mâu thuẫn / thiếu:**
+
+- SRS 5.1 có route `/dashboard` — "Trang tổng quan của Author/Admin" (CSR, bắt buộc đăng nhập) — nhưng không nói trang
+  hiện gì, và bảng 8.3 không có endpoint thống kê nào.
+
+**Chốt:**
+
+1. Với tài khoản có role Author hoặc Admin, `/dashboard` hiện phần **tổng quan công thức của tôi**:
+   - 4 ô số: **Tổng · Nháp · Đã xuất bản · Đã lưu trữ**, mỗi ô là link sang `/dashboard/recipes` (Tổng) hoặc
+     `/dashboard/recipes?status=draft|published|archived`;
+   - **5 công thức mới nhất** (`-createdAt`) kèm badge trạng thái và link sửa; chưa có bài nào → ô trống kèm lời mời
+     tạo công thức.
+   Các lối tắt có sẵn giữ nguyên.
+2. **Không thêm endpoint.** Frontend gọi song song 4 lần `GET /api/v1/recipes?mine=true` (D81): một lần `pageSize=5`
+   lấy tổng + 5 bài mới nhất, ba lần `status=Draft|Published|Archived&pageSize=1` chỉ đọc `totalCount`.
+3. Phạm vi số liệu theo D81: chỉ bài của người đang đăng nhập, kể cả Admin; bài đã xóa mềm không tính (D1).
+4. Tài khoản không có role Author/Admin không thấy phần này và **không gọi API**.
+5. Một trong 4 lời gọi lỗi → chỉ phần tổng quan báo lỗi + nút "Thử lại"; lời chào và lối tắt vẫn dùng được.
+6. Số liệu mới ngay sau lệnh ghi: Redis xóa tag `recipes` sau mọi lệnh ghi recipe (D8); query TanStack nằm dưới tiền tố
+   `['dashboard', 'my-recipes']` nên bị invalidate cùng danh sách sau publish/unpublish/archive/delete.
+   Query này đặt `staleTime: 0` — luôn tải lại khi mở `/dashboard` (wizard tạo bài không invalidate danh sách).
+
+**Vì:** dùng lại toàn bộ phân quyền, validator, cache của FR-RCP-001/D81; không đụng backend, không lệch bảng 8.3. Bốn
+lời gọi đều rất nhẹ (`pageSize` 1–5) và có cache Redis 15 phút theo từng người xem.
+
+**Sửa SRS:** mục 5.1 dòng `/dashboard` — "Trang tổng quan: số công thức của tôi theo trạng thái + 5 bài mới nhất + lối tắt".
 
 ---
 

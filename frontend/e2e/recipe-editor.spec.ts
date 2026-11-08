@@ -79,6 +79,14 @@ test.describe('Tạo, sửa, xuất bản, lưu trữ, xóa công thức (FR-RCP
     const steps = page.getByRole('list', { name: 'Các bước thực hiện' });
     await expect(steps.getByRole('heading', { level: 3 })).toHaveText(['Bước 1: Sơ chế', 'Bước 2: Cuốn']);
 
+    // D82: trang tổng quan — tài khoản mới nên số liệu chính xác: 1 bài, ở trạng thái Nháp, có trong "gần đây".
+    await page.goto('/dashboard', NAVIGATION);
+    await expect(page.getByRole('link', { name: 'Tổng 1' })).toBeVisible(NAVIGATION);
+    await expect(page.getByRole('link', { name: 'Nháp 1' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Đã xuất bản 0' })).toBeVisible();
+    const recent = page.getByRole('list', { name: 'Công thức gần đây' });
+    await expect(recent.getByRole('link', { name: title, exact: true })).toBeVisible();
+
     // D81: danh sách công thức của tôi — có ở tab Nháp, không có ở tab Đã xuất bản.
     await page.goto('/dashboard/recipes', NAVIGATION);
     const mine = page.getByRole('list', { name: 'Công thức của tôi' });

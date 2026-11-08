@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useEffect, type ComponentType } from 'react';
 import { Card, CardBody, Skeleton } from '@/components/ui';
+import AuthorOverview from './AuthorOverview';
 
 const DASHBOARD_PATH = '/dashboard';
 
@@ -34,7 +35,7 @@ const adminShortcuts: Shortcut[] = [
 
 /**
  * FR-JOB-001/D12 — trang đích của link `/dashboard` trong email chào mừng. SRS 5.1: /dashboard/* render CSR.
- * Chỉ là khung chào mừng + lối tắt; phần "tổng quan Author" thuộc FR-RCP (C) — xem app/dashboard/OWNER.md.
+ * Lời chào + tổng quan công thức của tôi cho Author/Admin (D82, `AuthorOverview`) + lối tắt.
  * Đọc phiên Auth.js (không gọi thêm API, giống HeaderAuth). Chỉ là UX — backend vẫn tự kiểm quyền (NFR-SEC-006).
  */
 export default function DashboardPage() {
@@ -70,8 +71,12 @@ export default function DashboardPage() {
     <div className="mx-auto max-w-3xl px-4 py-10">
       <header className="border-b border-border pb-6">
         <h1 className="text-2xl font-bold text-brand-700">Chào mừng, {profile.displayName}!</h1>
-        <p className="mt-1 text-sm text-ink-muted">Bắt đầu từ một trong các lối tắt dưới đây.</p>
+        <p className="mt-1 text-sm text-ink-muted">
+          {canWrite ? 'Tình hình công thức của bạn và các lối tắt hay dùng.' : 'Bắt đầu từ một trong các lối tắt dưới đây.'}
+        </p>
       </header>
+
+      {canWrite && <AuthorOverview />}
 
       <nav aria-label="Lối tắt" className="mt-6 grid gap-4 sm:grid-cols-2">
         {shortcuts.map(({ href, label, description, icon: Icon }) => (

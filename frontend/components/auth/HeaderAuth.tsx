@@ -41,14 +41,19 @@ export function HeaderAuth() {
 
   return (
     <div className="flex items-center gap-3">
-      <span className="max-w-24 truncate text-sm font-medium text-ink sm:max-w-40" title={profile.displayName}>
+      {/* Màn hẹp: ẩn tên để 3 lối tắt không xuống dòng — trang /dashboard đã chào bằng tên. */}
+      <span className="hidden max-w-40 truncate text-sm font-medium text-ink sm:block" title={profile.displayName}>
         {profile.displayName}
       </span>
+      {/* SRS 5.1/D82 — lối vào trang tổng quan (đích sau đăng nhập, lời chào + lối tắt). */}
+      <Link href="/dashboard" className="whitespace-nowrap text-sm font-medium text-brand-700 hover:underline">
+        Bảng điều khiển
+      </Link>
       {/* FR-AUTH-006 — trang xem hồ sơ cá nhân. */}
-      <Link href="/dashboard/profile" className="text-sm font-medium text-brand-700 hover:underline">
+      <Link href="/dashboard/profile" className="whitespace-nowrap text-sm font-medium text-brand-700 hover:underline">
         Hồ sơ
       </Link>
-      <LogoutButton />
+      <LogoutButton className="whitespace-nowrap" />
     </div>
   );
 }

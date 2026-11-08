@@ -18,6 +18,8 @@ export const recipeEditorKeys = {
   /** Tiền tố chung — invalidate cả mọi tab/trang của danh sách sau khi đổi trạng thái hoặc xóa. */
   myRecipesAll: ['dashboard', 'my-recipes'] as const,
   myRecipes: (status: MyRecipesStatus | null, page: number) => ['dashboard', 'my-recipes', status ?? 'all', page] as const,
+  /** D82 — tổng quan ở /dashboard; nằm dưới tiền tố myRecipesAll nên bị invalidate cùng danh sách. */
+  myRecipesOverview: ['dashboard', 'my-recipes', 'overview'] as const,
   categories: ['dashboard', 'recipe-categories'] as const,
 };
 
@@ -33,6 +35,39 @@ export async function fetchMyRecipes(status: MyRecipesStatus | null, page: numbe
     : { mine: true, page, pageSize: MY_RECIPES_PAGE_SIZE };
   const { data } = await apiClient.get<PagedResult<RecipeSummaryDto>>('/recipes', { params });
   return data;
+}
+
+/** D82 — số bài mới nhất hiện ở trang tổng quan /dashboard. */
+export const MY_RECIPES_OVERVIEW_RECENT = 5;
+
+export interface MyRecipesOverview {
+  counts: { total: number; draft: number; published: number; archived: number };
+  /** Mới nhất trước (`-createdAt`), tối đa MY_RECIPES_OVERVIEW_RECENT bài. */
+  recent: RecipeSummaryDto[];
+}
+
+/**
+ * D82 — tổng quan "công thức của tôi" cho /dashboard: 4 lời gọi GET /recipes?mine=true (D81) chạy song song, không có
+ * endpoint thống kê riêng. Ba lời gọi đếm dùng pageSize=1, chỉ đọc totalCount. Một lời gọi lỗi → cả hàm lỗi.
+ */
+export async function fetchMyRecipesOverview(): Promise<MyRecipesOverview> {
+  const count = async (status: MyRecipesStatus) => {
+    const { data } = await apiClient.get<PagedResult<RecipeSummaryDto>>('/recipes', {
+      params: { mine: true, status, page: 1, pageSize: 1 },
+    });
+    return data.totalCount;
+  };
+  const [latest, draft, published, archived] = await Promise.all([
+    apiClient
+      .get<PagedResult<RecipeSummaryDto>>('/recipes', {
+        params: { mine: true, page: 1, pageSize: MY_RECIPES_OVERVIEW_RECENT, sort: '-createdAt' },
+      })
+      .then(({ data }) => data),
+    count('Draft'),
+    count('Published'),
+    count('Archived'),
+  ]);
+  return { counts: { total: latest.totalCount, draft, published, archived }, recent: latest.items };
 }
 
 /** D75 — luôn đọc mới từ DB, có rowVersion hiện tại. */
