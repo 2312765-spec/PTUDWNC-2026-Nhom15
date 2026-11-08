@@ -6,6 +6,12 @@ import type { UserProfile } from '@/lib/types';
 jest.mock('next-auth/react', () => ({ useSession: jest.fn() }));
 const mockUseSession = useSession as jest.Mock;
 
+// D82 — phần tổng quan gọi API qua TanStack Query, được test riêng ở AuthorOverview.test.tsx.
+jest.mock('@/app/dashboard/AuthorOverview', () => ({
+  __esModule: true,
+  default: () => <section aria-label="Tổng quan công thức (giả)" />,
+}));
+
 const mockReplace = jest.fn();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn(), replace: mockReplace, back: jest.fn(), prefetch: jest.fn() }),
@@ -103,6 +109,30 @@ describe('DashboardPage — trang đích của link trong email chào mừng (FR
       'href',
       '/dashboard/categories',
     );
+  });
+
+  it('D82: Author thấy phần tổng quan công thức của mình', () => {
+    signedInAs(author);
+
+    render(<DashboardPage />);
+
+    expect(screen.getByRole('region', { name: 'Tổng quan công thức (giả)' })).toBeInTheDocument();
+  });
+
+  it('D82/D81: Admin cũng thấy phần tổng quan (chỉ bài của chính mình)', () => {
+    signedInAs(admin);
+
+    render(<DashboardPage />);
+
+    expect(screen.getByRole('region', { name: 'Tổng quan công thức (giả)' })).toBeInTheDocument();
+  });
+
+  it('D82: tài khoản không có role Author/Admin không thấy phần tổng quan', () => {
+    signedInAs({ ...author, roles: [] });
+
+    render(<DashboardPage />);
+
+    expect(screen.queryByRole('region', { name: 'Tổng quan công thức (giả)' })).not.toBeInTheDocument();
   });
 
   it('displayName chứa HTML → hiện như văn bản, không tạo phần tử script', () => {
