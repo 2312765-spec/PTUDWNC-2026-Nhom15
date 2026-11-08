@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowDown, ArrowUp, GripVertical, Pencil, Plus, Timer, Trash2 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, Dialog, useToast } from '@/components/ui';
 import { toProblemDetails } from '@/lib/api-client';
 import { addStep, deleteStep, RECIPE_ERROR_MESSAGES, updateStep } from '@/lib/recipe-editor-api';
@@ -50,6 +50,19 @@ export function RecipeStepsManager({ recipeId, initialSteps, onChange }: RecipeS
   const [pendingDelete, setPendingDelete] = useState<RecipeStepDto | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const dragFrom = useRef<number | null>(null);
+  const listRef = useRef<HTMLOListElement>(null);
+  /** NFR-USE-002 — sau khi đổi chỗ bằng nút Lên/Xuống, đưa focus về nút của bước vừa chuyển (React di chuyển <li> làm mất focus). */
+  const focusAfterMove = useRef<{ id: string; direction: 'up' | 'down' } | null>(null);
+
+  useEffect(() => {
+    const target = focusAfterMove.current;
+    if (!target) return;
+    focusAfterMove.current = null;
+    const find = (direction: 'up' | 'down') =>
+      listRef.current?.querySelector<HTMLButtonElement>(`[data-move="${target.id}:${direction}"]:not(:disabled)`);
+    // Bước đã ra tới đầu/cuối → nút cùng chiều bị khóa, dùng nút chiều ngược lại.
+    (find(target.direction) ?? find(target.direction === 'up' ? 'down' : 'up'))?.focus();
+  }, [steps]);
 
   /** Cập nhật danh sách và báo trang cha (các thao tác chạy tuần tự nên `steps` luôn là bản mới nhất). */
   function update(next: RecipeStepDto[]) {
@@ -95,6 +108,7 @@ export function RecipeStepsManager({ recipeId, initialSteps, onChange }: RecipeS
     const reordered = [...steps];
     const [moved] = reordered.splice(from, 1);
     reordered.splice(to, 0, moved);
+    focusAfterMove.current = { id: moved.id, direction: to < from ? 'up' : 'down' };
     update(renumber(reordered));
     setAnnouncement(`Đã chuyển "${moved.title}" tới vị trí ${to + 1}.`);
 
@@ -129,7 +143,7 @@ export function RecipeStepsManager({ recipeId, initialSteps, onChange }: RecipeS
           Chưa có bước nào. Cần ít nhất 1 bước để xuất bản.
         </p>
       ) : (
-        <ol className="flex flex-col gap-3" aria-label="Các bước thực hiện" aria-busy={busy || undefined}>
+        <ol ref={listRef} className="flex flex-col gap-3" aria-label="Các bước thực hiện" aria-busy={busy || undefined}>
           {steps.map((step, index) => (
             <li
               key={step.id}
@@ -175,7 +189,10 @@ export function RecipeStepsManager({ recipeId, initialSteps, onChange }: RecipeS
                       variant="ghost"
                       size="sm"
                       aria-label={`Chuyển bước ${step.stepNumber} lên`}
-                      disabled={busy || index === 0}
+                      data-move={`${step.id}:up`}
+                      // Đang gửi: aria-disabled chứ không disabled — disabled làm trình duyệt bỏ focus (handleMove tự chặn).
+                      aria-disabled={busy || undefined}
+                      disabled={index === 0}
                       onClick={() => handleMove(index, index - 1)}
                     >
                       <ArrowUp className="size-4" aria-hidden="true" />
@@ -185,7 +202,9 @@ export function RecipeStepsManager({ recipeId, initialSteps, onChange }: RecipeS
                       variant="ghost"
                       size="sm"
                       aria-label={`Chuyển bước ${step.stepNumber} xuống`}
-                      disabled={busy || index === steps.length - 1}
+                      data-move={`${step.id}:down`}
+                      aria-disabled={busy || undefined}
+                      disabled={index === steps.length - 1}
                       onClick={() => handleMove(index, index + 1)}
                     >
                       <ArrowDown className="size-4" aria-hidden="true" />

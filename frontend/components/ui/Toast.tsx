@@ -64,37 +64,45 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         role="region"
         aria-label="Thông báo"
       >
-        {toasts.map((toast) => {
-          const Icon = variantIcon[toast.variant];
-          return (
-            <div
-              key={toast.id}
-              role={toast.variant === 'error' ? 'alert' : 'status'}
-              aria-live={toast.variant === 'error' ? 'assertive' : 'polite'}
-              className={cn(
-                'pointer-events-auto flex w-full max-w-sm items-start gap-2 rounded-md border p-3 shadow-lg',
-                variantClasses[toast.variant],
-              )}
-            >
-              <Icon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <div className="flex-1 text-sm">
-                <p className="font-medium">{toast.title}</p>
-                {toast.description && <p className="mt-0.5 opacity-80">{toast.description}</p>}
-              </div>
-              <button
-                type="button"
-                onClick={() => dismiss(toast.id)}
-                aria-label="Đóng thông báo"
-                className="shrink-0 opacity-60 hover:opacity-100"
-              >
-                <X className="size-4" aria-hidden="true" />
-              </button>
-            </div>
-          );
-        })}
+        {/*
+          NFR-USE-002 — vùng polite phải có sẵn TRƯỚC khi chèn nội dung: phần tử role="status" tạo cùng lúc với chữ
+          thường không được NVDA đọc. Toast lỗi dùng role="alert" — trình duyệt luôn phát sự kiện alert khi chèn.
+        */}
+        <div aria-live="polite" className="flex w-full flex-col items-center gap-2">
+          {toasts.filter((toast) => toast.variant !== 'error').map(renderToast)}
+        </div>
+        {toasts.filter((toast) => toast.variant === 'error').map(renderToast)}
       </div>
     </ToastContext.Provider>
   );
+
+  function renderToast(toast: (typeof toasts)[number]) {
+    const Icon = variantIcon[toast.variant];
+    return (
+      <div
+        key={toast.id}
+        role={toast.variant === 'error' ? 'alert' : 'status'}
+        className={cn(
+          'pointer-events-auto flex w-full max-w-sm items-start gap-2 rounded-md border p-3 shadow-lg',
+          variantClasses[toast.variant],
+        )}
+      >
+        <Icon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+        <div className="flex-1 text-sm">
+          <p className="font-medium">{toast.title}</p>
+          {toast.description && <p className="mt-0.5">{toast.description}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={() => dismiss(toast.id)}
+          aria-label="Đóng thông báo"
+          className="shrink-0 opacity-80 hover:opacity-100"
+        >
+          <X className="size-4" aria-hidden="true" />
+        </button>
+      </div>
+    );
+  }
 }
 
 export function useToast(): ToastContextValue {

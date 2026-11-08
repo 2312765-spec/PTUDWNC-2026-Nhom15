@@ -130,7 +130,7 @@ export default async function RecipeDetailPage({
         </div>
         <div className="text-center">
           <span className="block text-xs uppercase tracking-wider text-gray-500 mb-1">Độ khó</span>
-          <span className="text-lg font-bold text-orange-600">
+          <span className="text-lg font-bold text-brand-700">
             {difficultyLabels[recipe.difficulty] || 'Dễ'}
           </span>
         </div>
@@ -221,7 +221,7 @@ export default async function RecipeDetailPage({
                 className="scroll-mt-20 p-5 rounded-xl border border-gray-100 bg-white shadow-sm hover:border-orange-200 transition"
               >
                 <div className="flex items-center space-x-3 mb-3">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-orange-600 text-white font-bold text-sm">
+                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-600 text-white font-bold text-sm">
                     {st.stepNumber}
                   </span>
                   <h3 className="font-semibold text-lg text-gray-900">{st.title}</h3>
