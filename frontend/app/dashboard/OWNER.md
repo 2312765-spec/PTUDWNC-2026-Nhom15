@@ -2,7 +2,7 @@
 
 | Route | Quyền | Người |
 |---|---|---|
-| `/dashboard` | Author/Admin | C |
+| `/dashboard` | Đăng nhập (tổng quan chỉ Author/Admin) | C — lời chào + tổng quan công thức của tôi (`AuthorOverview.tsx`, D82) + lối tắt |
 | `/dashboard/recipes` | Author/Admin | C — công thức của tôi, `GET /recipes?mine=true&status=` (D81) |
 | `/dashboard/recipes/new` | Author/Admin | C — **wizard nhiều bước** |
 | `/dashboard/recipes/[id]/edit` | **Owner** hoặc Admin | C |

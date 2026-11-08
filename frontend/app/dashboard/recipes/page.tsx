@@ -13,6 +13,7 @@ import {
   recipeEditorKeys,
   type MyRecipesStatus,
 } from '@/lib/recipe-editor-api';
+import { RECIPE_STATUS_BADGE } from '@/lib/recipe-status';
 import type { RecipeSummaryDto } from '@/lib/types';
 
 interface Tab {
@@ -29,12 +30,6 @@ const TABS: Tab[] = [
   { param: 'archived', status: 'Archived', label: 'Đã lưu trữ' },
 ];
 
-const STATUS_BADGE: Record<string, { label: string; variant: 'default' | 'success' | 'warning' }> = {
-  Draft: { label: 'Nháp', variant: 'warning' },
-  Published: { label: 'Đã xuất bản', variant: 'success' },
-  Archived: { label: 'Đã lưu trữ', variant: 'default' },
-};
-
 const dateFormat = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 function ListSkeleton() {
@@ -48,7 +43,7 @@ function ListSkeleton() {
 }
 
 function RecipeRow({ recipe }: { recipe: RecipeSummaryDto }) {
-  const badge = STATUS_BADGE[recipe.status] ?? STATUS_BADGE.Draft;
+  const badge = RECIPE_STATUS_BADGE[recipe.status] ?? RECIPE_STATUS_BADGE.Draft;
   return (
     <li className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface p-4">
       <div className="min-w-0 flex-1">

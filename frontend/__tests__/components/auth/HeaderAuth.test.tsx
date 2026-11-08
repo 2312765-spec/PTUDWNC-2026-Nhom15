@@ -37,6 +37,14 @@ describe('HeaderAuth — FR-AUTH-005', () => {
     expect(screen.getByRole('link', { name: 'Hồ sơ' })).toHaveAttribute('href', '/dashboard/profile');
   });
 
+  it('SRS 5.1/D82: đã đăng nhập → link "Bảng điều khiển" trỏ tới /dashboard (trang tổng quan)', () => {
+    mockUseSession.mockReturnValue({ status: 'authenticated', data: { profile, expires: '' } });
+
+    render(<HeaderAuth />);
+
+    expect(screen.getByRole('link', { name: 'Bảng điều khiển' })).toHaveAttribute('href', '/dashboard');
+  });
+
   it('FR-AUTH-005: chưa đăng nhập → link Đăng nhập/Đăng ký, không có nút Đăng xuất', () => {
     mockUseSession.mockReturnValue({ status: 'unauthenticated', data: null });
 
@@ -46,6 +54,7 @@ describe('HeaderAuth — FR-AUTH-005', () => {
     expect(screen.getByRole('link', { name: 'Đăng ký' })).toHaveAttribute('href', '/auth/register');
     expect(screen.queryByRole('button', { name: 'Đăng xuất' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Hồ sơ' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Bảng điều khiển' })).not.toBeInTheDocument();
   });
 
   it('FR-AUTH-004/005: phiên đã chết (session.error) → coi như chưa đăng nhập', () => {
