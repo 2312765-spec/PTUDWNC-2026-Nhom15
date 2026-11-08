@@ -41,7 +41,11 @@ export default async function RecipeResults({ filters }: { filters: RecipeListFi
   }
 
   return (
-    <section aria-label="Danh sách công thức" className="space-y-4">
+    <section aria-labelledby="recipe-results-heading" className="space-y-4">
+      {/* NFR-USE-002 — h2 ẩn để card (h3) không nhảy cấp từ h1 của trang (WCAG 1.3.1). */}
+      <h2 id="recipe-results-heading" className="sr-only">
+        Danh sách công thức
+      </h2>
       <p role="status" className="text-sm text-ink-muted">
         Có <strong className="text-ink">{data.totalCount}</strong> công thức
       </p>

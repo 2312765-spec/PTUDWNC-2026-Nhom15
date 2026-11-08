@@ -58,8 +58,14 @@ test.beforeAll(async () => {
       servings: 4,
       difficulty: 1,
       instructions: null,
-      ingredients: [{ name: 'Cá lóc', quantity: 500, unit: 'g', notes: null }],
-      steps: [{ title: 'Nấu nước dùng', description: 'Đun sôi nước với me chua.', timerMinutes: 10 }],
+      ingredients: [
+        { name: 'Cá lóc', quantity: 500, unit: 'g', notes: null },
+        { name: 'Me chua', quantity: 50, unit: 'g', notes: null },
+      ],
+      steps: [
+        { title: 'Nấu nước dùng', description: 'Đun sôi nước với me chua.', timerMinutes: 10 },
+        { title: 'Cho cá vào', description: 'Thả cá, nêm nếm vừa ăn.', timerMinutes: 5 },
+      ],
     }),
   });
   await api(`/recipes/${recipe.id}/publish`, { method: 'PATCH', token });
@@ -128,5 +134,51 @@ test.describe('NFR-USE-002/D83: axe-core WCAG 2.1 AA — 0 vi phạm', () => {
       test.skip(true, 'Không có Admin seed (DbSeeder chỉ chạy ở Development)');
     }
     await expectNoViolations(page, '/dashboard/categories');
+  });
+});
+
+/**
+ * NFR-USE-002 — phần bàn phím axe không kiểm được (WCAG 2.4.3 thứ tự focus, 2.1.1 bàn phím). Chạy trên trình duyệt
+ * thật vì jsdom không bỏ focus khi phần tử bị disabled hay bị React di chuyển trong DOM.
+ */
+test.describe('NFR-USE-002: bàn phím trên trang sửa công thức', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page, fixture.email, PASSWORD);
+    await page.goto(`/dashboard/recipes/${fixture.recipe.id}/edit`, NAVIGATION);
+    await expect(page.locator('[aria-busy="true"]')).toHaveCount(0, NAVIGATION);
+  });
+
+  test('đổi chỗ bước / nguyên liệu bằng nút Lên/Xuống → focus đi theo mục vừa chuyển, không rơi về trang', async ({
+    page,
+  }) => {
+    const steps = page.getByRole('list', { name: 'Các bước thực hiện' }).getByRole('heading', { level: 3 });
+    await page.getByRole('button', { name: 'Chuyển bước 1 xuống' }).focus();
+    await page.keyboard.press('Enter');
+
+    await expect(steps).toHaveText(['Bước 1: Cho cá vào', 'Bước 2: Nấu nước dùng']);
+    // Bước vừa chuyển giờ ở cuối → nút "xuống" bị khóa, focus sang nút "lên" của chính nó.
+    await expect(page.getByRole('button', { name: 'Chuyển bước 2 lên' })).toBeFocused();
+    await expect(page.getByRole('list', { name: 'Các bước thực hiện' })).not.toHaveAttribute('aria-busy', 'true');
+    await expect(page.getByRole('button', { name: 'Chuyển bước 2 lên' })).toBeFocused();
+
+    await page.getByRole('button', { name: 'Chuyển Cá lóc xuống' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('button', { name: 'Chuyển Cá lóc lên' })).toBeFocused();
+    await expect(page.getByRole('list', { name: 'Danh sách nguyên liệu' })).not.toHaveAttribute('aria-busy', 'true');
+    await expect(page.getByRole('button', { name: 'Chuyển Cá lóc lên' })).toBeFocused();
+  });
+
+  test('hộp xác nhận: Enter mở → focus trong hộp, Esc đóng → focus về nút đã mở', async ({ page }) => {
+    const trigger = page.getByRole('button', { name: 'Xóa công thức' });
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+
+    const dialog = page.getByRole('dialog', { name: 'Xóa công thức này?' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator(':focus')).toHaveCount(1);
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
   });
 });

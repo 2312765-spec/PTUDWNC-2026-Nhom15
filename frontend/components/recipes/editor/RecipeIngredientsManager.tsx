@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, Dialog, useToast } from '@/components/ui';
 import { toProblemDetails } from '@/lib/api-client';
 import { addIngredient, deleteIngredient, RECIPE_ERROR_MESSAGES, updateIngredient } from '@/lib/recipe-editor-api';
@@ -55,6 +55,18 @@ export function RecipeIngredientsManager({ recipeId, initialIngredients, onChang
   const [adding, setAdding] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<RecipeIngredientDto | null>(null);
   const [announcement, setAnnouncement] = useState('');
+  const listRef = useRef<HTMLOListElement>(null);
+  /** NFR-USE-002 — sau khi đổi chỗ bằng nút Lên/Xuống, đưa focus về nút của nguyên liệu vừa chuyển (giống RecipeStepsManager). */
+  const focusAfterMove = useRef<{ id: string; direction: 'up' | 'down' } | null>(null);
+
+  useEffect(() => {
+    const target = focusAfterMove.current;
+    if (!target) return;
+    focusAfterMove.current = null;
+    const find = (direction: 'up' | 'down') =>
+      listRef.current?.querySelector<HTMLButtonElement>(`[data-move="${target.id}:${direction}"]:not(:disabled)`);
+    (find(target.direction) ?? find(target.direction === 'up' ? 'down' : 'up'))?.focus();
+  }, [items]);
 
   function update(next: RecipeIngredientDto[]) {
     setItems(next);
@@ -98,6 +110,7 @@ export function RecipeIngredientsManager({ recipeId, initialIngredients, onChang
     const reordered = [...items];
     const [moved] = reordered.splice(from, 1);
     reordered.splice(to, 0, moved);
+    focusAfterMove.current = { id: moved.id, direction: to < from ? 'up' : 'down' };
     update(reindex(reordered));
     setAnnouncement(`Đã chuyển "${moved.name}" tới vị trí ${to + 1}.`);
 
@@ -135,7 +148,7 @@ export function RecipeIngredientsManager({ recipeId, initialIngredients, onChang
           Chưa có nguyên liệu nào. Cần ít nhất 1 nguyên liệu để xuất bản.
         </p>
       ) : (
-        <ol className="flex flex-col divide-y divide-border" aria-label="Danh sách nguyên liệu" aria-busy={busy || undefined}>
+        <ol ref={listRef} className="flex flex-col divide-y divide-border" aria-label="Danh sách nguyên liệu" aria-busy={busy || undefined}>
           {items.map((item, index) => (
             <li key={item.id} className="py-3">
               {editingId === item.id ? (
@@ -162,7 +175,10 @@ export function RecipeIngredientsManager({ recipeId, initialIngredients, onChang
                       variant="ghost"
                       size="sm"
                       aria-label={`Chuyển ${item.name} lên`}
-                      disabled={busy || index === 0}
+                      data-move={`${item.id}:up`}
+                      // Đang gửi: aria-disabled chứ không disabled — disabled làm trình duyệt bỏ focus (handleMove tự chặn).
+                      aria-disabled={busy || undefined}
+                      disabled={index === 0}
                       onClick={() => handleMove(index, index - 1)}
                     >
                       <ArrowUp className="size-4" aria-hidden="true" />
@@ -172,7 +188,9 @@ export function RecipeIngredientsManager({ recipeId, initialIngredients, onChang
                       variant="ghost"
                       size="sm"
                       aria-label={`Chuyển ${item.name} xuống`}
-                      disabled={busy || index === items.length - 1}
+                      data-move={`${item.id}:down`}
+                      aria-disabled={busy || undefined}
+                      disabled={index === items.length - 1}
                       onClick={() => handleMove(index, index + 1)}
                     >
                       <ArrowDown className="size-4" aria-hidden="true" />

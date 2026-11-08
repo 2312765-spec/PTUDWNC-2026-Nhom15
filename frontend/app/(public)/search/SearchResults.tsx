@@ -37,7 +37,11 @@ export default async function SearchResults({ q, page }: { q: string; page: numb
   }
 
   return (
-    <section aria-label="Kết quả tìm kiếm" className="space-y-4">
+    <section aria-labelledby="search-results-heading" className="space-y-4">
+      {/* NFR-USE-002 — h2 ẩn để card (h3) không nhảy cấp từ h1 của trang (WCAG 1.3.1). */}
+      <h2 id="search-results-heading" className="sr-only">
+        Kết quả tìm kiếm
+      </h2>
       <p role="status" className="text-sm text-ink-muted">
         Tìm thấy <strong className="text-ink">{data.totalCount}</strong> kết quả cho &quot;{q}&quot;
       </p>
