@@ -25,7 +25,13 @@ export default function AdminCategoriesPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>({ open: false });
 
-  const { data: categories, isPending, isError, error, refetch } = useQuery({
+  const {
+    data: categories,
+    isPending,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: categoriesQueryKey,
     queryFn: fetchCategories,
   });
@@ -44,15 +50,25 @@ export default function AdminCategoriesPage() {
         </Button>
       </header>
 
-      <section aria-label="Danh sách danh mục" className="mt-6 overflow-x-auto rounded-lg border border-border bg-surface">
+      <section
+        aria-label="Danh sách danh mục"
+        className="mt-6 overflow-x-auto rounded-lg border border-border bg-surface"
+      >
         {isPending ? (
-          <div aria-busy="true" aria-label="Đang tải danh sách danh mục" className="flex flex-col gap-3 p-4">
+          <div
+            aria-busy="true"
+            aria-label="Đang tải danh sách danh mục"
+            className="flex flex-col gap-3 p-4"
+          >
             {Array.from({ length: 4 }, (_, i) => (
               <Skeleton key={i} className="h-10 w-full" />
             ))}
           </div>
         ) : isError ? (
-          <div role="alert" className="flex flex-col items-center gap-3 p-8 text-center text-sm text-red-700">
+          <div
+            role="alert"
+            className="flex flex-col items-center gap-3 p-8 text-center text-sm text-red-700"
+          >
             <p>{toProblemDetails(error).detail ?? 'Không tải được danh sách danh mục.'}</p>
             <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
               Thử lại
@@ -64,10 +80,16 @@ export default function AdminCategoriesPage() {
           <table className="min-w-full divide-y divide-border text-left text-sm">
             <thead className="bg-surface-subtle text-ink-muted">
               <tr>
-                <th scope="col" className="px-6 py-3 font-medium">Tên danh mục</th>
-                <th scope="col" className="px-6 py-3 font-medium">Slug</th>
-                <th scope="col" className="px-6 py-3 text-center font-medium">Số công thức</th>
-                <th scope="col" className="px-6 py-3 text-right font-medium">
+                <th scope="col" className="px-3 py-3 sm:px-6 font-medium">
+                  Tên danh mục
+                </th>
+                <th scope="col" className="hidden px-3 py-3 font-medium sm:table-cell sm:px-6">
+                  Slug
+                </th>
+                <th scope="col" className="px-3 py-3 sm:px-6 text-center font-medium">
+                  Số công thức
+                </th>
+                <th scope="col" className="px-3 py-3 sm:px-6 text-right font-medium">
                   <span className="sr-only">Thao tác</span>
                 </th>
               </tr>
@@ -75,13 +97,19 @@ export default function AdminCategoriesPage() {
             <tbody className="divide-y divide-border">
               {categories.map((cat) => (
                 <tr key={cat.id}>
-                  <td className="px-6 py-4">
+                  <td className="px-3 py-4 sm:px-6">
                     <p className="font-semibold text-ink">{cat.name}</p>
-                    {cat.description && <p className="mt-0.5 line-clamp-1 text-xs text-ink-muted">{cat.description}</p>}
+                    {cat.description && (
+                      <p className="mt-0.5 line-clamp-1 text-xs text-ink-muted">
+                        {cat.description}
+                      </p>
+                    )}
                   </td>
-                  <td className="px-6 py-4 font-mono text-xs text-ink-muted">{cat.slug}</td>
-                  <td className="px-6 py-4 text-center">{cat.recipeCount}</td>
-                  <td className="px-6 py-4">
+                  <td className="hidden px-3 py-4 font-mono sm:px-6 text-xs text-ink-muted sm:table-cell">
+                    {cat.slug}
+                  </td>
+                  <td className="px-3 py-4 sm:px-6 text-center">{cat.recipeCount}</td>
+                  <td className="px-3 py-4 sm:px-6">
                     <div className="flex justify-end gap-2">
                       <Button
                         type="button"

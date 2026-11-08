@@ -57,7 +57,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
 
 function ResultsSkeleton() {
   return (
-    <div aria-busy="true" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div aria-busy="true" className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {Array.from({ length: 4 }, (_, i) => (
         <Skeleton key={i} className="h-56" />
       ))}

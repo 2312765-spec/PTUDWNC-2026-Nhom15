@@ -24,7 +24,7 @@ export function SiteHeader() {
             <ul className="flex flex-wrap items-center gap-4 text-sm">
               {NAV_LINKS.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="text-ink-muted hover:text-ink">
+                  <Link href={link.href} className="inline-flex min-h-6 items-center text-ink-muted hover:text-ink">
                     {link.label}
                   </Link>
                 </li>

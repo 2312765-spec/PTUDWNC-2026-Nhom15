@@ -47,7 +47,7 @@ export default async function CategoryDetailPage({ params }: PageProps) {
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
       <header className="border-b border-border pb-4">
-        <Link href="/categories" className="text-sm font-medium text-brand-700 hover:underline">
+        <Link href="/categories" className="inline-flex min-h-6 items-center text-sm font-medium text-brand-700 hover:underline">
           &larr; Tất cả danh mục
         </Link>
         <div className="mt-2 flex items-center justify-between gap-3">

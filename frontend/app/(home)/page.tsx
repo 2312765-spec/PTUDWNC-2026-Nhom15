@@ -61,7 +61,7 @@ export default async function HomePage() {
             <h2 id="home-categories" className="text-2xl font-bold text-ink">
               Danh mục món ăn
             </h2>
-            <Link href="/categories" className="text-sm font-semibold text-brand-700 hover:underline">
+            <Link href="/categories" className="inline-flex min-h-6 items-center text-sm font-semibold text-brand-700 hover:underline">
               Xem tất cả →
             </Link>
           </div>
@@ -93,7 +93,7 @@ export default async function HomePage() {
             <h2 id="home-latest" className="text-2xl font-bold text-ink">
               Công thức mới nhất
             </h2>
-            <Link href="/recipes" className="text-sm font-semibold text-brand-700 hover:underline">
+            <Link href="/recipes" className="inline-flex min-h-6 items-center text-sm font-semibold text-brand-700 hover:underline">
               Khám phá thêm →
             </Link>
           </div>
@@ -107,7 +107,7 @@ export default async function HomePage() {
               Chưa có công thức nào được đăng tải.
             </p>
           ) : (
-            <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
               {recipes.map((recipe) => (
                 <li key={recipe.id}>
                   <RecipeCard recipe={recipe} />

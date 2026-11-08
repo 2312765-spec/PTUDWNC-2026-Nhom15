@@ -69,7 +69,7 @@ export default function CategoryRecipeList({ slug, pageSize, initialRecipes }: P
     <div className="space-y-6">
       <ul
         aria-busy={isFetching}
-        className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${isFetching ? 'opacity-60' : ''}`}
+        className={`grid grid-cols-1 gap-4 md:grid-cols-2 ${isFetching ? 'opacity-60' : ''}`}
       >
         {data.items.map((recipe) => (
           // TODO(S4 — B): bọc <Link href={`/recipes/${recipe.slug}`}> khi có trang chi tiết công thức.
@@ -105,7 +105,7 @@ export default function CategoryRecipeList({ slug, pageSize, initialRecipes }: P
 
 function RecipeListSkeleton({ count }: { count: number }) {
   return (
-    <div aria-busy="true" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div aria-busy="true" className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {Array.from({ length: Math.min(count, 4) }, (_, i) => (
         <Skeleton key={i} className="h-32" />
       ))}
