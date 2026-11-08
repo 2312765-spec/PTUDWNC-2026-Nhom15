@@ -8,6 +8,7 @@ using CulinaryBlog.Infrastructure.Identity;
 using CulinaryBlog.Infrastructure.Persistence;
 using CulinaryBlog.Infrastructure.Persistence.Seeding;
 using CulinaryBlog.IntegrationTests.Common;
+using CulinaryBlog.IntegrationTests.Recipes.Support;
 using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -204,11 +205,7 @@ public sealed class DbSeederFixture : IAsyncLifetime
 
         for (var run = 0; run < 2; run++)
         {
-            using var scope = Factory.Services.CreateScope();
-            await DbSeeder.SeedAsync(
-                scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>(),
-                scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>(),
-                scope.ServiceProvider.GetRequiredService<ISlugHelper>());
+            await DbSeederRunner.RunAsync(Factory, new FakeFileStorageService(), new RecordingBackgroundJobService());
         }
     }
 

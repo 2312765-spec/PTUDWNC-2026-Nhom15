@@ -16,6 +16,9 @@ namespace CulinaryBlog.Infrastructure.Persistence.Seeding;
 /// Nội dung lấy từ <see cref="SeedRecipeCatalog"/>; Bogus (seed cố định) chỉ chọn tác giả cho từng món.
 /// Chạy lại an toàn trên DB đã có dữ liệu thật: user nhận diện theo email seed, category dùng lại
 /// theo slug, recipe chỉ tạo khi tác giả seed chưa có recipe nào.
+///
+/// Ảnh món ăn (<see cref="SeedImageAssets"/>, plan docs/plans/DEV-SEED-anh-mon-an.md) gắn ở bước riêng chạy MỌI lần,
+/// kể cả DB đã seed trước khi có ảnh thật: thay ảnh placehold.co cũ, giữ nguyên ảnh người dùng tự upload.
 /// </summary>
 public static class DbSeeder
 {
@@ -25,7 +28,19 @@ public static class DbSeeder
         CulinaryBlogDbContext db,
         UserManager<ApplicationUser> userManager,
         ISlugHelper slugHelper,
+        IFileStorageService fileStorage,
+        IBackgroundJobService backgroundJobs,
         CancellationToken ct = default)
+    {
+        await SeedUsersAndRecipesAsync(db, userManager, slugHelper, ct);
+        await EnsureSeedImagesAsync(db, slugHelper, fileStorage, backgroundJobs, ct);
+    }
+
+    private static async Task SeedUsersAndRecipesAsync(
+        CulinaryBlogDbContext db,
+        UserManager<ApplicationUser> userManager,
+        ISlugHelper slugHelper,
+        CancellationToken ct)
     {
         var authors = new List<ApplicationUser>();
         foreach (var seed in SeedRecipeCatalog.Authors)
@@ -61,6 +76,66 @@ public static class DbSeeder
         db.Recipes.AddRange(recipes);
         await db.SaveChangesAsync(ct);
     }
+
+    /// <summary>
+    /// Gắn ảnh thật cho recipe của tác giả seed. Chỉ đụng recipe chưa có ảnh hoặc chỉ có ảnh placehold.co (dữ liệu
+    /// seed cũ); recipe đã có ảnh khác (người dùng tự upload) giữ nguyên. Món chưa có ảnh trong
+    /// <see cref="SeedImageAssets"/> thì chỉ bỏ placeholder — không gắn ảnh sai món.
+    /// Upload đi đúng đường của ảnh người dùng: <see cref="IFileStorageService.UploadAsync"/> (tên GUID, kiểm tra magic
+    /// bytes — CONS-007) vào <c>recipes/{id}</c>, sau đó enqueue tạo medium/thumbnail (FR-JOB-002).
+    /// </summary>
+    private static async Task EnsureSeedImagesAsync(
+        CulinaryBlogDbContext db,
+        ISlugHelper slugHelper,
+        IFileStorageService fileStorage,
+        IBackgroundJobService backgroundJobs,
+        CancellationToken ct)
+    {
+        var seedEmails = SeedRecipeCatalog.Authors.Select(a => a.Email).ToList();
+        var authorIds = await db.Users.Where(u => seedEmails.Contains(u.Email!)).Select(u => u.Id).ToListAsync(ct);
+        var catalogTitles = SeedRecipeCatalog.Recipes.Select(r => r.Title).ToHashSet(StringComparer.Ordinal);
+
+        var recipes = await db.Recipes
+            .Include(r => r.Images)
+            .Where(r => authorIds.Contains(r.AuthorId))
+            .ToListAsync(ct);
+
+        var attached = new List<(Guid RecipeId, Guid ImageId)>();
+        foreach (var recipe in recipes.Where(r => catalogTitles.Contains(r.Title)))
+        {
+            if (recipe.Images.Any(i => !IsPlaceholder(i.OriginalUrl)))
+            {
+                continue; // đã có ảnh thật (seed lần trước hoặc người dùng upload).
+            }
+
+            foreach (var placeholder in recipe.Images.ToList())
+            {
+                db.RecipeImages.Remove(recipe.RemoveImage(placeholder.Id));
+            }
+
+            var slug = slugHelper.Generate(recipe.Title);
+            await using var content = SeedImageAssets.Open(slug);
+            if (content is null)
+            {
+                continue;
+            }
+
+            var url = await fileStorage.UploadAsync(
+                content, SeedImageAssets.FileName(slug), SeedImageAssets.ContentType, $"recipes/{recipe.Id}", ct);
+            var image = recipe.AttachImage(url, altText: recipe.Title);
+            db.RecipeImages.Add(image); // D31 — Add tường minh: con mới của aggregate đang được theo dõi.
+            attached.Add((recipe.Id, image.Id));
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        foreach (var (recipeId, imageId) in attached)
+        {
+            backgroundJobs.EnqueueGenerateImageVariants(recipeId, imageId);
+        }
+    }
+
+    private static bool IsPlaceholder(string url) => url.Contains("placehold.co", StringComparison.OrdinalIgnoreCase);
 
     private static async Task<ApplicationUser> EnsureUserAsync(
         UserManager<ApplicationUser> userManager, string email, string displayName, string? bio, string role)
@@ -133,8 +208,6 @@ public static class DbSeeder
         {
             recipe.AddIngredient(ingredient.Name, ingredient.Quantity, ingredient.Unit, ingredient.Notes);
         }
-
-        recipe.AttachImage($"https://placehold.co/800x600/png?text={slug}", altText: seed.Title);
 
         // Qua domain method để D3 (≥ 1 step và ≥ 1 ingredient) được kiểm tra thật.
         if (status != RecipeStatus.Draft)
