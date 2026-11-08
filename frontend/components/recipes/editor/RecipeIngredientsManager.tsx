@@ -148,7 +148,7 @@ export function RecipeIngredientsManager({ recipeId, initialIngredients, onChang
                   onCancel={() => setEditingId(null)}
                 />
               ) : (
-                <div className="flex items-start gap-3">
+                <div className="flex flex-wrap sm:flex-nowrap items-start gap-3">
                   <div className="min-w-0 flex-1 text-sm">
                     <p className="flex flex-wrap justify-between gap-x-4">
                       <span className="font-medium text-ink">{item.name}</span>
@@ -156,7 +156,8 @@ export function RecipeIngredientsManager({ recipeId, initialIngredients, onChang
                     </p>
                     {item.notes && <p className="mt-0.5 text-ink-muted">{item.notes}</p>}
                   </div>
-                  <div className="flex shrink-0 items-start gap-1">
+                  {/* D84 — dưới 640px nhóm nút xuống hàng riêng, không ép chữ thành cột hẹp. */}
+                  <div className="flex shrink-0 basis-full items-start justify-end gap-1 sm:basis-auto">
                     <Button
                       type="button"
                       variant="ghost"

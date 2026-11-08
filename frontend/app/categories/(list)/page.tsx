@@ -46,7 +46,7 @@ export default async function CategoriesPage() {
           <CardBody className="py-10 text-center text-ink-muted">Chưa có danh mục nào.</CardBody>
         </Card>
       ) : (
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           {categories.map((category) => (
             <li key={category.id}>
               <Card className="flex h-full flex-col transition-colors hover:border-brand-500">

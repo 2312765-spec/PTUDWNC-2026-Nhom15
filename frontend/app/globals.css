@@ -17,6 +17,9 @@
   --color-surface-subtle: #fafaf9;
   --color-border: #e7e5e4;
 
+  /* D84 — breakpoint theo SRS NFR-USE-001: md = 768px (mặc định), lg = 1200px (Tailwind mặc định 1024px). */
+  --breakpoint-lg: 75rem;
+
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 

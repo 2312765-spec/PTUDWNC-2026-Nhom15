@@ -107,7 +107,7 @@ export default function EditRecipePage() {
         </p>
         <Link
           href={`/recipes/${recipe.slug}`}
-          className="inline-flex items-center gap-1 self-start text-sm font-medium text-brand-700 underline-offset-2 hover:underline"
+          className="inline-flex min-h-6 items-center gap-1 self-start text-sm font-medium text-brand-700 underline-offset-2 hover:underline"
         >
           Xem trang công thức <ExternalLink className="size-3.5" aria-hidden="true" />
         </Link>

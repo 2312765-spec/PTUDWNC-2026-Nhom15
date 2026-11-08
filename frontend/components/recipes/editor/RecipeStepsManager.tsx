@@ -155,7 +155,7 @@ export function RecipeStepsManager({ recipeId, initialSteps, onChange }: RecipeS
                   onCancel={() => setEditingId(null)}
                 />
               ) : (
-                <div className="flex gap-3">
+                <div className="flex flex-wrap sm:flex-nowrap gap-3">
                   <GripVertical className="mt-1 size-4 shrink-0 cursor-grab text-ink-muted" aria-hidden="true" />
                   <div className="min-w-0 flex-1">
                     <h3 className="font-semibold text-ink">
@@ -168,7 +168,8 @@ export function RecipeStepsManager({ recipeId, initialSteps, onChange }: RecipeS
                       </p>
                     )}
                   </div>
-                  <div className="flex shrink-0 items-start gap-1">
+                  {/* D84 — dưới 640px nhóm nút xuống hàng riêng, không ép chữ thành cột hẹp. */}
+                  <div className="flex shrink-0 basis-full items-start justify-end gap-1 sm:basis-auto">
                     <Button
                       type="button"
                       variant="ghost"

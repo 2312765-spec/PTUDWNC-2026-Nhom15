@@ -93,6 +93,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D80 | Xóa cache Next sau khi đổi trạng thái recipe | Server Action `revalidateRecipeAction(slug)` → `updateTag('recipes')` + `updateTag('recipe:{slug}')` sau publish/unpublish/archive/delete · fetch trang chủ + trang danh mục gắn tag `recipes` |
 | D81 | Danh sách "công thức của tôi" (`/dashboard/recipes`) | `GET /recipes?mine=true` (chưa đăng nhập → 401) + lọc `status` sau bộ lọc quyền · không route `/recipes/mine` · Admin cũng chỉ thấy bài của mình · DTO giữ nguyên |
 | D82 | Trang tổng quan Author (`/dashboard`) | 4 ô số Tổng/Nháp/Đã xuất bản/Đã lưu trữ (link sang `/dashboard/recipes?status=`) + 5 bài mới nhất · dùng 4 lời gọi `GET /recipes?mine=true` có sẵn, **không thêm endpoint** · chỉ Author/Admin · lỗi chỉ hỏng phần tổng quan |
+| D84 | Responsive (NFR-USE-001) | Breakpoint `lg` = **1200px** (Tailwind mặc định 1024) · touch-friendly = vùng bấm ≥ 24×24px (WCAG 2.5.8) · bảng dữ liệu cuộn ngang trong khung riêng · không có BrowserStack → Playwright giả lập, thiết bị thật "chưa kiểm" |
 
 ---
 
@@ -2322,6 +2323,37 @@ liệu vì bộ lọc quyền luôn chạy trước.
 lời gọi đều rất nhẹ (`pageSize` 1–5) và có cache Redis 15 phút theo từng người xem.
 
 **Sửa SRS:** mục 5.1 dòng `/dashboard` — "Trang tổng quan: số công thức của tôi theo trạng thái + 5 bài mới nhất + lối tắt".
+
+---
+
+## D84 — Responsive: breakpoint, "touch-friendly", cách đo (NFR-USE-001)
+
+> 2026-11-08. Phát hiện lúc Explore NFR-USE-001. Bổ sung cho NFR-USE-001.
+
+**Nguồn mâu thuẫn / thiếu:**
+
+- SRS: Tablet 768–1199px là **lưới 2 cột**, Desktop ≥ 1200px. Tailwind mặc định `lg` = 1024px — lưới recipe đang
+  hiện 3 cột từ 1024px, lệch SRS.
+- "Touch-friendly" không có con số.
+- SRS bắt thử bằng BrowserStack (iOS, Android) — nhóm không có tài khoản.
+- Bảng quản lý danh mục (Admin) tràn ngang ở 320px; SRS không nói bảng dữ liệu xử lý thế nào trên mobile.
+
+**Chốt:**
+
+1. Breakpoint theo SRS: `md` = 768px (mặc định Tailwind), **`lg` = 1200px** (`--breakpoint-lg: 75rem` trong
+   `frontend/app/globals.css`). Dưới 768px: 1 cột; 768–1199px: tối đa 2 cột cho lưới card; từ 1200px: đầy đủ.
+2. Touch-friendly = mọi vùng bấm **≥ 24×24px** (WCAG 2.5.8). Link nằm trong đoạn văn được miễn. 44×44px là khuyến
+   nghị cho nút chính, không bắt buộc.
+3. Bảng dữ liệu trên mobile được cuộn ngang **trong khung của bảng** (WCAG 1.4.10 cho phép với bảng); cả trang không
+   bao giờ cuộn ngang. Cột phụ (vd. Slug) được ẩn dưới 640px.
+4. Không có BrowserStack: đo bằng Playwright giả lập (320/375/768/1024/1200/1440, bật cảm ứng) —
+   `frontend/e2e/responsive.spec.ts`. Thiết bị iOS/Android thật ghi "chưa kiểm" trong `traceability.md`.
+
+**Vì:** bám đúng con số SRS cho bố cục; dùng tiêu chí WCAG có sẵn thay cho chữ "touch-friendly" mơ hồ; không có thiết
+bị thì ghi rõ phạm vi (giống D83).
+
+**Sửa SRS:** NFR-USE-001 — ghi "touch-friendly: vùng bấm ≥ 24×24px"; "Kiểm thử: Chrome DevTools / Playwright giả lập;
+BrowserStack ngoài phạm vi v1".
 
 ---
 

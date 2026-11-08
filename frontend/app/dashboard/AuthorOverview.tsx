@@ -76,7 +76,7 @@ function Overview({ data }: { data: MyRecipesOverview }) {
             <Link
               href="/dashboard/recipes"
               aria-label="Xem tất cả công thức của tôi"
-              className="text-sm font-medium text-brand-700 underline-offset-2 hover:underline"
+              className="inline-flex min-h-6 items-center text-sm font-medium text-brand-700 underline-offset-2 hover:underline"
             >
               Xem tất cả
             </Link>

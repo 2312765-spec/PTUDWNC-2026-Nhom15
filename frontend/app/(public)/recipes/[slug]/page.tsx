@@ -65,11 +65,11 @@ export default async function RecipeDetailPage({
 
       {/* Breadcrumb */}
       <nav className="text-sm text-gray-500 mb-6 flex items-center space-x-2">
-        <Link href="/" className="hover:underline">
+        <Link href="/" className="inline-flex min-h-6 items-center hover:underline">
           Trang chủ
         </Link>
         <span>/</span>
-        <Link href={`/categories/${recipe.category.slug}`} className="hover:underline">
+        <Link href={`/categories/${recipe.category.slug}`} className="inline-flex min-h-6 items-center hover:underline">
           {recipe.category.name}
         </Link>
         <span>/</span>

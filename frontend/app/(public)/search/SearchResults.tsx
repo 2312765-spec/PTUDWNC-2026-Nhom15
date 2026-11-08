@@ -42,7 +42,7 @@ export default async function SearchResults({ q, page }: { q: string; page: numb
         Tìm thấy <strong className="text-ink">{data.totalCount}</strong> kết quả cho &quot;{q}&quot;
       </p>
 
-      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {data.items.map((recipe) => (
           <li key={recipe.id}>
             <RecipeCard recipe={recipe} />

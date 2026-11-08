@@ -32,7 +32,7 @@ export default async function RecipeResults({ filters }: { filters: RecipeListFi
       <Card>
         <CardBody role="status" className="flex flex-col items-center gap-3 py-10 text-center text-ink-muted">
           <p>Không có công thức nào khớp với bộ lọc.</p>
-          <Link href="/recipes" className="text-sm font-medium text-brand-700 hover:underline">
+          <Link href="/recipes" className="inline-flex min-h-6 items-center text-sm font-medium text-brand-700 hover:underline">
             Xem tất cả công thức
           </Link>
         </CardBody>
@@ -46,7 +46,7 @@ export default async function RecipeResults({ filters }: { filters: RecipeListFi
         Có <strong className="text-ink">{data.totalCount}</strong> công thức
       </p>
 
-      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {data.items.map((recipe) => (
           <li key={recipe.id}>
             <RecipeCard recipe={recipe} />

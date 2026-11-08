@@ -26,7 +26,7 @@ export function HeaderAuth() {
   if (!profile) {
     return (
       <div className="flex items-center gap-3 text-sm">
-        <Link href="/auth/login" className="font-medium text-brand-700 hover:underline">
+        <Link href="/auth/login" className="inline-flex min-h-6 items-center font-medium text-brand-700 hover:underline">
           Đăng nhập
         </Link>
         <Link
@@ -46,11 +46,11 @@ export function HeaderAuth() {
         {profile.displayName}
       </span>
       {/* SRS 5.1/D82 — lối vào trang tổng quan (đích sau đăng nhập, lời chào + lối tắt). */}
-      <Link href="/dashboard" className="whitespace-nowrap text-sm font-medium text-brand-700 hover:underline">
+      <Link href="/dashboard" className="inline-flex min-h-6 items-center whitespace-nowrap text-sm font-medium text-brand-700 hover:underline">
         Bảng điều khiển
       </Link>
       {/* FR-AUTH-006 — trang xem hồ sơ cá nhân. */}
-      <Link href="/dashboard/profile" className="whitespace-nowrap text-sm font-medium text-brand-700 hover:underline">
+      <Link href="/dashboard/profile" className="inline-flex min-h-6 items-center whitespace-nowrap text-sm font-medium text-brand-700 hover:underline">
         Hồ sơ
       </Link>
       <LogoutButton className="whitespace-nowrap" />
