@@ -62,4 +62,16 @@ test.describe('Luồng tìm kiếm (FR-SRCH-001)', () => {
     // Lần đầu dev server còn phải biên dịch trang chi tiết → nới timeout so với mặc định 5s.
     await expect(page).toHaveURL(new RegExp(`/recipes/${SEED_MATCH.slug}$`), { timeout: 15_000 });
   });
+
+  test('NFR-PERF-005/D86: kết quả nằm sẵn trong HTML đầu tiên, không stream qua Suspense (<div hidden>)', async ({
+    request,
+  }) => {
+    const response = await request.get(`/search?q=${encodeURIComponent(SEED_MATCH.q)}`);
+    expect(response.ok()).toBe(true);
+    const html = await response.text();
+
+    // Kết quả bị stream thì nằm trong <div hidden id="S:n"> và chỉ hiện khi script của React chạy → LCP muộn.
+    expect(html).not.toMatch(/<div hidden id="S:/);
+    expect(html).toMatch(new RegExp(`<a[^>]+href="/recipes/${SEED_MATCH.slug}"`));
+  });
 });

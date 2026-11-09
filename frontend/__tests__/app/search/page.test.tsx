@@ -1,6 +1,16 @@
 import { screen } from '@testing-library/react';
+import { isValidElement, Suspense, type ReactElement, type ReactNode } from 'react';
 import SearchPage, { dynamic, generateMetadata } from '@/app/(public)/search/page';
+import SearchResults from '@/app/(public)/search/SearchResults';
 import { renderWithProviders } from '../../utils/render';
+
+/** Duyệt cây JSX (chưa render) tìm phần tử thỏa điều kiện. */
+function findElements(node: ReactNode, match: (el: ReactElement) => boolean): ReactElement[] {
+  if (Array.isArray(node)) return node.flatMap((child) => findElements(child, match));
+  if (!isValidElement(node)) return [];
+  const children = (node.props as { children?: ReactNode }).children;
+  return [...(match(node) ? [node] : []), ...findElements(children, match)];
+}
 
 jest.mock('@/app/(public)/search/SearchResults', () => ({
   __esModule: true,
@@ -44,6 +54,13 @@ describe('/search — FR-SRCH-001', () => {
     renderWithProviders(await SearchPage(props({ q: 'pho', page: '-2' })));
 
     expect(screen.getByTestId('results')).toHaveTextContent('pho|1');
+  });
+
+  it('NFR-PERF-005/D86: kết quả KHÔNG bọc trong <Suspense> — nằm ngay trong HTML đầu, không stream trong <div hidden>', async () => {
+    const tree = await SearchPage(props({ q: 'pho' }));
+
+    expect(findElements(tree, (el) => el.type === Suspense)).toHaveLength(0);
+    expect(findElements(tree, (el) => el.type === SearchResults)).toHaveLength(1);
   });
 
   it('FR-SRCH-001: metadata title theo từ khóa', async () => {

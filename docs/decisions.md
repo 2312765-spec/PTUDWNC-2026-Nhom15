@@ -95,7 +95,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D82 | Trang tổng quan Author (`/dashboard`) | 4 ô số Tổng/Nháp/Đã xuất bản/Đã lưu trữ (link sang `/dashboard/recipes?status=`) + 5 bài mới nhất · dùng 4 lời gọi `GET /recipes?mine=true` có sẵn, **không thêm endpoint** · chỉ Author/Admin · lỗi chỉ hỏng phần tổng quan |
 | D83 | Cách đo a11y (NFR-USE-002) | Screen reader **chỉ NVDA** (nhóm không có Mac/iPhone), VoiceOver "chưa kiểm" · axe-core trong E2E (0 vi phạm WCAG 2.1 A/AA) + checklist tay `docs/a11y-checklist.md` |
 | D84 | Responsive (NFR-USE-001) | Breakpoint `lg` = **1200px** (Tailwind mặc định 1024) · touch-friendly = vùng bấm ≥ 24×24px (WCAG 2.5.8) · bảng dữ liệu cuộn ngang trong khung riêng · không có BrowserStack → Playwright giả lập, thiết bị thật "chưa kiểm" |
-| D86 | Cách đo LCP trong Lighthouse CI (NFR-PERF-005) | Làm nóng cache trước khi đo (`frontend/scripts/lhci-server.mjs`: gọi từng URL + mọi ảnh `/_next/image`) · ảnh card `quality` 50, chỉ card đầu tải ngay (`fetchPriority="high"`) |
+| D86 | LCP `/search` + cách đo Lighthouse CI (NFR-PERF-005) | `/search` **không** stream kết quả qua `<Suspense>` (kết quả có ngay trong HTML đầu) · báo đang tải bằng transition (`aria-busy`) · làm nóng cache trước khi đo · ngưỡng giữ 2500ms |
 
 ---
 
@@ -2386,28 +2386,38 @@ BrowserStack ngoài phạm vi v1".
 
 ---
 
-## D86 — Lighthouse CI: làm nóng cache trước khi đo, ảnh card nhẹ hơn (NFR-PERF-005)
+## D86 — LCP của `/search`: không stream kết quả qua Suspense; cách đo Lighthouse CI (NFR-PERF-005)
 
-> 2026-11-09. Phát hiện khi PR #86 (ảnh seed thật) làm job Lighthouse đỏ: LCP `/recipes` 2666ms, `/search?q=ga` 2872ms
-> (ngưỡng 2500ms). Trước đó card không có ảnh, LCP là chữ.
+> 2026-11-09. PR #86 (ảnh seed thật) làm job Lighthouse CI đỏ. Plan: `docs/plans/NFR-PERF-005-search-lcp.md`.
 
-**Nguồn thiếu:** SRS ghi LCP < 2.5s nhưng không nói đo ở trạng thái cache nào. Job CI bật `next start` rồi đo ngay:
-lần tải đầu của mỗi trang phải dựng SSR, gọi API khi Redis còn trống, và chuyển đổi ảnh 1200px lần đầu qua
-`/_next/image` — production không bao giờ ở trạng thái đó lâu.
+**Nguồn thiếu:** SRS 5.1 chỉ ghi `/search` là SSR, không nói kết quả render một lần hay stream. Trang bọc kết quả
+trong `<Suspense>` để có skeleton. Khi card có ảnh thật, LCP `/search?q=ga` trên runner CI là 2607–2957ms (5/5 lần
+vượt 2500ms):
+
+- Kết quả bị stream nằm trong `<div hidden id="S:0">`, chỉ hiện khi script `$RC`/`$RV` của React chạy (React 19 gom
+  và hoãn việc hiện boundary). Ảnh card đầu tải xong ở 40ms nhưng được vẽ ở ~194ms, sau khi JS hydrate.
+- Lighthouse mô phỏng tính mọi request trước thời điểm LCP quan sát được → cộng cả ~180 KB JS và các prefetch RSC.
+- Trang chi tiết recipe không stream nên LCP cũng là ảnh mà chỉ ~1.9s.
+
+`/recipes` và `/recipes/banh-khot` fail ở các run trước chỉ vì lhci chọn trúng một lần đo lệch (1/5 lần) làm "run
+đại diện"; các lần còn lại ~1.9–2.0s.
 
 **Chốt:**
 
-1. `startServerCommand` của lhci là `frontend/scripts/lhci-server.mjs`: bật `next start`, gọi trước từng URL trong
-   `lighthouserc.json` và mọi ảnh `/_next/image` trên trang (header `Accept` như Chrome), rồi mới báo sẵn sàng.
-2. Ảnh trong `RecipeCard` (khung cao 160px): `quality` **50** (thêm vào `images.qualities` — Next 16 ép giá trị ngoài
-   danh sách về mức gần nhất); chỉ card đầu của lưới `loading="eager"` + `fetchPriority="high"`, card khác lazy;
-   `sizes` khớp lưới 1/2/3 cột (D84).
-3. Ngưỡng giữ nguyên 2500ms, không nới.
+1. `/search` **không** bọc `SearchResults` trong `<Suspense>` (và không có `loading.tsx` phía trên): server chờ kết
+   quả (API search có cache Redis, ~4ms) rồi gửi trong HTML đầu tiên.
+2. Báo đang tải khi đổi từ khóa / trang (NFR-USE-004) thay cho skeleton: `SearchForm` có sẵn "Đang tìm…";
+   `SearchPagination` chuyển trang trong `startTransition`, `Pagination` có prop `pending` (`aria-busy`, khóa nút) +
+   dòng "Đang tải trang…". Kết quả cũ vẫn hiện trong lúc chờ — không bao giờ trống trang.
+3. Lighthouse CI: làm nóng cache trước khi đo (`frontend/scripts/lhci-server.mjs`) và artifact giữ `.lighthouseci`
+   (`include-hidden-files: true`) để xem được báo cáo. Ngưỡng giữ nguyên 2500ms.
+4. Đã thử, không thấy hiệu quả rõ nhưng vô hại nên giữ: ảnh `RecipeCard` quality 50 (có trong `images.qualities`),
+   chỉ card đầu `eager` + `fetchPriority="high"`, `sizes` khớp lưới 1/2/3 cột (D84).
 
-**Vì:** đo đúng trải nghiệm người dùng thật (cache nóng) mà không hạ chuẩn; ảnh card nhẹ hơn ~30% mà vẫn nét ở
-kích thước hiển thị.
+**Theo dõi:** `/recipes` cùng mẫu Suspense. Đang pass vì trên mobile LCP của nó là chữ trong header; nếu ảnh card thành
+LCP (vd. bỏ bớt bộ lọc phía trên) thì áp dụng như mục 1.
 
-**Nếu vẫn sát ngưỡng:** card dùng ảnh `medium`/`thumbnail` do FR-JOB-002 tạo sẵn (cần đổi `RecipeSummaryDto`).
+**Vì:** sửa đúng cơ chế làm LCP muộn mà không hạ chuẩn; trang kết quả tìm kiếm vẫn SSR đúng SRS 5.1.
 
 **Sửa SRS:** NFR-PERF-005 — thêm "đo khi cache đã nóng (mỗi URL đã được tải một lần)".
 

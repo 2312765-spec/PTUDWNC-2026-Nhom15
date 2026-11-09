@@ -7,6 +7,8 @@ export interface PaginationProps {
   totalPages: number;
   onPageChange: (page: number) => void;
   className?: string;
+  /** NFR-USE-004 — đang chuyển trang: `aria-busy` và khóa mọi nút để không bấm chồng. */
+  pending?: boolean;
 }
 
 const ELLIPSIS = '…' as const;
@@ -30,17 +32,21 @@ function buildPageList(page: number, totalPages: number): (number | typeof ELLIP
   return result;
 }
 
-export function Pagination({ page, totalPages, onPageChange, className }: PaginationProps) {
+export function Pagination({ page, totalPages, onPageChange, className, pending = false }: PaginationProps) {
   if (totalPages <= 1) {
     return null;
   }
 
   return (
-    <nav aria-label="Phân trang" className={cn('flex items-center justify-center gap-1', className)}>
+    <nav
+      aria-label="Phân trang"
+      aria-busy={pending}
+      className={cn('flex items-center justify-center gap-1', pending && 'opacity-60', className)}
+    >
       <button
         type="button"
         onClick={() => onPageChange(page - 1)}
-        disabled={page <= 1}
+        disabled={pending || page <= 1}
         aria-label="Trang trước"
         className="inline-flex size-9 items-center justify-center rounded-md text-ink hover:bg-surface-subtle disabled:opacity-40"
       >
@@ -57,6 +63,7 @@ export function Pagination({ page, totalPages, onPageChange, className }: Pagina
             key={p}
             type="button"
             onClick={() => onPageChange(p)}
+            disabled={pending}
             aria-current={p === page ? 'page' : undefined}
             className={cn(
               'inline-flex size-9 items-center justify-center rounded-md text-sm',
@@ -71,7 +78,7 @@ export function Pagination({ page, totalPages, onPageChange, className }: Pagina
       <button
         type="button"
         onClick={() => onPageChange(page + 1)}
-        disabled={page >= totalPages}
+        disabled={pending || page >= totalPages}
         aria-label="Trang sau"
         className="inline-flex size-9 items-center justify-center rounded-md text-ink hover:bg-surface-subtle disabled:opacity-40"
       >
