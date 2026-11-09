@@ -96,7 +96,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D83 | Cách đo a11y (NFR-USE-002) | Screen reader **chỉ NVDA** (nhóm không có Mac/iPhone), VoiceOver "chưa kiểm" · axe-core trong E2E (0 vi phạm WCAG 2.1 A/AA) + checklist tay `docs/a11y-checklist.md` |
 | D84 | Responsive (NFR-USE-001) | Breakpoint `lg` = **1200px** (Tailwind mặc định 1024) · touch-friendly = vùng bấm ≥ 24×24px (WCAG 2.5.8) · bảng dữ liệu cuộn ngang trong khung riêng · không có BrowserStack → Playwright giả lập, thiết bị thật "chưa kiểm" |
 | D86 | LCP `/search` + cách đo Lighthouse CI (NFR-PERF-005) | `/search` **không** stream kết quả qua `<Suspense>` (kết quả có ngay trong HTML đầu) · báo đang tải bằng transition (`aria-busy`) · làm nóng cache trước khi đo · ngưỡng giữ 2500ms |
-| D87 | Lighthouse CI chấm theo trung vị (NFR-PERF-005) | `aggregationMethod: "median"` — trung vị 5 lần đo cho từng chỉ số, thay `median-run` (chấm 1 lần "đại diện") · ngưỡng giữ nguyên · `/search` còn vượt ~100ms, theo dõi riêng |
+| D87 | Lighthouse CI chấm theo trung vị (NFR-PERF-005) | `aggregationMethod: "median"` — trung vị **9** lần đo cho từng chỉ số, thay `median-run` (chấm 1 lần "đại diện") · ngưỡng giữ nguyên |
 | D88 | Biến thể ảnh `card` (FR-JOB-002, NFR-PERF-005) | Thêm biến thể thứ ba: **crop giữa 760×320** WebP, không phóng to · `RecipeImage.CardUrl` · `RecipeSummaryDto.FeaturedImageCardUrl` · card dùng ảnh card, chưa có thì ảnh gốc · ảnh trước D88: job chỉ bổ sung card |
 
 ---
@@ -2439,12 +2439,17 @@ LCP (vd. bỏ bớt bộ lọc phía trên) thì áp dụng như mục 1.
 
 **Chốt:**
 
-1. `aggregationMethod: "median"` — mỗi chỉ số lấy trung vị của 5 lần đo (`numberOfRuns: 5`). Ngưỡng giữ nguyên
-   (LCP 2500ms, CLS 0.1, TBT 200ms, script 200 KB).
+1. `aggregationMethod: "median"` — mỗi chỉ số lấy trung vị của **9** lần đo (`numberOfRuns: 9`, trước là 5). Ngưỡng giữ
+   nguyên (LCP 2500ms, CLS 0.1, TBT 200ms, script 200 KB).
 2. Kiểm lại trên báo cáo của 3 run CI (42593569015, 42597856560, 42600886432): chỉ còn `/search?q=ga` vượt —
    trung vị 2801 → 2679 → 2604ms qua các bản sửa của D86. Các trang khác đều dưới ngưỡng.
-3. `/search` còn vượt ~100ms: theo dõi ở issue riêng (phần lớn còn lại là JS dùng chung ~180 KB trong Render Delay và
-   Load Delay mô phỏng của trang động). Job Lighthouse đỏ tới khi issue đó xong.
+3. `/search` còn vượt ~100ms ở thời điểm đó → xử lý bằng ảnh card cắt đúng khung (D88): trung vị 2486ms ở run
+   42614466149.
+
+4. **9 lần thay vì 5** (bổ sung 2026-11-09, run 42614466149 của PR #88): trên runner CI mọi trang dao động giữa hai
+   mức, ~1.8–2.0s hoặc ~2.4–2.9s, kể cả trang mà LCP là chữ (`/`: 1962 · 1962 · 1965 · 2654 · 2949). Với 5 lần, trung vị
+   pass/fail tùy số lần rơi vào mức chậm: `/recipes/banh-khot` (không đổi code) trung vị ~1.89s ở 3 run trước nhưng
+   2502ms ở run này (4/5 lần chậm). Job Lighthouse lâu thêm ~4–5 phút.
 
 **Vì:** một lần đo lệch không quyết định kết quả nữa, nhưng không nới ngưỡng và không che `/search` đang vượt thật.
 
