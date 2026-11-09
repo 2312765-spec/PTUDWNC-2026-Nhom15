@@ -2514,6 +2514,31 @@ q50, rộng 750): 4:3 = 108 KB, cắt 750×280 = 67 KB (−38%). AVIF chỉ −5
 
 ---
 
+## D89 — NFR-REL-001: phạm vi kiểm được trong v1 (uptime, giám sát ngoài, banner bảo trì)
+
+> 2026-11-09. Phát hiện khi rà việc tuần 8 của D (traceability NFR-REL-001 còn 🟡).
+
+**Nguồn thiếu:** SRS NFR-REL-001 gộp 4 yêu cầu: uptime ≥ 99.5%/năm, readiness probe `/health/ready` mỗi 10s,
+Uptime Robot / Better Uptime báo động khi sập > 1 phút, banner báo bảo trì trước 48 giờ. Ba yêu cầu sau phần probe
+cần hệ thống chạy công khai nhiều tháng (uptime), một URL public (giám sát ngoài), hoặc một tính năng không có FR nào
+mô tả (banner — ai bật, cấu hình ở đâu). Không có FR nào để truy code về (Quy tắc vàng 2).
+
+**Chốt:**
+
+1. **Trong phạm vi v1:** health check 3 endpoint (FR-OBS-001) + healthcheck container `api` gọi `/health/ready`
+   mỗi 10s trong `docker-compose.prod.yml`. Đã có → NFR-REL-001 tính ✅ theo phạm vi này.
+2. **Ngoài phạm vi v1:** chứng minh uptime ≥ 99.5%; banner báo bảo trì 48 giờ (không code).
+3. **Tùy chọn khi deploy công khai:** đăng ký Uptime Robot trỏ vào `https://{SITE_DOMAIN}/health/ready`, báo
+   động khi sập > 1 phút — chỉ là cấu hình dịch vụ ngoài, không đổi code.
+
+**Vì:** đồ án 8 tuần không có môi trường chạy dài hạn để đo SLA; phần kiểm được bằng code/test đã xong. Banner bảo
+trì là tính năng mới không có FR, thêm vào là tự mở rộng scope (CLAUDE.md mục 9).
+
+**Sửa SRS:** NFR-REL-001 — tách "readiness probe 10s" (v1) khỏi "uptime 99.5%, Uptime Robot, banner bảo trì"
+(vận hành sau khi deploy).
+
+---
+
 ## Khi phát hiện mâu thuẫn mới lúc code
 
 1. Thêm mục mới vào cuối file này với mã `D23`, `D24`…
