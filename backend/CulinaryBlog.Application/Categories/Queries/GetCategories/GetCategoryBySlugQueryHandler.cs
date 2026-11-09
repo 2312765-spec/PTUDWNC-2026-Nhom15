@@ -48,19 +48,24 @@ public sealed class GetCategoryBySlugQueryHandler : IRequestHandler<GetCategoryB
             .OrderByDescending(r => r.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(r => new RecipeSummaryDto(
-                r.Id,
-                r.Title,
-                r.Slug,
-                r.Description,
-                r.Images.FirstOrDefault(i => i.IsPrimary)?.OriginalUrl ?? r.Images.FirstOrDefault()?.OriginalUrl,
-                r.Status.ToString(),
-                r.PrepTime,
-                r.CookTime,
-                r.Difficulty.ToString(),
-                Guid.TryParse(r.AuthorId, out var authorGuid) ? authorGuid : Guid.Empty,
-                null,
-                r.CreatedAt))
+            .Select(r =>
+            {
+                var featured = r.Images.FirstOrDefault(i => i.IsPrimary) ?? r.Images.FirstOrDefault();
+                return new RecipeSummaryDto(
+                    r.Id,
+                    r.Title,
+                    r.Slug,
+                    r.Description,
+                    featured?.OriginalUrl,
+                    r.Status.ToString(),
+                    r.PrepTime,
+                    r.CookTime,
+                    r.Difficulty.ToString(),
+                    Guid.TryParse(r.AuthorId, out var authorGuid) ? authorGuid : Guid.Empty,
+                    null,
+                    r.CreatedAt,
+                    FeaturedImageCardUrl: featured?.CardUrl);
+            })
             .ToList();
 
         var pagedRecipes = new PagedResult<RecipeSummaryDto>(items, totalCount, page, pageSize);

@@ -6,8 +6,8 @@ using Microsoft.Extensions.Logging;
 namespace CulinaryBlog.Application.Recipes.Commands.Images;
 
 /// <summary>
-/// FR-JOB-002/D40–D44 — sinh medium + thumbnail cho một ảnh đã upload. Idempotent: mọi trường hợp
-/// "không còn gì để làm" (recipe đã soft delete, ảnh đã xóa, đã có thumbnail, định dạng không
+/// FR-JOB-002/D40–D44, D88 — sinh medium + thumbnail + card cho một ảnh đã upload. Idempotent: mọi trường hợp
+/// "không còn gì để làm" (recipe đã soft delete, ảnh đã xóa, đã có card, định dạng không
 /// resize được) kết thúc êm, không ném lỗi — Hangfire retry những trường hợp đó là vô ích.
 /// Không kiểm tra ownership: lệnh hệ thống, không có endpoint gọi tới.
 /// </summary>
@@ -33,10 +33,14 @@ public sealed class GenerateRecipeImageVariantsCommandHandler(
             return;
         }
 
-        if (image.ThumbnailUrl is not null)
+        // D88: đủ 3 biến thể mới là xong. Ảnh xử lý trước D88 có medium/thumbnail nhưng chưa có card → chạy tiếp,
+        // chỉ upload card (không tạo lại medium/thumbnail, không sinh file mồ côi).
+        if (image.CardUrl is not null)
         {
             return;
         }
+
+        var hasMediumAndThumbnail = image.MediumUrl is not null && image.ThumbnailUrl is not null;
 
         ResizedImageSet? resized;
         await using (var original = await fileStorageService.DownloadAsync(image.OriginalUrl, cancellationToken))
@@ -53,15 +57,27 @@ public sealed class GenerateRecipeImageVariantsCommandHandler(
         }
 
         var folder = $"recipes/{request.RecipeId}";
-        var uploadedUrls = new List<string>(2);
+        var uploadedUrls = new List<string>(3);
         try
         {
-            var mediumUrl = await UploadAsync(resized.Medium, "medium.webp", folder, cancellationToken);
-            uploadedUrls.Add(mediumUrl);
-            var thumbnailUrl = await UploadAsync(resized.Thumbnail, "thumbnail.webp", folder, cancellationToken);
-            uploadedUrls.Add(thumbnailUrl);
+            string mediumUrl, thumbnailUrl;
+            if (hasMediumAndThumbnail)
+            {
+                mediumUrl = image.MediumUrl!;
+                thumbnailUrl = image.ThumbnailUrl!;
+            }
+            else
+            {
+                mediumUrl = await UploadAsync(resized.Medium, "medium.webp", folder, cancellationToken);
+                uploadedUrls.Add(mediumUrl);
+                thumbnailUrl = await UploadAsync(resized.Thumbnail, "thumbnail.webp", folder, cancellationToken);
+                uploadedUrls.Add(thumbnailUrl);
+            }
 
-            recipe.SetImageVariants(image.Id, mediumUrl, thumbnailUrl);
+            var cardUrl = await UploadAsync(resized.Card, "card.webp", folder, cancellationToken);
+            uploadedUrls.Add(cardUrl);
+
+            recipe.SetImageVariants(image.Id, mediumUrl, thumbnailUrl, cardUrl);
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
         catch

@@ -17,9 +17,11 @@ public class GenerateRecipeImageVariantsCommandHandlerTests
     private const string OriginalUrl = "https://minio/culinary-blog/recipes/r/original.jpg";
     private const string MediumUrl = "https://minio/culinary-blog/recipes/r/medium.webp";
     private const string ThumbnailUrl = "https://minio/culinary-blog/recipes/r/thumb.webp";
+    private const string CardUrl = "https://minio/culinary-blog/recipes/r/card.webp";
 
     private static readonly byte[] MediumBytes = [1, 1, 1];
     private static readonly byte[] ThumbnailBytes = [2, 2, 2];
+    private static readonly byte[] CardBytes = [3, 3, 3];
 
     private readonly IRecipeRepository _recipeRepository = Substitute.For<IRecipeRepository>();
     private readonly IFileStorageService _fileStorage = Substitute.For<IFileStorageService>();
@@ -39,10 +41,15 @@ public class GenerateRecipeImageVariantsCommandHandlerTests
         _recipeRepository.GetByIdWithImagesAsync(_recipe.Id, Arg.Any<CancellationToken>()).Returns(_recipe);
         _fileStorage.DownloadAsync(OriginalUrl, Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult<Stream>(new MemoryStream([9, 9, 9])));
-        _resizer.Resize(Arg.Any<Stream>()).Returns(new ResizedImageSet(MediumBytes, ThumbnailBytes));
+        _resizer.Resize(Arg.Any<Stream>()).Returns(new ResizedImageSet(MediumBytes, ThumbnailBytes, CardBytes));
         _fileStorage
             .UploadAsync(Arg.Any<Stream>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(call => ReadAll(call.Arg<Stream>()).SequenceEqual(MediumBytes) ? MediumUrl : ThumbnailUrl);
+            .Returns(call => ReadAll(call.Arg<Stream>()) switch
+            {
+                var b when b.SequenceEqual(MediumBytes) => MediumUrl,
+                var b when b.SequenceEqual(ThumbnailBytes) => ThumbnailUrl,
+                _ => CardUrl,
+            });
     }
 
     private GenerateRecipeImageVariantsCommandHandler CreateHandler() =>
@@ -51,15 +58,16 @@ public class GenerateRecipeImageVariantsCommandHandlerTests
 
     private GenerateRecipeImageVariantsCommand Command() => new(_recipe.Id, _image.Id);
 
-    [Fact(DisplayName = "FR-JOB-002/D40/D41: thành công → upload 2 ảnh WebP vào recipes/{id}, gán URL, lưu DB")]
-    public async Task Handle_Success_UploadsBothVariantsAndSaves()
+    [Fact(DisplayName = "FR-JOB-002/D40/D41/D88: thành công → upload 3 ảnh WebP (medium, thumbnail, card) vào recipes/{id}, gán URL, lưu DB")]
+    public async Task Handle_Success_UploadsAllVariantsAndSaves()
     {
         await CreateHandler().Handle(Command(), CancellationToken.None);
 
         _image.MediumUrl.Should().Be(MediumUrl);
         _image.ThumbnailUrl.Should().Be(ThumbnailUrl);
+        _image.CardUrl.Should().Be(CardUrl);
         _image.OriginalUrl.Should().Be(OriginalUrl);
-        await _fileStorage.Received(2).UploadAsync(
+        await _fileStorage.Received(3).UploadAsync(
             Arg.Any<Stream>(), Arg.Any<string>(), IImageResizer.OutputContentType, $"recipes/{_recipe.Id}", Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         _jobs.DidNotReceive().EnqueueDeleteImageFile(Arg.Any<string>());
@@ -99,15 +107,32 @@ public class GenerateRecipeImageVariantsCommandHandlerTests
         await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
     }
 
-    [Fact(DisplayName = "FR-JOB-002/D44: ảnh đã có ThumbnailUrl → no-op (job chạy lại an toàn)")]
-    public async Task Handle_AlreadyHasVariants_IsNoOp()
+    [Fact(DisplayName = "FR-JOB-002/D44/D88: ảnh đã có CardUrl → no-op (job chạy lại an toàn)")]
+    public async Task Handle_AlreadyHasAllVariants_IsNoOp()
     {
-        _recipe.SetImageVariants(_image.Id, "https://minio/old-medium.webp", "https://minio/old-thumb.webp");
+        _recipe.SetImageVariants(_image.Id, "https://minio/old-medium.webp", "https://minio/old-thumb.webp", "https://minio/old-card.webp");
 
         await CreateHandler().Handle(Command(), CancellationToken.None);
 
         await _fileStorage.DidNotReceiveWithAnyArgs().DownloadAsync(default!, default);
+        _image.CardUrl.Should().Be("https://minio/old-card.webp");
+    }
+
+    [Fact(DisplayName = "FR-JOB-002/D88: ảnh cũ đã có medium/thumbnail nhưng chưa có card → chỉ upload card, giữ URL cũ, lưu DB")]
+    public async Task Handle_HasMediumAndThumbnailOnly_UploadsCardOnly()
+    {
+        _recipe.SetImageVariants(_image.Id, "https://minio/old-medium.webp", "https://minio/old-thumb.webp", cardUrl: null);
+        var command = Command();
+
+        await CreateHandler().Handle(command, CancellationToken.None);
+
+        await _fileStorage.Received(1).UploadAsync(
+            Arg.Any<Stream>(), Arg.Any<string>(), IImageResizer.OutputContentType, $"recipes/{_recipe.Id}", Arg.Any<CancellationToken>());
+        _image.MediumUrl.Should().Be("https://minio/old-medium.webp");
         _image.ThumbnailUrl.Should().Be("https://minio/old-thumb.webp");
+        _image.CardUrl.Should().Be(CardUrl);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        command.TagsToInvalidate.Should().BeEquivalentTo(["recipes", $"recipe:{_recipe.Slug}"]);
     }
 
     [Fact(DisplayName = "FR-JOB-002/D41: resizer trả null (AVIF / vượt giới hạn điểm ảnh) → no-op, không upload, không ném lỗi")]
@@ -124,7 +149,7 @@ public class GenerateRecipeImageVariantsCommandHandlerTests
         command.TagsToInvalidate.Should().BeEmpty();
     }
 
-    [Fact(DisplayName = "FR-JOB-002/D43/D44: lưu DB lỗi sau khi đã upload → enqueue xóa 2 file vừa upload rồi ném lại (để Hangfire retry)")]
+    [Fact(DisplayName = "FR-JOB-002/D43/D44/D88: lưu DB lỗi sau khi đã upload → enqueue xóa 3 file vừa upload rồi ném lại (để Hangfire retry)")]
     public async Task Handle_SaveFails_CleansUpUploadedVariantsAndRethrows()
     {
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new InvalidOperationException("db down"));
@@ -134,6 +159,7 @@ public class GenerateRecipeImageVariantsCommandHandlerTests
         await act.Should().ThrowAsync<InvalidOperationException>();
         _jobs.Received(1).EnqueueDeleteImageFile(MediumUrl);
         _jobs.Received(1).EnqueueDeleteImageFile(ThumbnailUrl);
+        _jobs.Received(1).EnqueueDeleteImageFile(CardUrl);
         _jobs.DidNotReceive().EnqueueDeleteImageFile(OriginalUrl);
     }
 

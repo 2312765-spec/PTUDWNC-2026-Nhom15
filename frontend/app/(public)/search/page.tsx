@@ -1,6 +1,4 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
-import { Skeleton } from '@/components/ui';
 import { SEARCH_MIN_LENGTH } from '@/lib/recipes';
 import SearchForm from '@/components/search/SearchForm';
 import SearchResults from './SearchResults';
@@ -46,21 +44,13 @@ export default async function SearchPage({ searchParams }: PageProps) {
         <SearchForm key={q} initialQuery={q} />
       </header>
 
-      {q.length >= SEARCH_MIN_LENGTH && (
-        <Suspense key={`${q}|${page}`} fallback={<ResultsSkeleton />}>
-          <SearchResults q={q} page={page} />
-        </Suspense>
-      )}
-    </div>
-  );
-}
-
-function ResultsSkeleton() {
-  return (
-    <div aria-busy="true" className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      {Array.from({ length: 4 }, (_, i) => (
-        <Skeleton key={i} className="h-56" />
-      ))}
+      {/*
+        NFR-PERF-005/D86: KHÔNG bọc <Suspense>. Bị stream thì kết quả nằm trong <div hidden> và chỉ hiện khi React
+        chạy script ($RC/$RV, có hoãn) → ảnh card đầu (LCP) vẽ sau khi JS hydrate, LCP /search vượt 2.5s.
+        API search nhanh (cache Redis) nên chờ kết quả rồi trả HTML một lần là đủ. Đang tải khi đổi từ khóa / trang:
+        SearchForm ("Đang tìm…") và SearchPagination (aria-busy) báo — NFR-USE-004.
+      */}
+      {q.length >= SEARCH_MIN_LENGTH && <SearchResults q={q} page={page} />}
     </div>
   );
 }

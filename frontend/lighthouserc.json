@@ -1,8 +1,9 @@
 {
   "ci": {
     "collect": {
-      "startServerCommand": "npm run start",
-      "startServerReadyPattern": "Ready in",
+      "startServerCommand": "node scripts/lhci-server.mjs",
+      "startServerReadyPattern": "LHCI server ready",
+      "startServerReadyTimeout": 180000,
       "url": [
         "http://localhost:3000/",
         "http://localhost:3000/recipes",
@@ -11,10 +12,10 @@
         "http://localhost:3000/categories/mon-khai-vi",
         "http://localhost:3000/search?q=ga"
       ],
-      "numberOfRuns": 5
+      "numberOfRuns": 9
     },
     "assert": {
-      "aggregationMethod": "median-run",
+      "aggregationMethod": "median",
       "assertions": {
         "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }],
         "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],

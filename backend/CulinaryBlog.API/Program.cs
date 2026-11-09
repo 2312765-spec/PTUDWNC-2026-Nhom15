@@ -250,7 +250,9 @@ if (app.Environment.IsDevelopment())
     await DbSeeder.SeedAsync(
         db,
         scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>(),
-        scope.ServiceProvider.GetRequiredService<ISlugHelper>());
+        scope.ServiceProvider.GetRequiredService<ISlugHelper>(),
+        scope.ServiceProvider.GetRequiredService<IFileStorageService>(),
+        scope.ServiceProvider.GetRequiredService<IBackgroundJobService>());
 }
 
 // ---- Hangfire recurring job (FR-JOB-003, D52/D53) -------------------------

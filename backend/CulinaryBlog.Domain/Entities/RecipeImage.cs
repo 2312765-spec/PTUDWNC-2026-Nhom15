@@ -19,6 +19,9 @@ public class RecipeImage : BaseEntity
     /// <summary>SRS 7.5 — ảnh 300×300 do FR-JOB-002 sinh. Null khi job chưa chạy.</summary>
     public string? ThumbnailUrl { get; internal set; }
 
+    /// <summary>D88 — ảnh cắt đúng khung card (760×320) do FR-JOB-002 sinh. Null khi job chưa chạy / ảnh trước D88.</summary>
+    public string? CardUrl { get; internal set; }
+
     public string? AltText { get; internal set; } = string.Empty;
     public bool IsPrimary { get; internal set; }
     public int OrderIndex { get; internal set; }
@@ -41,9 +44,10 @@ public class RecipeImage : BaseEntity
 
     internal void SetPrimary(bool isPrimary) => IsPrimary = isPrimary;
 
-    internal void SetVariants(string mediumUrl, string thumbnailUrl)
+    internal void SetVariants(string mediumUrl, string thumbnailUrl, string? cardUrl)
     {
         MediumUrl = mediumUrl;
         ThumbnailUrl = thumbnailUrl;
+        CardUrl = cardUrl;
     }
 }

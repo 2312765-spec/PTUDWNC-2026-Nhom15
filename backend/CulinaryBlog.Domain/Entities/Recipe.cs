@@ -520,16 +520,20 @@ public class Recipe : BaseEntity, IAggregateRoot
         return img;
     }
 
-    /// <summary>FR-JOB-002/D44 — gán URL ảnh medium/thumbnail do job resize sinh ra.</summary>
-    public RecipeImage SetImageVariants(Guid imageId, string mediumUrl, string thumbnailUrl)
+    /// <summary>FR-JOB-002/D44/D88 — gán URL ảnh medium/thumbnail/card do job resize sinh ra.</summary>
+    public RecipeImage SetImageVariants(Guid imageId, string mediumUrl, string thumbnailUrl, string? cardUrl = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(mediumUrl);
         ArgumentException.ThrowIfNullOrWhiteSpace(thumbnailUrl);
+        if (cardUrl is not null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(cardUrl);
+        }
 
         var img = _images.FirstOrDefault(x => x.Id == imageId)
             ?? throw new DomainException("Không tìm thấy ảnh để gán phiên bản resize.", "RECIPE_IMAGE_NOT_FOUND");
 
-        img.SetVariants(mediumUrl, thumbnailUrl);
+        img.SetVariants(mediumUrl, thumbnailUrl, cardUrl);
         return img;
     }
 }

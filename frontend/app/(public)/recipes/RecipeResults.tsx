@@ -51,9 +51,9 @@ export default async function RecipeResults({ filters }: { filters: RecipeListFi
       </p>
 
       <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {data.items.map((recipe) => (
+        {data.items.map((recipe, index) => (
           <li key={recipe.id}>
-            <RecipeCard recipe={recipe} />
+            <RecipeCard recipe={recipe} isLcp={index === 0} />
           </li>
         ))}
       </ul>

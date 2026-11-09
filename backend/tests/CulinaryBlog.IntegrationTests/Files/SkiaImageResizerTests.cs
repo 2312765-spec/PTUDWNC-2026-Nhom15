@@ -41,6 +41,21 @@ public sealed class SkiaImageResizerTests
         TestImages.Size(result.Thumbnail).Should().Be((100, 100));
     }
 
+    [Theory(DisplayName = "FR-JOB-002/D88: card crop giữa theo tỉ lệ 760:320 rồi thu về 760×320; ảnh nhỏ không upscale")]
+    [InlineData(1200, 900, 760, 320)]  // ngang 4:3 → cắt bớt trên/dưới
+    [InlineData(2000, 500, 760, 320)]  // quá dẹt → cắt bớt hai bên
+    [InlineData(600, 1200, 600, 253)]  // dọc, hẹp hơn 760 → giữ rộng 600, cao theo tỉ lệ
+    [InlineData(200, 100, 200, 84)]    // nhỏ → không phóng to
+    public void Resize_Card_CroppedToCardAspect(int width, int height, int cardWidth, int cardHeight)
+    {
+        using var source = new MemoryStream(TestImages.Png(width, height));
+
+        var result = _sut.Resize(source)!;
+
+        TestImages.Size(result.Card).Should().Be((cardWidth, cardHeight));
+        ImageSignature.Detect(result.Card)!.ContentType.Should().Be("image/webp");
+    }
+
     [Fact(DisplayName = "FR-JOB-002/D41: đầu ra luôn là WebP (magic bytes), kể cả khi gốc là JPEG")]
     public void Resize_JpegSource_OutputsWebP()
     {

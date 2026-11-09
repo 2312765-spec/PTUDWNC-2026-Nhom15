@@ -28,4 +28,8 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- DEV-SEED: ảnh món ăn seed (Wikimedia Commons, xem Images/CREDITS.md) — nhúng vào DLL để chạy được cả trong Docker. -->
+    <EmbeddedResource Include="Persistence\Seeding\Images\*.webp" LogicalName="SeedImages/%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

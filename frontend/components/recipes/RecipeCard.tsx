@@ -10,8 +10,31 @@ const DIFFICULTY_LABEL: Record<string, string> = {
   Expert: 'Rất khó',
 };
 
-/** Card công thức dùng chung cho `/recipes` (FR-RCP-001) và `/search` (FR-SRCH-001). */
-export default function RecipeCard({ recipe }: { recipe: RecipeSummaryDto }) {
+/** `sizes` theo lưới 1/2/3 cột tại 768/1200px (D84). Lưới tối đa 2 cột thì truyền `GRID_2_COLS_SIZES`. */
+export const GRID_3_COLS_SIZES = '(min-width: 1200px) 33vw, (min-width: 768px) 50vw, 100vw';
+export const GRID_2_COLS_SIZES = '(min-width: 768px) 50vw, 100vw';
+
+/**
+ * NFR-PERF-005 — ảnh card chỉ cao 160px nên chất lượng 50 vẫn đủ nét, nhẹ hơn mặc định 75. Phải nằm trong
+ * `images.qualities` của next.config.ts (Next 16 ép giá trị ngoài danh sách về mức gần nhất).
+ */
+export const CARD_IMAGE_QUALITY = 50;
+
+interface RecipeCardProps {
+  recipe: RecipeSummaryDto;
+  /**
+   * NFR-PERF-005/D86 — card đầu tiên của lưới (ảnh của nó là LCP trên mobile): preload trong <head>. Các card khác
+   * lazy để không tranh băng thông với ảnh LCP.
+   */
+  isLcp?: boolean;
+  sizes?: string;
+}
+
+/** Card công thức dùng chung cho `/`, `/recipes` (FR-RCP-001) và `/search` (FR-SRCH-001). */
+export default function RecipeCard({ recipe, isLcp = false, sizes = GRID_3_COLS_SIZES }: RecipeCardProps) {
+  // FR-JOB-002/D88 — ảnh cắt đúng khung card (nhẹ hơn ~38%, nhìn y hệt); job chưa tạo thì dùng ảnh gốc.
+  const imageUrl = recipe.featuredImageCardUrl ?? recipe.featuredImageUrl;
+
   return (
     <Link
       href={`/recipes/${recipe.slug}`}
@@ -19,12 +42,17 @@ export default function RecipeCard({ recipe }: { recipe: RecipeSummaryDto }) {
     >
       <Card className="h-full overflow-hidden transition hover:shadow-md">
         <div className="relative h-40 w-full bg-surface-subtle">
-          {recipe.featuredImageUrl ? (
+          {imageUrl ? (
             <Image
-              src={recipe.featuredImageUrl}
+              src={imageUrl}
               alt={recipe.title}
               fill
-              sizes="(min-width: 640px) 50vw, 100vw"
+              sizes={sizes}
+              quality={CARD_IMAGE_QUALITY}
+              // D86: card LCP dùng preload (<link rel="preload"> trong <head>, như ảnh đầu trang chi tiết) — trình
+              // duyệt tải ảnh ngay khi đọc head thay vì đợi tới thẻ <img> sau CSS. Next cấm preload đi cùng loading.
+              preload={isLcp}
+              loading={isLcp ? undefined : 'lazy'}
               className="object-cover"
             />
           ) : (

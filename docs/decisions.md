@@ -96,6 +96,9 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D83 | Cách đo a11y (NFR-USE-002) | Screen reader **chỉ NVDA** (nhóm không có Mac/iPhone), VoiceOver "chưa kiểm" · axe-core trong E2E (0 vi phạm WCAG 2.1 A/AA) + checklist tay `docs/a11y-checklist.md` |
 | D84 | Responsive (NFR-USE-001) | Breakpoint `lg` = **1200px** (Tailwind mặc định 1024) · touch-friendly = vùng bấm ≥ 24×24px (WCAG 2.5.8) · bảng dữ liệu cuộn ngang trong khung riêng · không có BrowserStack → Playwright giả lập, thiết bị thật "chưa kiểm" |
 | D85 | Hai request tạo recipe cùng tiêu đề đến cùng lúc (FR-RCP-003) | Lỗi trùng `IX_Recipes_Slug` → sinh lại slug và thử lại, **tối đa 5 lần** · không khóa bảng · hết 5 lần → 500 |
+| D86 | LCP `/search` + cách đo Lighthouse CI (NFR-PERF-005) | `/search` **không** stream kết quả qua `<Suspense>` (kết quả có ngay trong HTML đầu) · báo đang tải bằng transition (`aria-busy`) · làm nóng cache trước khi đo · ngưỡng giữ 2500ms |
+| D87 | Lighthouse CI chấm theo trung vị (NFR-PERF-005) | `aggregationMethod: "median"` — trung vị **9** lần đo cho từng chỉ số, thay `median-run` (chấm 1 lần "đại diện") · ngưỡng giữ nguyên |
+| D88 | Biến thể ảnh `card` (FR-JOB-002, NFR-PERF-005) | Thêm biến thể thứ ba: **crop giữa 760×320** WebP, không phóng to · `RecipeImage.CardUrl` · `RecipeSummaryDto.FeaturedImageCardUrl` · card dùng ảnh card, chưa có thì ảnh gốc · ảnh trước D88: job chỉ bổ sung card |
 
 ---
 
@@ -2409,6 +2412,105 @@ sự trùng; khóa thì mọi lệnh tạo recipe phải chờ nhau. Bắt lỗi
 ảnh hưởng các lệnh ghi khác (Identity, refresh token).
 
 **Sửa SRS:** FR-RCP-003 — thêm "Slug duy nhất kể cả khi nhiều request tạo cùng lúc".
+
+---
+
+## D86 — LCP của `/search`: không stream kết quả qua Suspense; cách đo Lighthouse CI (NFR-PERF-005)
+
+> 2026-11-09. PR #86 (ảnh seed thật) làm job Lighthouse CI đỏ. Plan: `docs/plans/NFR-PERF-005-search-lcp.md`.
+
+**Nguồn thiếu:** SRS 5.1 chỉ ghi `/search` là SSR, không nói kết quả render một lần hay stream. Trang bọc kết quả
+trong `<Suspense>` để có skeleton. Khi card có ảnh thật, LCP `/search?q=ga` trên runner CI là 2607–2957ms (5/5 lần
+vượt 2500ms):
+
+- Kết quả bị stream nằm trong `<div hidden id="S:0">`, chỉ hiện khi script `$RC`/`$RV` của React chạy (React 19 gom
+  và hoãn việc hiện boundary). Ảnh card đầu tải xong ở 40ms nhưng được vẽ ở ~194ms, sau khi JS hydrate.
+- Lighthouse mô phỏng tính mọi request trước thời điểm LCP quan sát được → cộng cả ~180 KB JS và các prefetch RSC.
+- Trang chi tiết recipe không stream nên LCP cũng là ảnh mà chỉ ~1.9s.
+
+`/recipes` và `/recipes/banh-khot` fail ở các run trước chỉ vì lhci chọn trúng một lần đo lệch (1/5 lần) làm "run
+đại diện"; các lần còn lại ~1.9–2.0s.
+
+**Chốt:**
+
+1. `/search` **không** bọc `SearchResults` trong `<Suspense>` (và không có `loading.tsx` phía trên): server chờ kết
+   quả (API search có cache Redis, ~4ms) rồi gửi trong HTML đầu tiên.
+2. Báo đang tải khi đổi từ khóa / trang (NFR-USE-004) thay cho skeleton: `SearchForm` có sẵn "Đang tìm…";
+   `SearchPagination` chuyển trang trong `startTransition`, `Pagination` có prop `pending` (`aria-busy`, khóa nút) +
+   dòng "Đang tải trang…". Kết quả cũ vẫn hiện trong lúc chờ — không bao giờ trống trang.
+3. Lighthouse CI: làm nóng cache trước khi đo (`frontend/scripts/lhci-server.mjs`) và artifact giữ `.lighthouseci`
+   (`include-hidden-files: true`) để xem được báo cáo. Ngưỡng giữ nguyên 2500ms.
+4. Ảnh card đầu của lưới (`RecipeCard isLcp`) dùng `preload` — `<link rel="preload">` trong `<head>`, giống ảnh đầu
+   trang chi tiết (`priority`). Không có thì trình duyệt chỉ thấy ảnh ở thẻ `<img>` sau CSS: run CI 42597856560 đo
+   Load Delay 435ms ở `/search` so với 0ms ở trang chi tiết. Card khác `lazy`.
+5. Đã thử, không thấy hiệu quả rõ nhưng vô hại nên giữ: ảnh `RecipeCard` quality 50 (có trong `images.qualities`),
+   `sizes` khớp lưới 1/2/3 cột (D84).
+
+**Theo dõi:** `/recipes` cùng mẫu Suspense. Đang pass vì trên mobile LCP của nó là chữ trong header; nếu ảnh card thành
+LCP (vd. bỏ bớt bộ lọc phía trên) thì áp dụng như mục 1.
+
+**Vì:** sửa đúng cơ chế làm LCP muộn mà không hạ chuẩn; trang kết quả tìm kiếm vẫn SSR đúng SRS 5.1.
+
+**Sửa SRS:** NFR-PERF-005 — thêm "đo khi cache đã nóng (mỗi URL đã được tải một lần)".
+
+---
+
+## D87 — Lighthouse CI chấm theo trung vị 9 lần đo (NFR-PERF-005)
+
+> 2026-11-09. Phát hiện khi đọc báo cáo của 3 run CI liền nhau trên PR #86 (D86).
+
+**Nguồn thiếu:** SRS ghi ngưỡng (LCP < 2.5s…) nhưng không nói tổng hợp nhiều lần đo thế nào. `lighthouserc.json` dùng
+`aggregationMethod: "median-run"`: lhci chọn **một** lần chạy "đại diện" (theo FCP/TTI) rồi chấm mọi chỉ số của lần
+đó. Lần được chọn có thể là lần lệch về LCP: trong cùng một run, `/` đo 1889–2806ms, `/recipes/banh-khot` 1886–2495ms,
+`/categories/mon-khai-vi` 1810–2417ms. `/recipes` và `/recipes/banh-khot` từng làm job đỏ chỉ vì 1/5 lần lệch.
+
+**Chốt:**
+
+1. `aggregationMethod: "median"` — mỗi chỉ số lấy trung vị của **9** lần đo (`numberOfRuns: 9`, trước là 5). Ngưỡng giữ
+   nguyên (LCP 2500ms, CLS 0.1, TBT 200ms, script 200 KB).
+2. Kiểm lại trên báo cáo của 3 run CI (42593569015, 42597856560, 42600886432): chỉ còn `/search?q=ga` vượt —
+   trung vị 2801 → 2679 → 2604ms qua các bản sửa của D86. Các trang khác đều dưới ngưỡng.
+3. `/search` còn vượt ~100ms ở thời điểm đó → xử lý bằng ảnh card cắt đúng khung (D88): trung vị 2486ms ở run
+   42614466149.
+
+4. **9 lần thay vì 5** (bổ sung 2026-11-09, run 42614466149 của PR #88): trên runner CI mọi trang dao động giữa hai
+   mức, ~1.8–2.0s hoặc ~2.4–2.9s, kể cả trang mà LCP là chữ (`/`: 1962 · 1962 · 1965 · 2654 · 2949). Với 5 lần, trung vị
+   pass/fail tùy số lần rơi vào mức chậm: `/recipes/banh-khot` (không đổi code) trung vị ~1.89s ở 3 run trước nhưng
+   2502ms ở run này (4/5 lần chậm). Job Lighthouse lâu thêm ~4–5 phút.
+
+**Vì:** một lần đo lệch không quyết định kết quả nữa, nhưng không nới ngưỡng và không che `/search` đang vượt thật.
+
+**Sửa SRS:** NFR-PERF-005 — thêm "chấm trên trung vị 9 lần đo Lighthouse".
+
+---
+
+## D88 — FR-JOB-002: biến thể ảnh `card` cắt đúng khung card (NFR-PERF-005)
+
+> 2026-11-09. Tiếp theo D86/D87 (LCP `/search` trung vị 2604ms). Plan: `docs/plans/FR-JOB-002-card-variant.md`.
+> Bổ sung D40 (D40 chỉ có medium + thumbnail).
+
+**Nguồn thiếu:** Card hiển thị dải ảnh cao 160px (`object-cover`), rộng ~360–380px (tỉ lệ ~2.4:1) nhưng nhận ảnh 4:3 —
+hơn nửa điểm ảnh bị CSS che. `/_next/image` chỉ đổi kích thước, không cắt. Đo trên 3 ảnh đầu của `/search?q=ga` (WebP
+q50, rộng 750): 4:3 = 108 KB, cắt 750×280 = 67 KB (−38%). AVIF chỉ −5% nên không dùng.
+
+**Chốt:**
+
+1. FR-JOB-002 sinh thêm biến thể **card**: crop giữa theo tỉ lệ 760:320 rồi thu về **760×320**, WebP (D41); vùng cắt
+   hẹp hơn 760 thì giữ nguyên rộng, không phóng to (như D40).
+2. `RecipeImage.CardUrl` (nullable, migration `AddRecipeImageCardUrl`). Xóa ảnh xóa cả file card (D43).
+3. Idempotent (D44) theo `CardUrl`: đã có card → no-op. Ảnh xử lý trước D88 (có medium + thumbnail, chưa có card) →
+   job chỉ upload card, giữ URL cũ, không sinh file mồ côi.
+4. `RecipeSummaryDto.FeaturedImageCardUrl` = card của đúng ảnh đại diện (primary, không có thì ảnh đầu).
+   `FeaturedImageUrl` giữ là ảnh gốc.
+5. `RecipeCard` dùng `featuredImageCardUrl ?? featuredImageUrl` — chưa có card vẫn hiện ảnh gốc như cũ.
+6. DbSeeder (Development): ảnh của recipe seed đã có thumbnail mà chưa có card → enqueue job để bổ sung.
+
+**Ngoài phạm vi:** ảnh người dùng đã upload trên production trước D88 chưa có card tới khi được xử lý lại (card dùng
+ảnh gốc, không hỏng). Backfill production cần một job/lệnh riêng.
+
+**Vì:** người dùng thấy y hệt mà ảnh card nhẹ hơn ~38% trên mọi trang có card (`/`, `/recipes`, `/search`, danh mục).
+
+**Sửa SRS:** FR-JOB-002 — "sinh medium 800×600, thumbnail 300×300 **và card 760×320**"; mục 7.5 thêm cột `CardUrl`.
 
 ---
 

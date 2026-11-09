@@ -1,4 +1,4 @@
-import RecipeCard from '@/components/recipes/RecipeCard';
+import RecipeCard, { GRID_2_COLS_SIZES } from '@/components/recipes/RecipeCard';
 import { Card, CardBody } from '@/components/ui';
 import { ApiError } from '@/lib/categories';
 import { SEARCH_MIN_LENGTH, searchRecipes } from '@/lib/recipes';
@@ -47,9 +47,9 @@ export default async function SearchResults({ q, page }: { q: string; page: numb
       </p>
 
       <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {data.items.map((recipe) => (
+        {data.items.map((recipe, index) => (
           <li key={recipe.id}>
-            <RecipeCard recipe={recipe} />
+            <RecipeCard recipe={recipe} isLcp={index === 0} sizes={GRID_2_COLS_SIZES} />
           </li>
         ))}
       </ul>

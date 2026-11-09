@@ -17,6 +17,7 @@ public sealed class RecipeImageConfiguration : IEntityTypeConfiguration<RecipeIm
         builder.Property(x => x.OriginalUrl).HasMaxLength(500).IsRequired();
         builder.Property(x => x.MediumUrl).HasMaxLength(500);
         builder.Property(x => x.ThumbnailUrl).HasMaxLength(500);
+        builder.Property(x => x.CardUrl).HasMaxLength(500); // D88
         builder.Property(x => x.AltText).HasMaxLength(200);
         builder.Property(x => x.IsPrimary).HasDefaultValue(false);
         builder.Property(x => x.OrderIndex).HasDefaultValue(0);

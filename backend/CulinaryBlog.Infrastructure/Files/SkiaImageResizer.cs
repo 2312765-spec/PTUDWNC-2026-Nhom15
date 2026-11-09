@@ -5,7 +5,7 @@ namespace CulinaryBlog.Infrastructure.Files;
 
 /// <summary>
 /// FR-JOB-002 — D40 (thumbnail crop 300×300, medium fit 800×600, không upscale, auto-orient rồi bỏ
-/// metadata, giới hạn điểm ảnh) và D41 (đầu ra WebP; định dạng Skia không decode được như AVIF → null).
+/// metadata, giới hạn điểm ảnh), D88 (card crop 760×320) và D41 (đầu ra WebP; định dạng Skia không decode được như AVIF → null).
 /// Thư viện: SkiaSharp (D46, ADR-0004).
 /// </summary>
 public sealed class SkiaImageResizer(long maxPixels = SkiaImageResizer.DefaultMaxPixels) : IImageResizer
@@ -16,6 +16,10 @@ public sealed class SkiaImageResizer(long maxPixels = SkiaImageResizer.DefaultMa
     private const int MediumWidth = 800;
     private const int MediumHeight = 600;
     private const int ThumbnailSide = 300;
+
+    /// <summary>D88 — khung card: rộng ~360–380px CSS × DPR 2, cao 160px × 2.</summary>
+    private const int CardWidth = 760;
+    private const int CardHeight = 320;
     private const int WebpQuality = 80;
 
     private static readonly SKSamplingOptions Sampling = new(SKFilterMode.Linear, SKMipmapMode.Linear);
@@ -44,7 +48,7 @@ public sealed class SkiaImageResizer(long maxPixels = SkiaImageResizer.DefaultMa
         using var oriented = codec.EncodedOrigin == SKEncodedOrigin.TopLeft ? null : AutoOrient(decoded, codec.EncodedOrigin);
         var image = oriented ?? decoded;
 
-        return new ResizedImageSet(Medium: ToMedium(image), Thumbnail: ToThumbnail(image));
+        return new ResizedImageSet(Medium: ToMedium(image), Thumbnail: ToThumbnail(image), Card: ToCard(image));
     }
 
     /// <summary>
@@ -112,6 +116,30 @@ public sealed class SkiaImageResizer(long maxPixels = SkiaImageResizer.DefaultMa
         var crop = SKRect.Create((image.Width - shortSide) / 2f, (image.Height - shortSide) / 2f, shortSide, shortSide);
         var side = Math.Min(ThumbnailSide, shortSide);
         return Render(image, crop, side, side);
+    }
+
+    /// <summary>
+    /// D88 — crop giữa theo tỉ lệ 760:320 (khung card, CSS <c>object-cover</c> vốn che phần còn lại), rồi thu về
+    /// 760×320. Vùng cắt hẹp hơn 760 thì giữ nguyên rộng, không phóng to.
+    /// </summary>
+    private static byte[] ToCard(SKImage image)
+    {
+        const double aspect = (double)CardWidth / CardHeight;
+        double cropWidth = image.Width, cropHeight = image.Height;
+        if (cropWidth / cropHeight > aspect)
+        {
+            cropWidth = cropHeight * aspect;
+        }
+        else
+        {
+            cropHeight = cropWidth / aspect;
+        }
+
+        var crop = SKRect.Create(
+            (float)((image.Width - cropWidth) / 2), (float)((image.Height - cropHeight) / 2), (float)cropWidth, (float)cropHeight);
+        var width = Math.Max(1, Math.Min(CardWidth, (int)Math.Round(cropWidth)));
+        var height = Math.Max(1, (int)Math.Round(width / aspect));
+        return Render(image, crop, width, height);
     }
 
     private static byte[] Render(SKImage source, SKRect sourceRect, int width, int height)
