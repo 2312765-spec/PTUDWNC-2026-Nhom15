@@ -375,3 +375,191 @@ describe('useRecipeImageGallery — reorder (D27: PATCH orderIndex, cho phép tr
     expect(result.current.images.map((i) => i.imageId)).toEqual(['img-1', 'img-2']);
   });
 });
+
+/** Promise điều khiển tay: giữ request "đang chờ server" để kiểm UI đổi trước khi server trả lời. */
+function deferred() {
+  let resolve!: () => void;
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<void>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+describe('NFR-USE-004 — setPrimary optimistic + rollback', () => {
+  it('NFR-USE-004: đổi primary NGAY, trước khi PATCH trả về', async () => {
+    const pending = deferred();
+    mockUpdateImage.mockReturnValueOnce(pending.promise);
+
+    const initial = [
+      image({ imageId: 'img-1', isPrimary: true, orderIndex: 0 }),
+      image({ imageId: 'img-2', orderIndex: 1 }),
+    ];
+    const { result } = renderHook(() => useRecipeImageGallery(RECIPE_ID, initial));
+
+    let call!: Promise<void>;
+    act(() => {
+      call = result.current.setPrimary('img-2');
+    });
+
+    expect(result.current.images.find((i) => i.imageId === 'img-2')?.isPrimary).toBe(true);
+    expect(result.current.images.find((i) => i.imageId === 'img-1')?.isPrimary).toBe(false);
+
+    await act(async () => {
+      pending.resolve();
+      await call;
+    });
+  });
+
+  it('NFR-USE-004: PATCH lỗi → trả primary về ảnh cũ và ném lỗi ra', async () => {
+    const pending = deferred();
+    mockUpdateImage.mockReturnValueOnce(pending.promise);
+
+    const initial = [
+      image({ imageId: 'img-1', isPrimary: true, orderIndex: 0 }),
+      image({ imageId: 'img-2', orderIndex: 1 }),
+    ];
+    const { result } = renderHook(() => useRecipeImageGallery(RECIPE_ID, initial));
+
+    let call!: Promise<void>;
+    act(() => {
+      call = result.current.setPrimary('img-2');
+    });
+    await act(async () => {
+      pending.reject(new Error('boom'));
+      await expect(call).rejects.toThrow('boom');
+    });
+
+    expect(result.current.images.find((i) => i.imageId === 'img-1')?.isPrimary).toBe(true);
+    expect(result.current.images.find((i) => i.imageId === 'img-2')?.isPrimary).toBe(false);
+  });
+
+  it('NFR-USE-004: lần đặt primary đầu lỗi SAU khi lần sau đã đổi primary → không hoàn tác đè lần sau', async () => {
+    const first = deferred();
+    mockUpdateImage.mockReturnValueOnce(first.promise).mockResolvedValueOnce(undefined);
+
+    const initial = [
+      image({ imageId: 'img-1', isPrimary: true, orderIndex: 0 }),
+      image({ imageId: 'img-2', orderIndex: 1 }),
+      image({ imageId: 'img-3', orderIndex: 2 }),
+    ];
+    const { result } = renderHook(() => useRecipeImageGallery(RECIPE_ID, initial));
+
+    let firstCall!: Promise<void>;
+    act(() => {
+      firstCall = result.current.setPrimary('img-2');
+    });
+    await act(async () => {
+      await result.current.setPrimary('img-3');
+    });
+    await act(async () => {
+      first.reject(new Error('boom'));
+      await expect(firstCall).rejects.toThrow('boom');
+    });
+
+    expect(result.current.images.filter((i) => i.isPrimary).map((i) => i.imageId)).toEqual(['img-3']);
+  });
+});
+
+describe('NFR-USE-004 — remove optimistic + rollback', () => {
+  it('NFR-USE-004: ảnh biến mất NGAY và primary chuyển sang ảnh kế (D22), trước khi DELETE trả về', async () => {
+    const pending = deferred();
+    mockDeleteImage.mockReturnValueOnce(pending.promise);
+
+    const initial = [
+      image({ imageId: 'img-1', isPrimary: true, orderIndex: 0 }),
+      image({ imageId: 'img-2', orderIndex: 1 }),
+    ];
+    const { result } = renderHook(() => useRecipeImageGallery(RECIPE_ID, initial));
+
+    let call!: Promise<void>;
+    act(() => {
+      call = result.current.remove('img-1');
+    });
+
+    expect(result.current.images.map((i) => i.imageId)).toEqual(['img-2']);
+    expect(result.current.images[0].isPrimary).toBe(true);
+
+    await act(async () => {
+      pending.resolve();
+      await call;
+    });
+  });
+
+  it('NFR-USE-004: DELETE ảnh thường lỗi → ảnh quay về đúng vị trí, ném lỗi ra', async () => {
+    const pending = deferred();
+    mockDeleteImage.mockReturnValueOnce(pending.promise);
+
+    const initial = [
+      image({ imageId: 'img-1', isPrimary: true, orderIndex: 0 }),
+      image({ imageId: 'img-2', orderIndex: 1 }),
+      image({ imageId: 'img-3', orderIndex: 2 }),
+    ];
+    const { result } = renderHook(() => useRecipeImageGallery(RECIPE_ID, initial));
+
+    let call!: Promise<void>;
+    act(() => {
+      call = result.current.remove('img-2');
+    });
+    await act(async () => {
+      pending.reject(new Error('boom'));
+      await expect(call).rejects.toThrow('boom');
+    });
+
+    expect(result.current.images.map((i) => i.imageId)).toEqual(['img-1', 'img-2', 'img-3']);
+    expect(result.current.images.filter((i) => i.isPrimary).map((i) => i.imageId)).toEqual(['img-1']);
+  });
+
+  it('NFR-USE-004: DELETE ảnh primary lỗi → ảnh quay về và lại là primary duy nhất', async () => {
+    const pending = deferred();
+    mockDeleteImage.mockReturnValueOnce(pending.promise);
+
+    const initial = [
+      image({ imageId: 'img-1', isPrimary: true, orderIndex: 0 }),
+      image({ imageId: 'img-2', orderIndex: 1 }),
+    ];
+    const { result } = renderHook(() => useRecipeImageGallery(RECIPE_ID, initial));
+
+    let call!: Promise<void>;
+    act(() => {
+      call = result.current.remove('img-1');
+    });
+    await act(async () => {
+      pending.reject(new Error('boom'));
+      await expect(call).rejects.toThrow('boom');
+    });
+
+    expect(result.current.images.map((i) => i.imageId)).toEqual(['img-1', 'img-2']);
+    expect(result.current.images.filter((i) => i.isPrimary).map((i) => i.imageId)).toEqual(['img-1']);
+  });
+
+  it('NFR-USE-004: DELETE lỗi → giữ ảnh mới upload xong trong lúc chờ', async () => {
+    const pending = deferred();
+    mockDeleteImage.mockReturnValueOnce(pending.promise);
+    mockUploadImage.mockResolvedValueOnce(uploadResponse({ imageId: 'img-new' }));
+
+    const initial = [
+      image({ imageId: 'img-1', isPrimary: true, orderIndex: 0 }),
+      image({ imageId: 'img-2', orderIndex: 1 }),
+    ];
+    const { result } = renderHook(() => useRecipeImageGallery(RECIPE_ID, initial));
+
+    let call!: Promise<void>;
+    act(() => {
+      call = result.current.remove('img-2');
+    });
+    await act(async () => {
+      await result.current.upload(new File(['x'], 'moi.jpg', { type: 'image/jpeg' }));
+    });
+    await act(async () => {
+      pending.reject(new Error('boom'));
+      await expect(call).rejects.toThrow('boom');
+    });
+
+    const ids = result.current.images.map((i) => i.imageId);
+    expect(ids).toEqual(expect.arrayContaining(['img-1', 'img-2', 'img-new']));
+    expect(ids).toHaveLength(3);
+    expect(ids.indexOf('img-1')).toBeLessThan(ids.indexOf('img-2'));
+  });
+});

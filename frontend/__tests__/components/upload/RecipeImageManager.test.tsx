@@ -171,6 +171,50 @@ describe('RecipeImageManager', () => {
     expect(gallery.remove).toHaveBeenCalledWith('img-3');
   });
 
+  it('NFR-USE-004: bấm "Xoá ảnh" → dialog đóng NGAY, không chờ server trả lời', async () => {
+    // remove không bao giờ resolve — mô phỏng DELETE đang chờ server.
+    const gallery = setupGallery({
+      images: [image({ imageId: 'img-3' })],
+      remove: jest.fn().mockReturnValue(new Promise<void>(() => {})),
+    });
+    render(<RecipeImageManager recipeId={RECIPE_ID} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /xoá ảnh/i }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xoá ảnh' }));
+
+    expect(gallery.remove).toHaveBeenCalledWith('img-3');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('NFR-USE-004: xoá lỗi → không ném lỗi ra ngoài, dialog không mở lại (hook đã hoàn tác ảnh + toast)', async () => {
+    const gallery = setupGallery({
+      images: [image({ imageId: 'img-3' })],
+      remove: jest.fn().mockRejectedValue(new Error('boom')),
+    });
+    render(<RecipeImageManager recipeId={RECIPE_ID} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /xoá ảnh/i }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Xoá ảnh' }));
+
+    expect(gallery.remove).toHaveBeenCalledWith('img-3');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('NFR-USE-004: đặt ảnh chính lỗi → lỗi được nuốt ở Manager (toast đã hiện ở hook), không unhandled rejection', async () => {
+    const setPrimary = jest.fn().mockRejectedValue(new Error('boom'));
+    setupGallery({ images: [image({ imageId: 'img-2' })], setPrimary });
+    const unhandled = jest.fn();
+    process.on('unhandledRejection', unhandled);
+    render(<RecipeImageManager recipeId={RECIPE_ID} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /đặt làm ảnh chính/i }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    process.off('unhandledRejection', unhandled);
+    expect(setPrimary).toHaveBeenCalledWith('img-2');
+    expect(unhandled).not.toHaveBeenCalled();
+  });
+
   it('trong dialog xác nhận, bấm "Huỷ" → KHÔNG gọi gallery.remove', async () => {
     const gallery = setupGallery({ images: [image({ imageId: 'img-3' })] });
     render(<RecipeImageManager recipeId={RECIPE_ID} />);
