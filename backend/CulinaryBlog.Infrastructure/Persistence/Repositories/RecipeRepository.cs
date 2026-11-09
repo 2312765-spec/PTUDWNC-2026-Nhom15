@@ -4,6 +4,7 @@ using CulinaryBlog.Domain.Enums;
 using CulinaryBlog.Domain.Interfaces;
 using CulinaryBlog.Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using NpgsqlTypes;
 
 namespace CulinaryBlog.Infrastructure.Persistence.Repositories;
@@ -58,6 +59,44 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
 
     public async Task AddAsync(Recipe recipe, CancellationToken cancellationToken = default) =>
         await context.Recipes.AddAsync(recipe, cancellationToken);
+
+    /// <summary>Tên unique index trên <c>Recipes.Slug</c> (EF Core đặt mặc định — xem migration).</summary>
+    private const string SlugIndexName = "IX_Recipes_Slug";
+
+    /// <inheritdoc />
+    public async Task<bool> TryAddAsync(Recipe recipe, CancellationToken cancellationToken = default)
+    {
+        await context.Recipes.AddAsync(recipe, cancellationToken);
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: SlugIndexName,
+        })
+        {
+            // D85: request khác vừa lưu cùng slug. Gỡ cả graph (vẫn ở trạng thái Added) để lần thử sau
+            // không chèn lại bản này.
+            DetachGraph(recipe);
+            return false;
+        }
+    }
+
+    private void DetachGraph(Recipe recipe)
+    {
+        var graph = new HashSet<object>(ReferenceEqualityComparer.Instance) { recipe, recipe.Nutrition };
+        graph.UnionWith(recipe.Steps);
+        graph.UnionWith(recipe.Ingredients);
+        graph.UnionWith(recipe.Images);
+
+        foreach (var entry in context.ChangeTracker.Entries().Where(e => graph.Contains(e.Entity)).ToList())
+        {
+            entry.State = EntityState.Detached;
+        }
+    }
 
     public void Update(Recipe recipe) =>
         context.Recipes.Update(recipe);

@@ -108,6 +108,29 @@ public sealed class CreateTests(PostgresApiFactory factory) : IClassFixture<Post
             .Slug.Should().Be(first!.Slug + "-2");
     }
 
+    [Fact(DisplayName = "FR-RCP-003/D10/D85: 5 request cùng title gửi song song → cả 5 trả 201, slug x, x-2 … x-5 (không 500)")]
+    public async Task Create_ConcurrentSameTitle_AllSucceedWithDistinctSlugs()
+    {
+        const int Count = 5;
+        var author = await _api.RegisterAuthorAsync();
+        var category = await _api.CreateCategoryAsync();
+        var title = "Bún bò " + Guid.NewGuid().ToString("N")[..6];
+
+        var responses = await Task.WhenAll(Enumerable.Range(0, Count).Select(_ =>
+            _api.SendAsync(HttpMethod.Post, Url, author.Token, RecipeCommandClient.CreateBody(category.Id, title))));
+
+        responses.Select(r => r.StatusCode).Should().AllBeEquivalentTo(HttpStatusCode.Created);
+        var slugs = new List<string>();
+        foreach (var response in responses)
+        {
+            slugs.Add((await response.Content.ReadFromJsonAsync<RecipeDetailDto>(RecipeCommandClient.JsonOptions))!.Slug);
+        }
+
+        var baseSlug = slugs.OrderBy(s => s.Length).ThenBy(s => s, StringComparer.Ordinal).First();
+        slugs.Should().BeEquivalentTo(
+            new[] { baseSlug }.Concat(Enumerable.Range(2, Count - 1).Select(i => $"{baseSlug}-{i}")));
+    }
+
     [Fact(DisplayName = "FR-RCP-003/D10: title \"Search\" → slug search-1 (không đụng route /recipes/search)")]
     public async Task Create_ReservedSlug_GetsSuffix()
     {
