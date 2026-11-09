@@ -38,6 +38,16 @@ describe('RecipeCard — ảnh (NFR-PERF-005)', () => {
     expect(nextConfig.images?.qualities).toEqual(expect.arrayContaining([CARD_IMAGE_QUALITY, 75]));
   });
 
+  it('FR-JOB-002/D88: có ảnh card (cắt đúng khung) → dùng ảnh card; chưa có → dùng ảnh gốc', () => {
+    const cardUrl = 'http://localhost:9000/culinary-blog/recipes/r1/card.webp';
+    const { unmount } = render(<RecipeCard recipe={{ ...recipe, featuredImageCardUrl: cardUrl }} />);
+    expect(decodeURIComponent(image().getAttribute('src') ?? '')).toContain(cardUrl);
+    unmount();
+
+    render(<RecipeCard recipe={{ ...recipe, featuredImageCardUrl: null }} />);
+    expect(decodeURIComponent(image().getAttribute('src') ?? '')).toContain(recipe.featuredImageUrl!);
+  });
+
   it('NFR-USE-001/D84: sizes theo lưới 3 cột mặc định, truyền được lưới 2 cột', () => {
     const { unmount } = render(<RecipeCard recipe={recipe} />);
     expect(image()).toHaveAttribute('sizes', GRID_3_COLS_SIZES);

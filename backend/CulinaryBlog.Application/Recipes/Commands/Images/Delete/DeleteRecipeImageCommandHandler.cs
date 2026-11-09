@@ -42,7 +42,7 @@ public sealed class DeleteRecipeImageCommandHandler(
         request.TagsToInvalidate = ["recipes", $"recipe:{recipe.Slug}"];
 
         // D43: xóa cả ảnh gốc lẫn medium/thumbnail do FR-JOB-002 sinh (URL nào null thì job chưa chạy).
-        foreach (var url in new[] { image.OriginalUrl, image.MediumUrl, image.ThumbnailUrl })
+        foreach (var url in new[] { image.OriginalUrl, image.MediumUrl, image.ThumbnailUrl, image.CardUrl })
         {
             if (!string.IsNullOrEmpty(url))
             {

@@ -151,6 +151,12 @@ public sealed class DbSeederLegacyImagesTests(DbSeederLegacyImagesFixture fixtur
         recipe.Images.Should().ContainSingle().Which.OriginalUrl.Should().Be(DbSeederLegacyImagesFixture.UserImageUrl);
     }
 
+    [Fact(DisplayName = "DEV-SEED ảnh / D88: ảnh đã có medium + thumbnail nhưng chưa có card → enqueue job để bổ sung card")]
+    public void ImageWithoutCard_IsEnqueuedForCardVariant()
+    {
+        fixture.Jobs.GenerateImageVariants.Should().Contain((fixture.UserImageRecipeId, fixture.UserImageId));
+    }
+
     [Fact(DisplayName = "DEV-SEED ảnh: DB seed cũ — không tạo thêm recipe seed")]
     public async Task Legacy_DoesNotCreateMoreRecipes()
     {
@@ -179,6 +185,11 @@ public sealed class DbSeederLegacyImagesFixture : IAsyncLifetime
     public Guid NoAssetRecipeId { get; private set; }
 
     public Guid UserImageRecipeId { get; private set; }
+
+    /// <summary>Ảnh đã chạy FR-JOB-002 trước D88 (có medium + thumbnail, chưa có card).</summary>
+    public Guid UserImageId { get; private set; }
+
+    public RecordingBackgroundJobService Jobs { get; } = new();
 
     public async Task InitializeAsync()
     {
@@ -212,11 +223,14 @@ public sealed class DbSeederLegacyImagesFixture : IAsyncLifetime
 
             PlaceholderRecipeId = Legacy(withAsset.Title, "https://placehold.co/800x600/png?text=old").Id;
             NoAssetRecipeId = Legacy(withoutAsset.Title, "https://placehold.co/800x600/png?text=old-2").Id;
-            UserImageRecipeId = Legacy(userImage.Title, UserImageUrl).Id;
+            var withUserImage = Legacy(userImage.Title, UserImageUrl);
+            UserImageRecipeId = withUserImage.Id;
+            UserImageId = withUserImage.Images.Single().Id;
+            withUserImage.SetImageVariants(UserImageId, "https://fake-minio.local/m.webp", "https://fake-minio.local/t.webp");
             await db.SaveChangesAsync();
         }
 
-        await DbSeederRunner.RunAsync(Factory, new FakeFileStorageService(), new RecordingBackgroundJobService());
+        await DbSeederRunner.RunAsync(Factory, new FakeFileStorageService(), Jobs);
     }
 
     public async Task DisposeAsync() => await ((IAsyncLifetime)Factory).DisposeAsync();

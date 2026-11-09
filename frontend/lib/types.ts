@@ -67,6 +67,8 @@ export interface RecipeSummaryDto {
   slug: string;
   description: string | null;
   featuredImageUrl: string | null;
+  /** FR-JOB-002/D88 — ảnh cắt đúng khung card (760×320); null khi job chưa tạo. Card dùng ảnh này trước. */
+  featuredImageCardUrl?: string | null;
   status: string;
   prepTimeMinutes: number;
   cookTimeMinutes: number;

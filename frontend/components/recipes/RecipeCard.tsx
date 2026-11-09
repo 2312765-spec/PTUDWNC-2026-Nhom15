@@ -32,6 +32,9 @@ interface RecipeCardProps {
 
 /** Card công thức dùng chung cho `/`, `/recipes` (FR-RCP-001) và `/search` (FR-SRCH-001). */
 export default function RecipeCard({ recipe, isLcp = false, sizes = GRID_3_COLS_SIZES }: RecipeCardProps) {
+  // FR-JOB-002/D88 — ảnh cắt đúng khung card (nhẹ hơn ~38%, nhìn y hệt); job chưa tạo thì dùng ảnh gốc.
+  const imageUrl = recipe.featuredImageCardUrl ?? recipe.featuredImageUrl;
+
   return (
     <Link
       href={`/recipes/${recipe.slug}`}
@@ -39,9 +42,9 @@ export default function RecipeCard({ recipe, isLcp = false, sizes = GRID_3_COLS_
     >
       <Card className="h-full overflow-hidden transition hover:shadow-md">
         <div className="relative h-40 w-full bg-surface-subtle">
-          {recipe.featuredImageUrl ? (
+          {imageUrl ? (
             <Image
-              src={recipe.featuredImageUrl}
+              src={imageUrl}
               alt={recipe.title}
               fill
               sizes={sizes}

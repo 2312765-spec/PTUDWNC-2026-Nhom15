@@ -161,6 +161,32 @@ public class RecipeImageTests
         image.OriginalUrl.Should().Be("http://minio/a.jpg");
     }
 
+    [Fact(DisplayName = "FR-JOB-002/D88: SetImageVariants kèm card → gán CardUrl; không truyền card → CardUrl null")]
+    public void SetImageVariants_WithCard_SetsCardUrl()
+    {
+        var recipe = NewRecipe();
+        var withCard = recipe.AttachImage("http://minio/a.jpg");
+        var withoutCard = recipe.AttachImage("http://minio/b.jpg");
+
+        recipe.SetImageVariants(withCard.Id, "http://minio/m.webp", "http://minio/t.webp", "http://minio/c.webp");
+        recipe.SetImageVariants(withoutCard.Id, "http://minio/m2.webp", "http://minio/t2.webp");
+
+        withCard.CardUrl.Should().Be("http://minio/c.webp");
+        withoutCard.CardUrl.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "FR-JOB-002/D88: SetImageVariants với card rỗng → ArgumentException")]
+    public void SetImageVariants_EmptyCardUrl_Throws()
+    {
+        var recipe = NewRecipe();
+        var image = recipe.AttachImage("http://minio/a.jpg");
+
+        var act = () => recipe.SetImageVariants(image.Id, "http://minio/m.webp", "http://minio/t.webp", " ");
+
+        act.Should().Throw<ArgumentException>();
+        image.CardUrl.Should().BeNull();
+    }
+
     [Fact(DisplayName = "FR-JOB-002: SetImageVariants cho ảnh không tồn tại → RECIPE_IMAGE_NOT_FOUND")]
     public void SetImageVariants_UnknownImage_Throws()
     {

@@ -97,6 +97,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D84 | Responsive (NFR-USE-001) | Breakpoint `lg` = **1200px** (Tailwind mặc định 1024) · touch-friendly = vùng bấm ≥ 24×24px (WCAG 2.5.8) · bảng dữ liệu cuộn ngang trong khung riêng · không có BrowserStack → Playwright giả lập, thiết bị thật "chưa kiểm" |
 | D86 | LCP `/search` + cách đo Lighthouse CI (NFR-PERF-005) | `/search` **không** stream kết quả qua `<Suspense>` (kết quả có ngay trong HTML đầu) · báo đang tải bằng transition (`aria-busy`) · làm nóng cache trước khi đo · ngưỡng giữ 2500ms |
 | D87 | Lighthouse CI chấm theo trung vị (NFR-PERF-005) | `aggregationMethod: "median"` — trung vị 5 lần đo cho từng chỉ số, thay `median-run` (chấm 1 lần "đại diện") · ngưỡng giữ nguyên · `/search` còn vượt ~100ms, theo dõi riêng |
+| D88 | Biến thể ảnh `card` (FR-JOB-002, NFR-PERF-005) | Thêm biến thể thứ ba: **crop giữa 760×320** WebP, không phóng to · `RecipeImage.CardUrl` · `RecipeSummaryDto.FeaturedImageCardUrl` · card dùng ảnh card, chưa có thì ảnh gốc · ảnh trước D88: job chỉ bổ sung card |
 
 ---
 
@@ -2448,6 +2449,36 @@ LCP (vd. bỏ bớt bộ lọc phía trên) thì áp dụng như mục 1.
 **Vì:** một lần đo lệch không quyết định kết quả nữa, nhưng không nới ngưỡng và không che `/search` đang vượt thật.
 
 **Sửa SRS:** NFR-PERF-005 — thêm "chấm trên trung vị 5 lần đo Lighthouse".
+
+---
+
+## D88 — FR-JOB-002: biến thể ảnh `card` cắt đúng khung card (NFR-PERF-005)
+
+> 2026-11-09. Tiếp theo D86/D87 (LCP `/search` trung vị 2604ms). Plan: `docs/plans/FR-JOB-002-card-variant.md`.
+> Bổ sung D40 (D40 chỉ có medium + thumbnail).
+
+**Nguồn thiếu:** Card hiển thị dải ảnh cao 160px (`object-cover`), rộng ~360–380px (tỉ lệ ~2.4:1) nhưng nhận ảnh 4:3 —
+hơn nửa điểm ảnh bị CSS che. `/_next/image` chỉ đổi kích thước, không cắt. Đo trên 3 ảnh đầu của `/search?q=ga` (WebP
+q50, rộng 750): 4:3 = 108 KB, cắt 750×280 = 67 KB (−38%). AVIF chỉ −5% nên không dùng.
+
+**Chốt:**
+
+1. FR-JOB-002 sinh thêm biến thể **card**: crop giữa theo tỉ lệ 760:320 rồi thu về **760×320**, WebP (D41); vùng cắt
+   hẹp hơn 760 thì giữ nguyên rộng, không phóng to (như D40).
+2. `RecipeImage.CardUrl` (nullable, migration `AddRecipeImageCardUrl`). Xóa ảnh xóa cả file card (D43).
+3. Idempotent (D44) theo `CardUrl`: đã có card → no-op. Ảnh xử lý trước D88 (có medium + thumbnail, chưa có card) →
+   job chỉ upload card, giữ URL cũ, không sinh file mồ côi.
+4. `RecipeSummaryDto.FeaturedImageCardUrl` = card của đúng ảnh đại diện (primary, không có thì ảnh đầu).
+   `FeaturedImageUrl` giữ là ảnh gốc.
+5. `RecipeCard` dùng `featuredImageCardUrl ?? featuredImageUrl` — chưa có card vẫn hiện ảnh gốc như cũ.
+6. DbSeeder (Development): ảnh của recipe seed đã có thumbnail mà chưa có card → enqueue job để bổ sung.
+
+**Ngoài phạm vi:** ảnh người dùng đã upload trên production trước D88 chưa có card tới khi được xử lý lại (card dùng
+ảnh gốc, không hỏng). Backfill production cần một job/lệnh riêng.
+
+**Vì:** người dùng thấy y hệt mà ảnh card nhẹ hơn ~38% trên mọi trang có card (`/`, `/recipes`, `/search`, danh mục).
+
+**Sửa SRS:** FR-JOB-002 — "sinh medium 800×600, thumbnail 300×300 **và card 760×320**"; mục 7.5 thêm cột `CardUrl`.
 
 ---
 

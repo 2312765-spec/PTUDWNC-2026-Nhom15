@@ -62,6 +62,32 @@ public sealed class ImageResizeTests(RecipeImagesApiFactory factory) : IClassFix
 
         TestImages.Size(medium).Should().Be((800, 600));
         TestImages.Size(thumbnail).Should().Be((300, 300));
+
+        // D88 — biến thể card cắt đúng khung card (760×320).
+        image.CardUrl.Should().NotBeNullOrWhiteSpace().And.Contain($"/recipes/{recipeId}/").And.EndWith(".webp");
+        var card = factory.FileStorage.Objects[image.CardUrl!];
+        ImageSignature.Detect(card)!.ContentType.Should().Be("image/webp");
+        TestImages.Size(card).Should().Be((760, 320));
+    }
+
+    [Fact(DisplayName = "FR-JOB-002/D88/FR-RCP-001: sau khi job chạy, danh sách recipe trả featuredImageCardUrl = CardUrl, featuredImageUrl vẫn là ảnh gốc")]
+    public async Task Job_ThenList_ReturnsCardUrl()
+    {
+        var (token, userId) = await RegisterAuthorAsync();
+        var recipeId = await SeedRecipeAsync(userId);
+        var uploaded = await UploadAsync(recipeId, TestImages.Png(1200, 900), "image/png", token);
+        await RunJobAsync(recipeId, uploaded.ImageId);
+        var image = await GetImageAsync(uploaded.ImageId);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/recipes?mine=true");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var response = await _client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var item = (await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions))
+            .GetProperty("items").EnumerateArray().Single(i => i.GetProperty("id").GetGuid() == recipeId);
+        item.GetProperty("featuredImageCardUrl").GetString().Should().Be(image.CardUrl);
+        item.GetProperty("featuredImageUrl").GetString().Should().Be(uploaded.OriginalUrl);
     }
 
     [Fact(DisplayName = "FR-JOB-002/D44: chạy job lần 2 → no-op (idempotent), không upload thêm file, URL giữ nguyên")]

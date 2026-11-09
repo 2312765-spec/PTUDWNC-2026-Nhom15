@@ -17,7 +17,10 @@ public record RecipeSummaryDto(
     string? AuthorName,
     DateTime CreatedAt,
     // FR-SRCH-001: điểm ts_rank — chỉ có ở kết quả tìm kiếm, danh sách thường để null.
-    double? RelevanceScore = null
+    double? RelevanceScore = null,
+    // FR-JOB-002/D88: ảnh cắt đúng khung card (760×320) của cùng ảnh đại diện; null khi job chưa tạo. FeaturedImageUrl
+    // vẫn là ảnh gốc (dùng cho chỗ cần ảnh đầy đủ).
+    string? FeaturedImageCardUrl = null
 );
 
 public record CategoryDetailResponseDto(

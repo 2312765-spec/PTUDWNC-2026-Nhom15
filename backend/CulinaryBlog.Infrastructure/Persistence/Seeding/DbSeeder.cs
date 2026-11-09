@@ -129,7 +129,12 @@ public static class DbSeeder
 
         await db.SaveChangesAsync(ct);
 
-        foreach (var (recipeId, imageId) in attached)
+        // D88: ảnh đã chạy FR-JOB-002 trước khi có biến thể card (có thumbnail, chưa có card) → chạy lại job để bổ
+        // sung card. Ảnh vừa gắn ở trên chưa có thumbnail nên không bị enqueue hai lần.
+        var missingCard = recipes
+            .SelectMany(r => r.Images.Where(i => i.ThumbnailUrl is not null && i.CardUrl is null).Select(i => (r.Id, i.Id)));
+
+        foreach (var (recipeId, imageId) in attached.Concat(missingCard))
         {
             backgroundJobs.EnqueueGenerateImageVariants(recipeId, imageId);
         }

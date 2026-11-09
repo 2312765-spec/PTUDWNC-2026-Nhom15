@@ -61,7 +61,8 @@ public sealed class GetRecipesQueryHandler(
                 r.Difficulty.ToString(),
                 authorGuid,
                 null,
-                r.CreatedAt
+                r.CreatedAt,
+                FeaturedImageCardUrl: primaryImage?.CardUrl
             );
         }).ToList();
 

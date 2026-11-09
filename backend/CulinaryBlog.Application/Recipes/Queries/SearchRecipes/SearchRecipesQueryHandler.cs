@@ -65,7 +65,8 @@ public sealed class SearchRecipesQueryHandler(
                 authorGuid,
                 authorName,
                 r.CreatedAt,
-                hit.Rank);
+                hit.Rank,
+                FeaturedImageCardUrl: primaryImage?.CardUrl);
         }).ToList();
 
         return new PagedResult<RecipeSummaryDto>(dtos, totalCount, page, pageSize);

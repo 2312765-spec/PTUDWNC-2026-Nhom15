@@ -45,6 +45,18 @@ public class DeleteRecipeImageCommandHandlerTests
         _jobs.Received(1).EnqueueDeleteImageFile("https://minio/thumb.webp");
     }
 
+    [Fact(DisplayName = "D43/D88: ảnh có đủ medium + thumbnail + card → enqueue xóa cả 4 file")]
+    public async Task Handle_ImageWithCardVariant_EnqueuesDeleteForAllFour()
+    {
+        var image = _recipe.AttachImage("https://minio/original.jpg");
+        _recipe.SetImageVariants(image.Id, "https://minio/medium.webp", "https://minio/thumb.webp", "https://minio/card.webp");
+
+        await CreateHandler().Handle(new DeleteRecipeImageCommand(_recipe.Id, image.Id), CancellationToken.None);
+
+        _jobs.Received(1).EnqueueDeleteImageFile("https://minio/card.webp");
+        _jobs.ReceivedCalls().Should().HaveCount(4);
+    }
+
     [Fact(DisplayName = "D43: ảnh chưa có medium/thumbnail (job chưa chạy) → chỉ enqueue xóa ảnh gốc")]
     public async Task Handle_ImageWithoutVariants_EnqueuesOnlyOriginal()
     {
