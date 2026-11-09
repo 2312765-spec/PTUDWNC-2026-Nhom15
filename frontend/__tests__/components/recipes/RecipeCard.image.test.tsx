@@ -21,11 +21,10 @@ const recipe: RecipeSummaryDto = {
 const image = () => screen.getByRole('img', { name: 'Bánh khọt' });
 
 describe('RecipeCard — ảnh (NFR-PERF-005)', () => {
-  it('NFR-PERF-005: card đầu tiên (LCP) tải ngay với fetchpriority=high', () => {
+  it('NFR-PERF-005/D86: card đầu tiên (LCP) không lazy (được preload — kiểm prop ở RecipeCard.quality.test)', () => {
     render(<RecipeCard recipe={recipe} isLcp />);
 
-    expect(image()).toHaveAttribute('loading', 'eager');
-    expect(image()).toHaveAttribute('fetchpriority', 'high');
+    expect(image()).not.toHaveAttribute('loading', 'lazy');
   });
 
   it('NFR-PERF-005: các card khác lazy, không tranh băng thông với ảnh LCP', () => {

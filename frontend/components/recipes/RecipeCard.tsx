@@ -23,7 +23,7 @@ export const CARD_IMAGE_QUALITY = 50;
 interface RecipeCardProps {
   recipe: RecipeSummaryDto;
   /**
-   * NFR-PERF-005 — card đầu tiên của lưới (ảnh của nó là LCP trên mobile): tải ngay, ưu tiên cao. Các card khác
+   * NFR-PERF-005/D86 — card đầu tiên của lưới (ảnh của nó là LCP trên mobile): preload trong <head>. Các card khác
    * lazy để không tranh băng thông với ảnh LCP.
    */
   isLcp?: boolean;
@@ -46,8 +46,10 @@ export default function RecipeCard({ recipe, isLcp = false, sizes = GRID_3_COLS_
               fill
               sizes={sizes}
               quality={CARD_IMAGE_QUALITY}
-              loading={isLcp ? 'eager' : 'lazy'}
-              fetchPriority={isLcp ? 'high' : undefined}
+              // D86: card LCP dùng preload (<link rel="preload"> trong <head>, như ảnh đầu trang chi tiết) — trình
+              // duyệt tải ảnh ngay khi đọc head thay vì đợi tới thẻ <img> sau CSS. Next cấm preload đi cùng loading.
+              preload={isLcp}
+              loading={isLcp ? undefined : 'lazy'}
               className="object-cover"
             />
           ) : (

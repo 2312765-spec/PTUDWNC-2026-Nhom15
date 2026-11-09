@@ -2411,8 +2411,11 @@ vượt 2500ms):
    dòng "Đang tải trang…". Kết quả cũ vẫn hiện trong lúc chờ — không bao giờ trống trang.
 3. Lighthouse CI: làm nóng cache trước khi đo (`frontend/scripts/lhci-server.mjs`) và artifact giữ `.lighthouseci`
    (`include-hidden-files: true`) để xem được báo cáo. Ngưỡng giữ nguyên 2500ms.
-4. Đã thử, không thấy hiệu quả rõ nhưng vô hại nên giữ: ảnh `RecipeCard` quality 50 (có trong `images.qualities`),
-   chỉ card đầu `eager` + `fetchPriority="high"`, `sizes` khớp lưới 1/2/3 cột (D84).
+4. Ảnh card đầu của lưới (`RecipeCard isLcp`) dùng `preload` — `<link rel="preload">` trong `<head>`, giống ảnh đầu
+   trang chi tiết (`priority`). Không có thì trình duyệt chỉ thấy ảnh ở thẻ `<img>` sau CSS: run CI 42597856560 đo
+   Load Delay 435ms ở `/search` so với 0ms ở trang chi tiết. Card khác `lazy`.
+5. Đã thử, không thấy hiệu quả rõ nhưng vô hại nên giữ: ảnh `RecipeCard` quality 50 (có trong `images.qualities`),
+   `sizes` khớp lưới 1/2/3 cột (D84).
 
 **Theo dõi:** `/recipes` cùng mẫu Suspense. Đang pass vì trên mobile LCP của nó là chữ trong header; nếu ảnh card thành
 LCP (vd. bỏ bớt bộ lọc phía trên) thì áp dụng như mục 1.

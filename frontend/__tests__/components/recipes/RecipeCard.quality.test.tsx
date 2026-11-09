@@ -33,3 +33,11 @@ it('NFR-PERF-005: ảnh card xin quality = CARD_IMAGE_QUALITY (50)', () => {
   expect(CARD_IMAGE_QUALITY).toBe(50);
   expect(imageProps.at(-1)).toMatchObject({ quality: 50 });
 });
+
+it('NFR-PERF-005/D86: card LCP → preload (không kèm loading); card khác → lazy, không preload', () => {
+  render(<RecipeCard recipe={recipe} isLcp />);
+  expect(imageProps.at(-1)).toMatchObject({ preload: true, loading: undefined });
+
+  render(<RecipeCard recipe={recipe} />);
+  expect(imageProps.at(-1)).toMatchObject({ preload: false, loading: 'lazy' });
+});

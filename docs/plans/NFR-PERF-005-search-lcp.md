@@ -40,6 +40,12 @@
 - E2E (`e2e/search.spec.ts`): HTML trả về của `/search?q=` chứa sẵn kết quả, không có `<div hidden id="S:`.
 - CI Lighthouse: `/search?q=ga` ≤ 2500ms.
 
+## Bổ sung sau run CI 42597856560
+
+Bỏ Suspense làm LCP quan sát về sát FCP (86ms) nhưng LCP mô phỏng vẫn 2633–2766ms. So với trang chi tiết (1966ms):
+ảnh LCP của `/search` bị phát hiện muộn (Load Delay 435ms vs 0ms) vì trang chi tiết preload ảnh đầu trang còn card
+thì không. Sửa: `RecipeCard isLcp` → `preload` (test trong `RecipeCard.{image,quality}.test.tsx`).
+
 ## Ngoài phạm vi
 
 - `/recipes` dùng cùng mẫu Suspense nhưng đang pass (LCP mobile là chữ) — ghi chú trong D86 để theo dõi.
