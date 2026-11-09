@@ -24,7 +24,7 @@ public class ConventionTests
             .OrShould().BeAbstract()
             .Check(Architecture);
 
-    [Fact(Skip = "Bật khi có Query đầu tiên (ArchUnitNET yêu cầu positive match, chưa có lớp *Query nào)", DisplayName = "Quy ước: lớp tên *Query phải nằm trong thư mục Queries")]
+    [Fact(DisplayName = "Quy ước / NFR-MAINT-004: lớp tên *Query phải nằm trong thư mục Queries")]
     public void Queries_ShouldResideIn_QueriesNamespace() =>
         Classes().That().HaveNameEndingWith("Query")
             .Should().ResideInNamespace("Queries", true)

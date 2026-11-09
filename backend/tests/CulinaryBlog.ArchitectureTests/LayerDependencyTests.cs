@@ -81,6 +81,18 @@ public class LayerDependencyTests
             .Should().NotDependOnAny(Types().That().ResideInNamespace("Microsoft.EntityFrameworkCore", true))
             .Check(_architecture);
 
+    [Fact(DisplayName = "CONS-001/NFR-MAINT-004: Domain chỉ tham chiếu .NET BCL (System.*), không thư viện ngoài")]
+    public void Domain_ShouldReference_OnlyBcl()
+    {
+        var external = typeof(Domain.Common.BaseEntity).Assembly.GetReferencedAssemblies()
+            .Select(a => a.Name!)
+            .Where(name => name != "System" && !name.StartsWith("System.", StringComparison.Ordinal)
+                && name is not ("netstandard" or "mscorlib"))
+            .ToList();
+
+        Assert.True(external.Count == 0, $"Domain tham chiếu thư viện ngoài BCL: {string.Join(", ", external)}");
+    }
+
     [Fact(DisplayName = "CONS-001/D39: Domain và Application không dùng OpenTelemetry (chỉ System.Diagnostics)")]
     public void DomainAndApplication_ShouldNotDependOn_OpenTelemetry() =>
         Types().That().Are(_domainLayer).Or().Are(_applicationLayer)
