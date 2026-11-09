@@ -22,6 +22,9 @@ interface Fixture {
   category: { slug: string };
 }
 
+/** Recipe do spec tạo — afterAll xóa mềm (D1) để không rác DB dev. Gán ngay sau POST để dọn được cả khi beforeAll fail giữa chừng. */
+let createdRecipeId: string | undefined;
+let emailUsed = '';
 let fixture: Fixture;
 
 async function api<T>(path: string, init: RequestInit & { token?: string } = {}): Promise<T> {
@@ -40,6 +43,7 @@ async function api<T>(path: string, init: RequestInit & { token?: string } = {})
 
 test.beforeAll(async () => {
   const email = `e2e-a11y-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+  emailUsed = email;
   const { accessToken: token } = await api<{ accessToken: string }>('/auth/register', {
     method: 'POST',
     body: JSON.stringify({ email, password: PASSWORD, displayName: 'Bếp E2E a11y' }),
@@ -68,9 +72,21 @@ test.beforeAll(async () => {
       ],
     }),
   });
+  createdRecipeId = recipe.id;
   await api(`/recipes/${recipe.id}/publish`, { method: 'PATCH', token });
 
   fixture = { email, recipe, category: categories[0] };
+});
+
+/** FR-RCP-007/D1 — dọn dữ liệu: đăng nhập lại (access token 15 phút có thể đã hết) rồi xóa mềm recipe đã tạo. */
+test.afterAll(async () => {
+  if (!createdRecipeId) return;
+  const { accessToken: token } = await api<{ accessToken: string }>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email: emailUsed, password: PASSWORD }),
+  });
+  await api(`/recipes/${createdRecipeId}`, { method: 'DELETE', token });
+  createdRecipeId = undefined;
 });
 
 /** Chờ hết skeleton (`aria-busy`) rồi mới quét — tránh quét trạng thái đang tải. */
