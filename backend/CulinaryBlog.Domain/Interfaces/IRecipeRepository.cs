@@ -25,6 +25,13 @@ public interface IRecipeRepository
     /// <summary>D1/D10 — slug đã bị dùng chưa, TÍNH CẢ recipe đã xóa mềm (slug không tái sử dụng).</summary>
     Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken = default);
     Task AddAsync(Recipe recipe, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// FR-RCP-003/D85 — thêm recipe mới (kèm steps, ingredients) và LƯU NGAY. Slug đã bị request khác chiếm
+    /// giữa lúc kiểm tra và lúc lưu → gỡ recipe khỏi bộ theo dõi thay đổi, trả <c>false</c> để handler sinh slug
+    /// khác. Lỗi khác ném tiếp.
+    /// </summary>
+    Task<bool> TryAddAsync(Recipe recipe, CancellationToken cancellationToken = default);
     void Update(Recipe recipe);
     void Delete(Recipe recipe);
     Task<Recipe?> GetByIdWithImagesAsync(Guid id, CancellationToken ct = default);

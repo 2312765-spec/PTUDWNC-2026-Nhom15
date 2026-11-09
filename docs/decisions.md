@@ -95,6 +95,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D82 | Trang tổng quan Author (`/dashboard`) | 4 ô số Tổng/Nháp/Đã xuất bản/Đã lưu trữ (link sang `/dashboard/recipes?status=`) + 5 bài mới nhất · dùng 4 lời gọi `GET /recipes?mine=true` có sẵn, **không thêm endpoint** · chỉ Author/Admin · lỗi chỉ hỏng phần tổng quan |
 | D83 | Cách đo a11y (NFR-USE-002) | Screen reader **chỉ NVDA** (nhóm không có Mac/iPhone), VoiceOver "chưa kiểm" · axe-core trong E2E (0 vi phạm WCAG 2.1 A/AA) + checklist tay `docs/a11y-checklist.md` |
 | D84 | Responsive (NFR-USE-001) | Breakpoint `lg` = **1200px** (Tailwind mặc định 1024) · touch-friendly = vùng bấm ≥ 24×24px (WCAG 2.5.8) · bảng dữ liệu cuộn ngang trong khung riêng · không có BrowserStack → Playwright giả lập, thiết bị thật "chưa kiểm" |
+| D85 | Hai request tạo recipe cùng tiêu đề đến cùng lúc (FR-RCP-003) | Lỗi trùng `IX_Recipes_Slug` → sinh lại slug và thử lại, **tối đa 5 lần** · không khóa bảng · hết 5 lần → 500 |
 
 ---
 
@@ -2382,6 +2383,32 @@ bị thì ghi rõ phạm vi (giống D83).
 
 **Sửa SRS:** NFR-USE-001 — ghi "touch-friendly: vùng bấm ≥ 24×24px"; "Kiểm thử: Chrome DevTools / Playwright giả lập;
 BrowserStack ngoài phạm vi v1".
+
+---
+
+## D85 — FR-RCP-003: hai request tạo recipe cùng slug đến cùng lúc
+
+> 2026-11-09. Phát hiện khi chạy E2E song song (`POST /recipes → 500`). Bổ sung cho D10, D72.
+
+**Nguồn thiếu:** D10 chốt "slug trùng → auto-suffix `-2`, `-3`…, không bao giờ 409", D72 chốt cách tính trùng
+(kể cả recipe đã xóa mềm). Cả hai đều kiểm tra trước rồi mới chèn: hai request cùng tiêu đề đến gần như cùng lúc
+cùng thấy slug còn trống, request lưu sau vi phạm unique index `IX_Recipes_Slug` (`23505`) → `DbUpdateException`
+không được map → **500**. SRS không nói gì về tạo đồng thời.
+
+**Chốt:**
+
+1. `IRecipeRepository.TryAddAsync(recipe)` thêm và lưu recipe. Nếu lỗi là `23505` trên đúng `IX_Recipes_Slug` thì gỡ
+   cả graph recipe khỏi change tracker và trả `false`; lỗi khác ném tiếp như cũ.
+2. `CreateRecipeCommandHandler` thử **tối đa 5 lần** (N request cùng tiêu đề thì request xui nhất thua tối đa N−1 vòng): sinh slug (D10/D72) → dựng recipe → `TryAddAsync`. Trả `false`
+   thì sinh lại slug — lần này thấy slug của request đã thắng nên ra `-2`, `-3`…
+3. Hết 5 lần vẫn trùng → ném lỗi, middleware trả 500 (bất thường thật, cần log để xem).
+4. Không khóa bảng, không advisory lock. Không đổi `SaveChangesAsync` chung của DbContext.
+
+**Vì:** giữ đúng D10 (không 409, không 500) khi có request đồng thời. Race này hiếm nên thử lại chỉ tốn thêm khi thật
+sự trùng; khóa thì mọi lệnh tạo recipe phải chờ nhau. Bắt lỗi ở repository (giống `SaveStepsAsync`, D73) để không
+ảnh hưởng các lệnh ghi khác (Identity, refresh token).
+
+**Sửa SRS:** FR-RCP-003 — thêm "Slug duy nhất kể cả khi nhiều request tạo cùng lúc".
 
 ---
 

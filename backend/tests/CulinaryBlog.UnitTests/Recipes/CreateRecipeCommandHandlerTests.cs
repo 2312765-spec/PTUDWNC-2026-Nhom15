@@ -23,7 +23,6 @@ public sealed class CreateRecipeCommandHandlerTests : IDisposable
     private const string UserId = "author-1";
     private readonly IRecipeRepository _recipes = Substitute.For<IRecipeRepository>();
     private readonly ICategoryRepository _categories = Substitute.For<ICategoryRepository>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly ISlugHelper _slugHelper = Substitute.For<ISlugHelper>();
     private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
     private readonly IIdentityService _identity = Substitute.For<IIdentityService>();
@@ -36,6 +35,7 @@ public sealed class CreateRecipeCommandHandlerTests : IDisposable
         _currentUser.UserId.Returns(UserId);
         _currentUser.IsInRole(Roles.Author).Returns(true);
         _categories.GetByIdAsync(_category.Id, Arg.Any<CancellationToken>()).Returns(_category);
+        _recipes.TryAddAsync(Arg.Any<Recipe>(), Arg.Any<CancellationToken>()).Returns(true);
         _slugHelper.Generate(Arg.Any<string>()).Returns(ci => ci.Arg<string>() switch
         {
             "Gỏi cuốn tôm thịt" => "goi-cuon-tom-thit",
@@ -49,7 +49,7 @@ public sealed class CreateRecipeCommandHandlerTests : IDisposable
     }
 
     private CreateRecipeCommandHandler Handler() => new(
-        _recipes, _categories, _unitOfWork, _slugHelper, _identity,
+        _recipes, _categories, _slugHelper, _identity,
         new RecipeAuthorizationHandler(_currentUser), _currentUser, new RecipeMetrics(_meterFactory));
 
     private CreateRecipeCommand Command(string title = "Gỏi cuốn tôm thịt") => new(
@@ -69,7 +69,7 @@ public sealed class CreateRecipeCommandHandlerTests : IDisposable
     public async Task Handle_Success_CreatesDraftWithChildren()
     {
         Recipe? saved = null;
-        await _recipes.AddAsync(Arg.Do<Recipe>(r => saved = r), Arg.Any<CancellationToken>());
+        _recipes.TryAddAsync(Arg.Do<Recipe>(r => saved = r), Arg.Any<CancellationToken>()).Returns(true);
 
         var dto = await Handler().Handle(Command(), CancellationToken.None);
 
@@ -82,7 +82,7 @@ public sealed class CreateRecipeCommandHandlerTests : IDisposable
         saved.Steps.Select(s => s.StepNumber).Should().Equal(1, 2);
         saved.Ingredients.Select(i => i.OrderIndex).Should().Equal(0, 1);
         saved.Nutrition.Calories.Should().Be(250);
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _recipes.Received(1).TryAddAsync(Arg.Any<Recipe>(), Arg.Any<CancellationToken>());
 
         dto.Slug.Should().Be("goi-cuon-tom-thit");
         dto.Status.Should().Be((short)RecipeStatus.Draft);
@@ -101,6 +101,41 @@ public sealed class CreateRecipeCommandHandlerTests : IDisposable
         var dto = await Handler().Handle(Command(), CancellationToken.None);
 
         dto.Slug.Should().Be("goi-cuon-tom-thit-3");
+    }
+
+    [Fact(DisplayName = "FR-RCP-003/D85: slug bị request khác chiếm lúc lưu → sinh lại slug (-2), dựng recipe mới, lưu được")]
+    public async Task Handle_SlugTakenConcurrently_RetriesWithNextSuffix()
+    {
+        var attempts = new List<Recipe>();
+        _recipes.TryAddAsync(Arg.Do<Recipe>(attempts.Add), Arg.Any<CancellationToken>()).Returns(
+            _ =>
+            {
+                // Bên thắng vừa lưu "goi-cuon-tom-thit" → lần kiểm tra sau phải thấy slug đã có.
+                _recipes.ExistsBySlugAsync("goi-cuon-tom-thit", Arg.Any<CancellationToken>()).Returns(true);
+                return false;
+            },
+            _ => true);
+        using var collector = new MetricCollector<long>(_meterFactory, RecipeMetrics.MeterName, RecipeMetrics.CreatedCounterName);
+
+        var dto = await Handler().Handle(Command(), CancellationToken.None);
+
+        dto.Slug.Should().Be("goi-cuon-tom-thit-2");
+        attempts.Select(r => r.Slug).Should().Equal("goi-cuon-tom-thit", "goi-cuon-tom-thit-2");
+        attempts[1].Should().NotBeSameAs(attempts[0], "bản đã thua bị gỡ khỏi tracker — lần sau dựng recipe mới");
+        attempts[1].Steps.Should().HaveCount(2);
+        collector.GetMeasurementSnapshot().Sum(m => m.Value).Should().Be(1, "chỉ đếm lần lưu thành công");
+    }
+
+    [Fact(DisplayName = "FR-RCP-003/D85: thua đủ 5 lần liên tiếp → ném lỗi (500), không lặp vô hạn")]
+    public async Task Handle_SlugAlwaysTaken_ThrowsAfterMaxAttempts()
+    {
+        _recipes.TryAddAsync(Arg.Any<Recipe>(), Arg.Any<CancellationToken>()).Returns(false);
+
+        var act = () => Handler().Handle(Command(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        await _recipes.Received(CreateRecipeCommandHandler.MaxSaveAttempts)
+            .TryAddAsync(Arg.Any<Recipe>(), Arg.Any<CancellationToken>());
     }
 
     [Fact(DisplayName = "FR-RCP-003/D10: slug cấm (search) → thêm -1 để không đụng route")]
@@ -134,7 +169,7 @@ public sealed class CreateRecipeCommandHandlerTests : IDisposable
         var act = () => Handler().Handle(Command(), CancellationToken.None);
 
         (await act.Should().ThrowAsync<ForbiddenException>()).Which.ErrorCode.Should().Be(ErrorCodes.RecipeForbidden);
-        await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await _recipes.DidNotReceiveWithAnyArgs().TryAddAsync(default!, default);
     }
 
     [Fact(DisplayName = "FR-RCP-003/D69: category biến mất giữa validator và handler → 400 VALIDATION_ERROR")]
@@ -146,7 +181,7 @@ public sealed class CreateRecipeCommandHandlerTests : IDisposable
 
         (await act.Should().ThrowAsync<FluentValidationException>())
             .Which.Errors.Should().Contain(e => e.PropertyName == "CategoryId");
-        await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await _recipes.DidNotReceiveWithAnyArgs().TryAddAsync(default!, default);
     }
 
     public void Dispose() => _meterFactory.Dispose();
