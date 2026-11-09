@@ -95,6 +95,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D82 | Trang tổng quan Author (`/dashboard`) | 4 ô số Tổng/Nháp/Đã xuất bản/Đã lưu trữ (link sang `/dashboard/recipes?status=`) + 5 bài mới nhất · dùng 4 lời gọi `GET /recipes?mine=true` có sẵn, **không thêm endpoint** · chỉ Author/Admin · lỗi chỉ hỏng phần tổng quan |
 | D83 | Cách đo a11y (NFR-USE-002) | Screen reader **chỉ NVDA** (nhóm không có Mac/iPhone), VoiceOver "chưa kiểm" · axe-core trong E2E (0 vi phạm WCAG 2.1 A/AA) + checklist tay `docs/a11y-checklist.md` |
 | D84 | Responsive (NFR-USE-001) | Breakpoint `lg` = **1200px** (Tailwind mặc định 1024) · touch-friendly = vùng bấm ≥ 24×24px (WCAG 2.5.8) · bảng dữ liệu cuộn ngang trong khung riêng · không có BrowserStack → Playwright giả lập, thiết bị thật "chưa kiểm" |
+| D86 | Cách đo LCP trong Lighthouse CI (NFR-PERF-005) | Làm nóng cache trước khi đo (`frontend/scripts/lhci-server.mjs`: gọi từng URL + mọi ảnh `/_next/image`) · ảnh card `quality` 50, chỉ card đầu tải ngay (`fetchPriority="high"`) |
 
 ---
 
@@ -2382,6 +2383,33 @@ bị thì ghi rõ phạm vi (giống D83).
 
 **Sửa SRS:** NFR-USE-001 — ghi "touch-friendly: vùng bấm ≥ 24×24px"; "Kiểm thử: Chrome DevTools / Playwright giả lập;
 BrowserStack ngoài phạm vi v1".
+
+---
+
+## D86 — Lighthouse CI: làm nóng cache trước khi đo, ảnh card nhẹ hơn (NFR-PERF-005)
+
+> 2026-11-09. Phát hiện khi PR #86 (ảnh seed thật) làm job Lighthouse đỏ: LCP `/recipes` 2666ms, `/search?q=ga` 2872ms
+> (ngưỡng 2500ms). Trước đó card không có ảnh, LCP là chữ.
+
+**Nguồn thiếu:** SRS ghi LCP < 2.5s nhưng không nói đo ở trạng thái cache nào. Job CI bật `next start` rồi đo ngay:
+lần tải đầu của mỗi trang phải dựng SSR, gọi API khi Redis còn trống, và chuyển đổi ảnh 1200px lần đầu qua
+`/_next/image` — production không bao giờ ở trạng thái đó lâu.
+
+**Chốt:**
+
+1. `startServerCommand` của lhci là `frontend/scripts/lhci-server.mjs`: bật `next start`, gọi trước từng URL trong
+   `lighthouserc.json` và mọi ảnh `/_next/image` trên trang (header `Accept` như Chrome), rồi mới báo sẵn sàng.
+2. Ảnh trong `RecipeCard` (khung cao 160px): `quality` **50** (thêm vào `images.qualities` — Next 16 ép giá trị ngoài
+   danh sách về mức gần nhất); chỉ card đầu của lưới `loading="eager"` + `fetchPriority="high"`, card khác lazy;
+   `sizes` khớp lưới 1/2/3 cột (D84).
+3. Ngưỡng giữ nguyên 2500ms, không nới.
+
+**Vì:** đo đúng trải nghiệm người dùng thật (cache nóng) mà không hạ chuẩn; ảnh card nhẹ hơn ~30% mà vẫn nét ở
+kích thước hiển thị.
+
+**Nếu vẫn sát ngưỡng:** card dùng ảnh `medium`/`thumbnail` do FR-JOB-002 tạo sẵn (cần đổi `RecipeSummaryDto`).
+
+**Sửa SRS:** NFR-PERF-005 — thêm "đo khi cache đã nóng (mỗi URL đã được tải một lần)".
 
 ---
 

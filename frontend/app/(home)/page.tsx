@@ -108,9 +108,9 @@ export default async function HomePage() {
             </p>
           ) : (
             <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {recipes.map((recipe) => (
+              {recipes.map((recipe, index) => (
                 <li key={recipe.id}>
-                  <RecipeCard recipe={recipe} />
+                  <RecipeCard recipe={recipe} isLcp={index === 0} />
                 </li>
               ))}
             </ul>

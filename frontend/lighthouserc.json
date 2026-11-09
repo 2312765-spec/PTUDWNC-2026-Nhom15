@@ -1,8 +1,9 @@
 {
   "ci": {
     "collect": {
-      "startServerCommand": "npm run start",
-      "startServerReadyPattern": "Ready in",
+      "startServerCommand": "node scripts/lhci-server.mjs",
+      "startServerReadyPattern": "LHCI server ready",
+      "startServerReadyTimeout": 180000,
       "url": [
         "http://localhost:3000/",
         "http://localhost:3000/recipes",

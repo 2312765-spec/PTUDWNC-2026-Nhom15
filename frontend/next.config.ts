@@ -35,6 +35,8 @@ const nextConfig: NextConfig = {
     // container nginx trong mạng Docker ở prod). Next 16 mặc định chặn tối ưu ảnh từ IP nội bộ (SSRF);
     // remotePatterns bên dưới chỉ cho phép đúng hai host đó nên không mở thêm đường SSRF nào.
     dangerouslyAllowLocalIP: true,
+    // NFR-PERF-005 — 75 là mặc định của mọi ảnh; 50 cho ảnh card (CARD_IMAGE_QUALITY, components/recipes/RecipeCard.tsx).
+    qualities: [50, 75],
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost', port: '9000', pathname: '/culinary-blog/**' },
       ...siteImagePattern(),

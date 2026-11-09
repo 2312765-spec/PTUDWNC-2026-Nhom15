@@ -10,8 +10,28 @@ const DIFFICULTY_LABEL: Record<string, string> = {
   Expert: 'Rất khó',
 };
 
-/** Card công thức dùng chung cho `/recipes` (FR-RCP-001) và `/search` (FR-SRCH-001). */
-export default function RecipeCard({ recipe }: { recipe: RecipeSummaryDto }) {
+/** `sizes` theo lưới 1/2/3 cột tại 768/1200px (D84). Lưới tối đa 2 cột thì truyền `GRID_2_COLS_SIZES`. */
+export const GRID_3_COLS_SIZES = '(min-width: 1200px) 33vw, (min-width: 768px) 50vw, 100vw';
+export const GRID_2_COLS_SIZES = '(min-width: 768px) 50vw, 100vw';
+
+/**
+ * NFR-PERF-005 — ảnh card chỉ cao 160px nên chất lượng 50 vẫn đủ nét, nhẹ hơn mặc định 75. Phải nằm trong
+ * `images.qualities` của next.config.ts (Next 16 ép giá trị ngoài danh sách về mức gần nhất).
+ */
+export const CARD_IMAGE_QUALITY = 50;
+
+interface RecipeCardProps {
+  recipe: RecipeSummaryDto;
+  /**
+   * NFR-PERF-005 — card đầu tiên của lưới (ảnh của nó là LCP trên mobile): tải ngay, ưu tiên cao. Các card khác
+   * lazy để không tranh băng thông với ảnh LCP.
+   */
+  isLcp?: boolean;
+  sizes?: string;
+}
+
+/** Card công thức dùng chung cho `/`, `/recipes` (FR-RCP-001) và `/search` (FR-SRCH-001). */
+export default function RecipeCard({ recipe, isLcp = false, sizes = GRID_3_COLS_SIZES }: RecipeCardProps) {
   return (
     <Link
       href={`/recipes/${recipe.slug}`}
@@ -24,7 +44,10 @@ export default function RecipeCard({ recipe }: { recipe: RecipeSummaryDto }) {
               src={recipe.featuredImageUrl}
               alt={recipe.title}
               fill
-              sizes="(min-width: 640px) 50vw, 100vw"
+              sizes={sizes}
+              quality={CARD_IMAGE_QUALITY}
+              loading={isLcp ? 'eager' : 'lazy'}
+              fetchPriority={isLcp ? 'high' : undefined}
               className="object-cover"
             />
           ) : (
