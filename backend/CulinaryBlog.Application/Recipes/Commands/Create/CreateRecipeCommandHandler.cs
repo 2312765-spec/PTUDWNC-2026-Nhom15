@@ -12,13 +12,12 @@ using MediatR;
 namespace CulinaryBlog.Application.Recipes.Commands.Create;
 
 /// <summary>
-/// FR-RCP-003 — tạo recipe Draft. D10/D72 slug auto-suffix (không bao giờ 409), D39 metric
+/// FR-RCP-003 — tạo recipe Draft. D10/D72 slug auto-suffix (không bao giờ 409), D85 thử lại khi tạo song song, D39 metric
 /// <c>recipes.created</c> sau khi lưu thành công, NFR-SEC-006 kiểm tra quyền ở Application.
 /// </summary>
 public sealed partial class CreateRecipeCommandHandler(
     IRecipeRepository recipeRepository,
     ICategoryRepository categoryRepository,
-    IUnitOfWork unitOfWork,
     ISlugHelper slugHelper,
     IIdentityService identityService,
     RecipeAuthorizationHandler authorization,
@@ -34,6 +33,9 @@ public sealed partial class CreateRecipeCommandHandler(
 
     private const int MaxSlugLength = 200;
 
+    /// <summary>D85 — N request cùng title đến cùng lúc thì request xui nhất thua tối đa N−1 vòng.</summary>
+    public const int MaxSaveAttempts = 5;
+
     public async Task<RecipeDetailDto> Handle(CreateRecipeCommand request, CancellationToken cancellationToken)
     {
         authorization.EnsureCanCreate();
@@ -44,8 +46,32 @@ public sealed partial class CreateRecipeCommandHandler(
             ?? throw new ValidationException([new ValidationFailure(nameof(request.CategoryId), "Danh mục không hợp lệ.")]);
 
         var title = request.Title.Trim();
-        var slug = await GenerateUniqueSlugAsync(title, cancellationToken);
 
+        // D85: kiểm tra slug rồi mới lưu không nguyên tử — request khác cùng title có thể chiếm slug giữa hai bước.
+        // Thua thì sinh lại slug (lúc này thấy slug của bên thắng → -2, -3…) và dựng lại recipe.
+        for (var attempt = 1; ; attempt++)
+        {
+            var slug = await GenerateUniqueSlugAsync(title, cancellationToken);
+            var recipe = BuildRecipe(request, title, slug, category.Id);
+
+            if (await recipeRepository.TryAddAsync(recipe, cancellationToken))
+            {
+                metrics.RecordCreated();
+
+                var author = await identityService.GetUserByIdAsync(recipe.AuthorId, cancellationToken);
+                return RecipeDetailDtoMapper.ToDetailDto(recipe, author, category);
+            }
+
+            if (attempt == MaxSaveAttempts)
+            {
+                throw new InvalidOperationException(
+                    $"D85: không lưu được recipe sau {MaxSaveAttempts} lần — slug '{slug}' liên tục bị request khác chiếm.");
+            }
+        }
+    }
+
+    private Recipe BuildRecipe(CreateRecipeCommand request, string title, string slug, Guid categoryId)
+    {
         var recipe = Recipe.Create(
             title: title,
             slug: slug,
@@ -54,7 +80,7 @@ public sealed partial class CreateRecipeCommandHandler(
             cookTime: request.CookTime,
             servings: request.Servings,
             difficulty: RecipeDifficultyParser.Parse(request.Difficulty),
-            categoryId: category.Id,
+            categoryId: categoryId,
             authorId: currentUser.UserId!,
             instructions: string.IsNullOrWhiteSpace(request.Instructions) ? null : request.Instructions.Trim(),
             status: Domain.Enums.RecipeStatus.Draft);
@@ -74,14 +100,7 @@ public sealed partial class CreateRecipeCommandHandler(
             recipe.AddIngredient(ingredient.Name.Trim(), ingredient.Quantity, NullIfBlank(ingredient.Unit), NullIfBlank(ingredient.Notes));
         }
 
-        // Cả graph đều mới → AddAsync một lần cho Recipe là đủ (D31 chỉ áp dụng khi aggregate đã được track).
-        await recipeRepository.AddAsync(recipe, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        metrics.RecordCreated();
-
-        var author = await identityService.GetUserByIdAsync(recipe.AuthorId, cancellationToken);
-        return RecipeDetailDtoMapper.ToDetailDto(recipe, author, category);
+        return recipe;
     }
 
     /// <summary>
