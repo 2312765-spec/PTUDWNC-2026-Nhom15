@@ -96,6 +96,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D83 | Cách đo a11y (NFR-USE-002) | Screen reader **chỉ NVDA** (nhóm không có Mac/iPhone), VoiceOver "chưa kiểm" · axe-core trong E2E (0 vi phạm WCAG 2.1 A/AA) + checklist tay `docs/a11y-checklist.md` |
 | D84 | Responsive (NFR-USE-001) | Breakpoint `lg` = **1200px** (Tailwind mặc định 1024) · touch-friendly = vùng bấm ≥ 24×24px (WCAG 2.5.8) · bảng dữ liệu cuộn ngang trong khung riêng · không có BrowserStack → Playwright giả lập, thiết bị thật "chưa kiểm" |
 | D86 | LCP `/search` + cách đo Lighthouse CI (NFR-PERF-005) | `/search` **không** stream kết quả qua `<Suspense>` (kết quả có ngay trong HTML đầu) · báo đang tải bằng transition (`aria-busy`) · làm nóng cache trước khi đo · ngưỡng giữ 2500ms |
+| D87 | Lighthouse CI chấm theo trung vị (NFR-PERF-005) | `aggregationMethod: "median"` — trung vị 5 lần đo cho từng chỉ số, thay `median-run` (chấm 1 lần "đại diện") · ngưỡng giữ nguyên · `/search` còn vượt ~100ms, theo dõi riêng |
 
 ---
 
@@ -2423,6 +2424,30 @@ LCP (vd. bỏ bớt bộ lọc phía trên) thì áp dụng như mục 1.
 **Vì:** sửa đúng cơ chế làm LCP muộn mà không hạ chuẩn; trang kết quả tìm kiếm vẫn SSR đúng SRS 5.1.
 
 **Sửa SRS:** NFR-PERF-005 — thêm "đo khi cache đã nóng (mỗi URL đã được tải một lần)".
+
+---
+
+## D87 — Lighthouse CI chấm theo trung vị 5 lần đo (NFR-PERF-005)
+
+> 2026-11-09. Phát hiện khi đọc báo cáo của 3 run CI liền nhau trên PR #86 (D86).
+
+**Nguồn thiếu:** SRS ghi ngưỡng (LCP < 2.5s…) nhưng không nói tổng hợp nhiều lần đo thế nào. `lighthouserc.json` dùng
+`aggregationMethod: "median-run"`: lhci chọn **một** lần chạy "đại diện" (theo FCP/TTI) rồi chấm mọi chỉ số của lần
+đó. Lần được chọn có thể là lần lệch về LCP: trong cùng một run, `/` đo 1889–2806ms, `/recipes/banh-khot` 1886–2495ms,
+`/categories/mon-khai-vi` 1810–2417ms. `/recipes` và `/recipes/banh-khot` từng làm job đỏ chỉ vì 1/5 lần lệch.
+
+**Chốt:**
+
+1. `aggregationMethod: "median"` — mỗi chỉ số lấy trung vị của 5 lần đo (`numberOfRuns: 5`). Ngưỡng giữ nguyên
+   (LCP 2500ms, CLS 0.1, TBT 200ms, script 200 KB).
+2. Kiểm lại trên báo cáo của 3 run CI (42593569015, 42597856560, 42600886432): chỉ còn `/search?q=ga` vượt —
+   trung vị 2801 → 2679 → 2604ms qua các bản sửa của D86. Các trang khác đều dưới ngưỡng.
+3. `/search` còn vượt ~100ms: theo dõi ở issue riêng (phần lớn còn lại là JS dùng chung ~180 KB trong Render Delay và
+   Load Delay mô phỏng của trang động). Job Lighthouse đỏ tới khi issue đó xong.
+
+**Vì:** một lần đo lệch không quyết định kết quả nữa, nhưng không nới ngưỡng và không che `/search` đang vượt thật.
+
+**Sửa SRS:** NFR-PERF-005 — thêm "chấm trên trung vị 5 lần đo Lighthouse".
 
 ---
 
