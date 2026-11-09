@@ -63,10 +63,31 @@ export function useRecipeImageGallery(recipeId: string, initialImages: RecipeIma
     [uploadImage, setImages],
   );
 
+  /**
+   * NFR-USE-004 — optimistic: đổi primary ngay rồi mới PATCH. Lỗi → trả cờ primary cũ (toast lỗi ở
+   * useRecipeImages) và ném lỗi ra. Chỉ hoàn tác khi ảnh này VẪN đang là primary: nếu trong lúc chờ
+   * người dùng đã đặt ảnh khác làm primary (hoặc xoá ảnh này) thì giữ trạng thái mới hơn đó.
+   */
   const setPrimary = useCallback(
     async (imageId: string) => {
-      await updateImage(imageId, { isPrimary: true });
+      const previousPrimaryIds = new Set(
+        imagesRef.current.filter((img) => img.isPrimary).map((img) => img.imageId),
+      );
       setImages((current) => current.map((img) => ({ ...img, isPrimary: img.imageId === imageId })));
+
+      try {
+        await updateImage(imageId, { isPrimary: true });
+      } catch (error) {
+        setImages((current) => {
+          const stillOurs = current.some((img) => img.imageId === imageId && img.isPrimary);
+          const previousStillThere = current.some((img) => previousPrimaryIds.has(img.imageId));
+          if (!stillOurs || !previousStillThere) {
+            return current;
+          }
+          return current.map((img) => ({ ...img, isPrimary: previousPrimaryIds.has(img.imageId) }));
+        });
+        throw error;
+      }
     },
     [updateImage, setImages],
   );
@@ -79,12 +100,17 @@ export function useRecipeImageGallery(recipeId: string, initialImages: RecipeIma
     [updateImage, setImages],
   );
 
+  /**
+   * NFR-USE-004 — optimistic: gỡ ảnh + chuyển primary sang ảnh orderIndex nhỏ nhất (D22) ngay, rồi mới
+   * DELETE. Lỗi → chèn ảnh lại theo orderIndex, trả primary về nó nếu ảnh được đôn lên vẫn đang là
+   * primary, rồi ném lỗi ra. Không ghi đè cả mảng: ảnh upload xong / alt text sửa trong lúc chờ được giữ.
+   */
   const remove = useCallback(
     async (imageId: string) => {
-      await deleteImage(imageId);
+      const removed = imagesRef.current.find((img) => img.imageId === imageId);
+      let promotedId: string | null = null;
 
       setImages((current) => {
-        const removed = current.find((img) => img.imageId === imageId);
         const rest = current.filter((img) => img.imageId !== imageId);
 
         if (!removed?.isPrimary || rest.length === 0) {
@@ -92,8 +118,27 @@ export function useRecipeImageGallery(recipeId: string, initialImages: RecipeIma
         }
 
         const [next, ...others] = rest.sort(byOrderIndex);
+        promotedId = next.imageId;
         return [{ ...next, isPrimary: true }, ...others];
       });
+
+      try {
+        await deleteImage(imageId);
+      } catch (error) {
+        if (removed) {
+          setImages((current) => {
+            if (current.some((img) => img.imageId === imageId)) {
+              return current;
+            }
+            const promotedStillPrimary =
+              promotedId === null || current.some((img) => img.imageId === promotedId && img.isPrimary);
+            const restorePrimary = removed.isPrimary && promotedStillPrimary;
+            const others = restorePrimary ? current.map((img) => ({ ...img, isPrimary: false })) : current;
+            return [...others, { ...removed, isPrimary: restorePrimary }].sort(byOrderIndex);
+          });
+        }
+        throw error;
+      }
     },
     [deleteImage, setImages],
   );

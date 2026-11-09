@@ -56,16 +56,19 @@ export function RecipeImageManager({ recipeId, initialImages = [] }: RecipeImage
     }
   }
 
-  async function confirmDelete() {
+  function confirmDelete() {
     if (!pendingDeleteId) {
       return;
     }
-    try {
-      await gallery.remove(pendingDeleteId);
-      setPendingDeleteId(null);
-    } catch {
-      // Lỗi đã hiện toast ở useRecipeImages — giữ dialog mở để thử lại hoặc Huỷ.
-    }
+    // NFR-USE-004 — optimistic: đóng dialog ngay, ảnh đã biến mất khỏi gallery. Lỗi → hook trả ảnh về
+    // + toast lỗi ở useRecipeImages; người dùng bấm xoá lại nếu muốn.
+    gallery.remove(pendingDeleteId).catch(() => {});
+    setPendingDeleteId(null);
+  }
+
+  function setPrimary(imageId: string) {
+    // Lỗi đã hoàn tác ở hook + toast ở useRecipeImages — chỉ chặn unhandled rejection.
+    gallery.setPrimary(imageId).catch(() => {});
   }
 
   const hasTiles = gallery.images.length > 0 || gallery.uploadingFiles.length > 0;
@@ -84,7 +87,7 @@ export function RecipeImageManager({ recipeId, initialImages = [] }: RecipeImage
               onMoveLater={index < gallery.images.length - 1 ? () => moveImage(index, 'later') : undefined}
               focusAction={moveFocus?.imageId === img.imageId ? moveFocus.action : undefined}
               onFocusHandled={handleFocusHandled}
-              onSetPrimary={gallery.setPrimary}
+              onSetPrimary={setPrimary}
               onUpdateAltText={gallery.updateAltText}
               onDelete={setPendingDeleteId}
               onDragStart={() => {
@@ -125,7 +128,6 @@ export function RecipeImageManager({ recipeId, initialImages = [] }: RecipeImage
 
       <ImageDeleteDialog
         open={pendingDeleteId !== null}
-        isDeleting={gallery.isDeleting}
         onCancel={() => setPendingDeleteId(null)}
         onConfirm={confirmDelete}
       />

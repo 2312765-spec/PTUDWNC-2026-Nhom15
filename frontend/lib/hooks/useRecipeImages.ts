@@ -61,10 +61,12 @@ export function useRecipeImages(recipeId: string) {
         form.append('altText', altText);
       }
 
-      // Không tự set header Content-Type: axios phát hiện body là FormData và tự bỏ
-      // header mặc định 'application/json' của apiClient để trình duyệt gắn boundary
-      // multipart đúng — set tay ở đây sẽ làm mất boundary và server không đọc được file.
+      // PHẢI ghi đè Content-Type: apiClient mặc định 'application/json', và với header đó
+      // transformRequest của axios biến FormData thành chuỗi JSON → server trả 415. Đặt
+      // 'multipart/form-data' thì axios giữ nguyên FormData, rồi adapter trình duyệt bỏ header này
+      // để trình duyệt tự gắn boundary đúng (test: useRecipeImages.multipart.test.tsx).
       const { data } = await apiClient.post<UploadRecipeImageResponse>(`/recipes/${recipeId}/images`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (event) => {
           if (onProgress && event.total) {
             onProgress(Math.round((event.loaded / event.total) * 100));
