@@ -55,6 +55,20 @@ test.describe('Chi tiết công thức (FR-RCP-002)', () => {
 });
 
 test.describe('Chi tiết danh mục (FR-CAT-002)', () => {
+  test('FR-CAT-002: Mục lục → trang danh mục → bấm công thức → trang chi tiết', async ({ page }) => {
+    // Dữ liệu: DbSeeder có công thức Published trong "Món khai vị" (vd. Bánh khọt).
+    await page.goto('/');
+    await page.getByRole('navigation', { name: 'Mục lục' }).getByRole('link', { name: /Món khai vị/ }).click();
+    await expect(page).toHaveURL(/\/categories\/mon-khai-vi$/);
+
+    const link = page.getByRole('main').getByRole('listitem').first().getByRole('link');
+    const title = (await link.getByRole('heading').textContent())?.trim() ?? '';
+    await link.click();
+
+    await expect(page).toHaveURL(/\/recipes\/[^/]+$/);
+    await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+  });
+
   test('FR-CAT-002: slug không tồn tại → 404', async ({ page }) => {
     const response = await page.goto('/categories/khong-ton-tai-e2e');
 
