@@ -33,13 +33,13 @@ public sealed class CategoryRepository : ICategoryRepository
     }
 
     /// <summary>
-    /// FR-CAT-002: Lấy chi tiết danh mục theo Slug kèm theo Recipes và Images
+    /// FR-CAT-002: Lấy danh mục theo Slug — không kèm recipe (NFR-PERF-004: recipe lấy theo trang bằng
+    /// RecipeRepository.GetPagedByCategoryIdAsync, không nạp cả danh mục vào bộ nhớ).
     /// </summary>
     public async Task<Category?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
     {
         return await _dbContext.Categories
-            .Include(c => c.Recipes.Where(r => !r.IsDeleted))
-                .ThenInclude(r => r.Images)
+            .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Slug == slug && !c.IsDeleted, cancellationToken);
     }
 
@@ -109,15 +109,21 @@ public sealed class CategoryRepository : ICategoryRepository
     }
 
     /// <summary>
-    /// Lấy tất cả danh mục kèm theo Recipes đã xuất bản cho GetCategoriesQueryHandler
+    /// FR-CAT-001 / NFR-PERF-004: projection — PostgreSQL đếm recipe Published bằng subquery COUNT,
+    /// không nạp recipe hay ảnh (trước đây Include toàn bộ: 532 ms với 8.017 recipe).
     /// </summary>
-    public async Task<IReadOnlyList<Category>> GetAllWithRecipesAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<CategorySummary>> GetAllWithPublishedRecipeCountAsync(CancellationToken cancellationToken = default)
     {
         return await _dbContext.Categories
+            .AsNoTracking()
             .Where(c => !c.IsDeleted)
-            .Include(c => c.Recipes.Where(r => !r.IsDeleted && r.Status == RecipeStatus.Published))
-                .ThenInclude(r => r.Images)
             .OrderBy(c => c.Name)
+            .Select(c => new CategorySummary(
+                c.Id,
+                c.Name,
+                c.Slug,
+                c.Description,
+                c.Recipes.Count(r => !r.IsDeleted && r.Status == RecipeStatus.Published)))
             .ToListAsync(cancellationToken);
     }
 

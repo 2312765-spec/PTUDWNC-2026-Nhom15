@@ -182,35 +182,34 @@ public sealed class RecipeRepository(CulinaryBlogDbContext context) : IRecipeRep
         return await GetByIdWithImagesAsync(id, ct);
     }
 
-    // FR-CAT-002: Lấy công thức theo danh mục (hỗ trợ cả Published và Draft theo quyền)
+    /// <summary>
+    /// FR-CAT-002 / NFR-PERF-004: COUNT + SKIP/TAKE trong PostgreSQL, chỉ nạp recipe (và ảnh) của trang.
+    /// Published, cộng Draft của <paramref name="draftOwnerId"/>; không bao giờ Archived.
+    /// </summary>
     public async Task<(IReadOnlyList<Recipe> Items, int TotalCount)> GetPagedByCategoryIdAsync(
-        Guid categoryId, 
-        RecipeStatus? status, 
-        int page, 
-        int pageSize, 
+        Guid categoryId,
+        string? draftOwnerId,
+        int page,
+        int pageSize,
         CancellationToken cancellationToken = default)
     {
         var query = context.Recipes
             .AsNoTracking()
-            .Include(r => r.Images)
             .Where(r => r.CategoryId == categoryId && !r.IsDeleted);
 
-        // Mặc định nếu không truyền status thì lấy Published — tránh lộ Draft khi người gọi quên truyền.
-        if (status.HasValue)
-        {
-            query = query.Where(r => r.Status == status.Value);
-        }
-        else
-        {
-            query = query.Where(r => r.Status == RecipeStatus.Published);
-        }
+        query = string.IsNullOrEmpty(draftOwnerId)
+            ? query.Where(r => r.Status == RecipeStatus.Published)
+            : query.Where(r => r.Status == RecipeStatus.Published
+                               || (r.Status == RecipeStatus.Draft && r.AuthorId == draftOwnerId));
 
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
             .OrderByDescending(r => r.CreatedAt)
+            .ThenBy(r => r.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
+            .Include(r => r.Images)
             .ToListAsync(cancellationToken);
 
         return (items, totalCount);

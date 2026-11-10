@@ -43,6 +43,12 @@ public sealed class RecipeConfiguration : IEntityTypeConfiguration<Recipe>
         builder.HasIndex(r => r.Status);
         builder.HasIndex(r => r.Difficulty);
 
+        // NFR-PERF-004 — sort mặc định của GET /recipes: WHERE "Status" = … ORDER BY "CreatedAt" DESC, "Id".
+        // Đúng thứ tự + chiều cột để PostgreSQL đọc index theo thứ tự, không phải sort (FR-RCP-001).
+        builder.HasIndex(r => new { r.Status, r.CreatedAt, r.Id })
+            .IsDescending(false, true, false)
+            .HasDatabaseName("IX_Recipes_Status_CreatedAt");
+
         // FR-SRCH-001/D49 — tsvector do trigger cập nhật, GIN index cho tìm kiếm toàn văn.
         var searchVector = builder.Property<NpgsqlTsVector>(SearchVector).HasColumnType("tsvector");
         searchVector.Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Ignore);

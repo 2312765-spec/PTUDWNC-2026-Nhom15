@@ -55,8 +55,14 @@ public interface IRecipeRepository
     /// 2 pha. PHẢI gọi bên trong transaction.
     /// </summary>
     Task SaveStepsAsync(Recipe recipe, CancellationToken ct = default);
+    /// <summary>
+    /// FR-CAT-002 / NFR-PERF-004: một trang công thức chưa xóa của danh mục, kèm ảnh, mới nhất trước
+    /// (<c>CreatedAt DESC, Id</c>). Gồm Published, cộng Draft khi <c>AuthorId == draftOwnerId</c>
+    /// (<paramref name="draftOwnerId"/> null = Guest → chỉ Published). Không bao giờ trả Archived.
+    /// COUNT, SKIP/TAKE chạy trong database.
+    /// </summary>
     Task<(IReadOnlyList<Recipe> Items, int TotalCount)> GetPagedByCategoryIdAsync(
-        Guid categoryId, RecipeStatus? status, int page, int pageSize, CancellationToken cancellationToken = default);
+        Guid categoryId, string? draftOwnerId, int page, int pageSize, CancellationToken cancellationToken = default);
     Task<string?> GetAuthorIdAsync(Guid id, CancellationToken ct = default);
     Task<Recipe?> GetByIdWithImagesForUpdateAsync(Guid id, CancellationToken ct = default);
 

@@ -160,6 +160,10 @@ namespace CulinaryBlog.Infrastructure.Migrations
 
                     b.HasIndex("Status");
 
+                    b.HasIndex("Status", "CreatedAt", "Id")
+                        .IsDescending(false, true, false)
+                        .HasDatabaseName("IX_Recipes_Status_CreatedAt");
+
                     b.ToTable("Recipes", null, t =>
                         {
                             t.HasCheckConstraint("CK_Recipes_CookTime", "\"CookTime\" >= 0");

@@ -1,7 +1,6 @@
 using CulinaryBlog.Application.Categories.DTOs;
 using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Application.Common.Models;
-using CulinaryBlog.Domain.Enums;
 using CulinaryBlog.Domain.Interfaces;
 using MediatR;
 
@@ -11,14 +10,17 @@ namespace CulinaryBlog.Application.Categories.Queries.GetCategoryBySlug;
 /// FR-CAT-002. Guest chỉ thấy Published; chủ sở hữu thấy thêm Draft của chính mình.
 /// Slug không tồn tại → NotFoundException (CONS-008: quyết định 404 nằm ở Application,
 /// không phải ở endpoint — GlobalExceptionMiddleware lo phần map sang RFC 7807).
+/// NFR-PERF-004: lọc quyền, đếm và phân trang chạy trong database — chỉ nạp recipe của trang hiện tại.
 /// </summary>
 public sealed class GetCategoryBySlugQueryHandler : IRequestHandler<GetCategoryBySlugQuery, CategoryDetailResponseDto>
 {
     private readonly ICategoryRepository _categoryRepository;
+    private readonly IRecipeRepository _recipeRepository;
 
-    public GetCategoryBySlugQueryHandler(ICategoryRepository categoryRepository)
+    public GetCategoryBySlugQueryHandler(ICategoryRepository categoryRepository, IRecipeRepository recipeRepository)
     {
         _categoryRepository = categoryRepository;
+        _recipeRepository = recipeRepository;
     }
 
     public async Task<CategoryDetailResponseDto> Handle(
@@ -31,23 +33,16 @@ public sealed class GetCategoryBySlugQueryHandler : IRequestHandler<GetCategoryB
             throw new NotFoundException(ErrorCodes.CategoryNotFound, $"Không tìm thấy danh mục với slug '{request.Slug}'.");
         }
 
-        var visibleRecipes = category.Recipes
-            .Where(r => !r.IsDeleted)
-            .Where(r => r.Status == RecipeStatus.Published
-                || (!string.IsNullOrEmpty(request.CurrentUserId) && r.Status == RecipeStatus.Draft && r.AuthorId == request.CurrentUserId))
-            .ToList();
-
-        var totalCount = visibleRecipes.Count;
-
         var page = request.Page < 1 ? 1 : request.Page;
         var pageSize = request.PageSize < 1
             ? PagedResult<RecipeSummaryDto>.DefaultPageSize
             : Math.Min(request.PageSize, PagedResult<RecipeSummaryDto>.MaxPageSize);
 
-        var items = visibleRecipes
-            .OrderByDescending(r => r.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+        // Guest chỉ thấy Published; người đăng nhập thấy thêm Draft của chính mình (không Archived).
+        var (recipes, totalCount) = await _recipeRepository.GetPagedByCategoryIdAsync(
+            category.Id, request.CurrentUserId, page, pageSize, cancellationToken);
+
+        var items = recipes
             .Select(r =>
             {
                 var featured = r.Images.FirstOrDefault(i => i.IsPrimary) ?? r.Images.FirstOrDefault();
