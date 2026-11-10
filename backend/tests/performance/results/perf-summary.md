@@ -58,12 +58,30 @@ cộng 2 câu hồ sơ tác giả).
 
 Output gốc: `explain-analyze-output.txt`.
 
+### Đo lại sau khi sửa — 2026-11-10 (plan `docs/plans/NFR-PERF-004-categories-query.md`)
+
+Cùng `seed-perf-data.sql` (10.050 recipes, 8.021 Published; danh mục `mon-chay` 7.661 recipe), Postgres
+`cb-postgres` không giới hạn CPU, máy rảnh. Mỗi câu chạy **5 lần**, ghi khoảng min–max của `Execution Time`
+(lần đầu thường cao hơn do cache trang của PostgreSQL còn lạnh). SQL "sau" là SQL thật lấy từ log EF Core của API
+Development; SQL "trước" của mục 1 là câu cũ trong `explain-analyze.sql`, của mục 5 dựng lại theo đúng hình dạng EF
+sinh cho `Include(Recipes).ThenInclude(Images)` + `FirstOrDefault`.
+
+| # | Query | Trước | Sau | Kế hoạch sau |
+|---|---|---|---|---|
+| 1 | `GET /categories` | 75–281 ms (Include, nạp 8.021 dòng + ảnh, sort tràn đĩa) | **3,4–7,4 ms**, 1 câu SQL | Subquery `count(*)` qua `IX_Recipes_CategoryId` |
+| 2b | `GET /recipes` trang 1 | 4,1–23,6 ms (Seq Scan + top-N heapsort — đo bằng `DROP INDEX` trong transaction rồi `ROLLBACK`) | **0,26–0,62 ms** | Index Scan `IX_Recipes_Status_CreatedAt`, đọc đúng 12 dòng |
+| 5 | `GET /categories/mon-chay?page=2` | 52–228 ms (nạp **7.661** recipe + ảnh rồi phân trang trong bộ nhớ — chưa tính thời gian API dựng 7.661 entity) | **COUNT 1,7–3,5 ms + trang 0,16–1,7 ms** | Index Scan `IX_Recipes_Status_CreatedAt`, đọc 24 dòng |
+
+Cảnh báo slow query (`SlowQueryInterceptor`, > 100 ms → Warning) đã chạy thật trên API Development: bắt được
+`DbSeeder` lúc khởi động nạp toàn bộ recipe + ảnh để tìm ảnh thiếu biến thể card (D88) — 36 câu ~260 ms với dữ liệu
+perf. Chỉ chạy ở Development, ngoài phạm vi NFR-PERF-004.
+
 ## Việc cần làm (ngoài phạm vi PR đo hiệu năng)
 
-1. **FR-CAT-001:** đếm `recipeCount` bằng projection `Count()` trong SQL thay vì Include toàn bộ
-   recipe + ảnh — sửa cả query 532 ms lẫn cache stampede.
-2. **NFR-PERF-004:** migration thêm index `("Status", "CreatedAt" DESC)` cho `Recipes`
-   (SRS: mọi cột ORDER BY phải có index).
-3. **NFR-PERF-004:** cảnh báo slow query > 100 ms (Serilog) — chưa có trong code.
+1. ~~**FR-CAT-001:** đếm `recipeCount` bằng projection `Count()` trong SQL~~ — xong 2026-11-10 (bảng trên).
+   Cache stampede khi cache trống chưa đo lại bằng k6.
+2. ~~**NFR-PERF-004:** migration thêm index `("Status", "CreatedAt" DESC)`~~ — xong 2026-11-10:
+   `IX_Recipes_Status_CreatedAt` `("Status", "CreatedAt" DESC, "Id")`, khớp `ORDER BY "CreatedAt" DESC, "Id"`.
+3. ~~**NFR-PERF-004:** cảnh báo slow query > 100 ms~~ — xong 2026-11-10: `Infrastructure/Persistence/SlowQueryInterceptor.cs`.
 4. **NFR-PERF-001:** p95 ≤ 500 ms cho write operations — chưa đo (cần kịch bản k6 có đăng nhập).
 5. **NFR-PERF-002:** lần đo này chỉ giới hạn API ở 2 vCPU / 4 GB; PostgreSQL và Redis chạy ngoài giới hạn.

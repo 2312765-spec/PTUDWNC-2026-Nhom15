@@ -12,24 +12,18 @@
 -- =========================================================================================
 
 -- -----------------------------------------------------------------------------------------
--- 1. FR-CAT-001 — GET /api/v1/categories (Include Recipes + Images).
--- recipeCount được đếm trong bộ nhớ sau khi nạp TOÀN BỘ recipe Published + ảnh.
+-- 1. FR-CAT-001 — GET /api/v1/categories. NFR-PERF-004 (2026-11-10): projection, recipeCount đếm
+-- bằng subquery COUNT trong PostgreSQL — không nạp recipe/ảnh. (Trước đó: Include Recipes + Images,
+-- nạp 8.017 dòng, sort tràn đĩa — xem perf-summary.md.)
 -- -----------------------------------------------------------------------------------------
 EXPLAIN (ANALYZE, BUFFERS)
-SELECT c."Id", c."CreatedAt", c."Description", c."ImageUrl", c."IsDeleted", c."Name", c."OrderIndex", c."RowVersion", c."Slug", c."UpdatedAt", s."Id", s."AuthorId", s."CategoryId", s."CookTime", s."CreatedAt", s."Description", s."Difficulty", s."Instructions", s."IsDeleted", s."PrepTime", s."PublishedAt", s."RowVersion", s."SearchVector", s."Servings", s."Slug", s."Status", s."Title", s."UpdatedAt", s."Nutrition_Calories", s."Nutrition_Carbohydrates", s."Nutrition_Fat", s."Nutrition_Fiber", s."Nutrition_Protein", s."Nutrition_Sodium", s."Id0", s."AltText", s."CreatedAt0", s."IsDeleted0", s."IsPrimary", s."MediumUrl", s."OrderIndex", s."OriginalUrl", s."RecipeId", s."RowVersion0", s."ThumbnailUrl", s."UpdatedAt0"
-FROM "Categories" AS c
-LEFT JOIN (
-    SELECT r."Id", r."AuthorId", r."CategoryId", r."CookTime", r."CreatedAt", r."Description", r."Difficulty", r."Instructions", r."IsDeleted", r."PrepTime", r."PublishedAt", r."RowVersion", r."SearchVector", r."Servings", r."Slug", r."Status", r."Title", r."UpdatedAt", r."Nutrition_Calories", r."Nutrition_Carbohydrates", r."Nutrition_Fat", r."Nutrition_Fiber", r."Nutrition_Protein", r."Nutrition_Sodium", r1."Id" AS "Id0", r1."AltText", r1."CreatedAt" AS "CreatedAt0", r1."IsDeleted" AS "IsDeleted0", r1."IsPrimary", r1."MediumUrl", r1."OrderIndex", r1."OriginalUrl", r1."RecipeId", r1."RowVersion" AS "RowVersion0", r1."ThumbnailUrl", r1."UpdatedAt" AS "UpdatedAt0"
+SELECT c."Id", c."Name", c."Slug", c."Description", (
+    SELECT count(*)::int
     FROM "Recipes" AS r
-    LEFT JOIN (
-        SELECT r0."Id", r0."AltText", r0."CreatedAt", r0."IsDeleted", r0."IsPrimary", r0."MediumUrl", r0."OrderIndex", r0."OriginalUrl", r0."RecipeId", r0."RowVersion", r0."ThumbnailUrl", r0."UpdatedAt"
-        FROM "RecipeImages" AS r0
-        WHERE NOT (r0."IsDeleted")
-    ) AS r1 ON r."Id" = r1."RecipeId"
-    WHERE NOT (r."IsDeleted") AND NOT (r."IsDeleted") AND r."Status" = 1
-) AS s ON c."Id" = s."CategoryId"
+    WHERE NOT (r."IsDeleted") AND c."Id" = r."CategoryId" AND NOT (r."IsDeleted") AND r."Status" = 1)
+FROM "Categories" AS c
 WHERE NOT (c."IsDeleted")
-ORDER BY c."Name", c."Id", s."Id";
+ORDER BY c."Name";
 
 -- -----------------------------------------------------------------------------------------
 -- 2. FR-RCP-001 / FR-SRCH-004 — GET /api/v1/recipes?page=1&pageSize=12 (sort mặc định -createdAt)
@@ -40,9 +34,9 @@ SELECT count(*)::int
 FROM "Recipes" AS r
 WHERE NOT (r."IsDeleted") AND r."Status" = 1;
 
--- 2b. Trang dữ liệu
+-- 2b. Trang dữ liệu — dùng IX_Recipes_Status_CreatedAt ("Status", "CreatedAt" DESC, "Id"), NFR-PERF-004
 EXPLAIN (ANALYZE, BUFFERS)
-SELECT r1."Id", r1."AuthorId", r1."CategoryId", r1."CookTime", r1."CreatedAt", r1."Description", r1."Difficulty", r1."Instructions", r1."IsDeleted", r1."PrepTime", r1."PublishedAt", r1."RowVersion", r1."SearchVector", r1."Servings", r1."Slug", r1."Status", r1."Title", r1."UpdatedAt", r1."Nutrition_Calories", r1."Nutrition_Carbohydrates", r1."Nutrition_Fat", r1."Nutrition_Fiber", r1."Nutrition_Protein", r1."Nutrition_Sodium", r2."Id", r2."AltText", r2."CreatedAt", r2."IsDeleted", r2."IsPrimary", r2."MediumUrl", r2."OrderIndex", r2."OriginalUrl", r2."RecipeId", r2."RowVersion", r2."ThumbnailUrl", r2."UpdatedAt"
+SELECT r1."Id", r1."AuthorId", r1."CategoryId", r1."CookTime", r1."CreatedAt", r1."Description", r1."Difficulty", r1."Instructions", r1."IsDeleted", r1."PrepTime", r1."PublishedAt", r1."RowVersion", r1."SearchVector", r1."Servings", r1."Slug", r1."Status", r1."Title", r1."UpdatedAt", r1."Nutrition_Calories", r1."Nutrition_Carbohydrates", r1."Nutrition_Fat", r1."Nutrition_Fiber", r1."Nutrition_Protein", r1."Nutrition_Sodium", r2."Id", r2."AltText", r2."CardUrl", r2."CreatedAt", r2."IsDeleted", r2."IsPrimary", r2."MediumUrl", r2."OrderIndex", r2."OriginalUrl", r2."RecipeId", r2."RowVersion", r2."ThumbnailUrl", r2."UpdatedAt"
 FROM (
     SELECT r."Id", r."AuthorId", r."CategoryId", r."CookTime", r."CreatedAt", r."Description", r."Difficulty", r."Instructions", r."IsDeleted", r."PrepTime", r."PublishedAt", r."RowVersion", r."SearchVector", r."Servings", r."Slug", r."Status", r."Title", r."UpdatedAt", r."Nutrition_Calories", r."Nutrition_Carbohydrates", r."Nutrition_Fat", r."Nutrition_Fiber", r."Nutrition_Protein", r."Nutrition_Sodium"
     FROM "Recipes" AS r
@@ -51,7 +45,7 @@ FROM (
     LIMIT 12 OFFSET 0
 ) AS r1
 LEFT JOIN (
-    SELECT r0."Id", r0."AltText", r0."CreatedAt", r0."IsDeleted", r0."IsPrimary", r0."MediumUrl", r0."OrderIndex", r0."OriginalUrl", r0."RecipeId", r0."RowVersion", r0."ThumbnailUrl", r0."UpdatedAt"
+    SELECT r0."Id", r0."AltText", r0."CardUrl", r0."CreatedAt", r0."IsDeleted", r0."IsPrimary", r0."MediumUrl", r0."OrderIndex", r0."OriginalUrl", r0."RecipeId", r0."RowVersion", r0."ThumbnailUrl", r0."UpdatedAt"
     FROM "RecipeImages" AS r0
     WHERE NOT (r0."IsDeleted")
 ) AS r2 ON r1."Id" = r2."RecipeId"
@@ -90,3 +84,33 @@ FROM "Recipes" AS r
 WHERE NOT (r."IsDeleted") AND NOT (r."IsDeleted") AND r."Status" = 1 AND r."SearchVector" @@ to_tsquery('simple', unaccent('pho:*'))
 ORDER BY ts_rank(r."SearchVector", to_tsquery('simple', unaccent('pho:*'))) DESC, r."CreatedAt" DESC, r."Id"
 LIMIT 10 OFFSET 0;
+
+-- -----------------------------------------------------------------------------------------
+-- 5. FR-CAT-002 — GET /api/v1/categories/mon-chay?page=2&pageSize=12 (Guest). NFR-PERF-004
+-- (2026-11-10): COUNT + LIMIT/OFFSET trong PostgreSQL. (Trước đó: Include toàn bộ recipe + ảnh
+-- của danh mục rồi lọc/phân trang trong bộ nhớ.) @categoryId lấy bằng \gset.
+-- -----------------------------------------------------------------------------------------
+SELECT "Id" AS category_id FROM "Categories" WHERE "Slug" = 'mon-chay' \gset
+
+-- 5a. COUNT
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT count(*)::int
+FROM "Recipes" AS r
+WHERE NOT (r."IsDeleted") AND r."CategoryId" = :'category_id' AND NOT (r."IsDeleted") AND r."Status" = 1;
+
+-- 5b. Trang 2
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT r1."Id", r1."AuthorId", r1."CategoryId", r1."CookTime", r1."CreatedAt", r1."Description", r1."Difficulty", r1."Instructions", r1."IsDeleted", r1."PrepTime", r1."PublishedAt", r1."RowVersion", r1."SearchVector", r1."Servings", r1."Slug", r1."Status", r1."Title", r1."UpdatedAt", r1."Nutrition_Calories", r1."Nutrition_Carbohydrates", r1."Nutrition_Fat", r1."Nutrition_Fiber", r1."Nutrition_Protein", r1."Nutrition_Sodium", r2."Id", r2."AltText", r2."CardUrl", r2."CreatedAt", r2."IsDeleted", r2."IsPrimary", r2."MediumUrl", r2."OrderIndex", r2."OriginalUrl", r2."RecipeId", r2."RowVersion", r2."ThumbnailUrl", r2."UpdatedAt"
+FROM (
+    SELECT r."Id", r."AuthorId", r."CategoryId", r."CookTime", r."CreatedAt", r."Description", r."Difficulty", r."Instructions", r."IsDeleted", r."PrepTime", r."PublishedAt", r."RowVersion", r."SearchVector", r."Servings", r."Slug", r."Status", r."Title", r."UpdatedAt", r."Nutrition_Calories", r."Nutrition_Carbohydrates", r."Nutrition_Fat", r."Nutrition_Fiber", r."Nutrition_Protein", r."Nutrition_Sodium"
+    FROM "Recipes" AS r
+    WHERE NOT (r."IsDeleted") AND r."CategoryId" = :'category_id' AND NOT (r."IsDeleted") AND r."Status" = 1
+    ORDER BY r."CreatedAt" DESC, r."Id"
+    LIMIT 12 OFFSET 12
+) AS r1
+LEFT JOIN (
+    SELECT r0."Id", r0."AltText", r0."CardUrl", r0."CreatedAt", r0."IsDeleted", r0."IsPrimary", r0."MediumUrl", r0."OrderIndex", r0."OriginalUrl", r0."RecipeId", r0."RowVersion", r0."ThumbnailUrl", r0."UpdatedAt"
+    FROM "RecipeImages" AS r0
+    WHERE NOT (r0."IsDeleted")
+) AS r2 ON r1."Id" = r2."RecipeId"
+ORDER BY r1."CreatedAt" DESC, r1."Id";
