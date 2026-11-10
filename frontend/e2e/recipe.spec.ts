@@ -1,11 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-/**
- * Chờ dữ liệu: chưa có cách tạo công thức Published cho E2E — API tạo/publish (FR-RCP-003/005/
- * 009/010, C) còn Pending và DbSeeder đang trống. Bỏ `fixme` khi một trong hai sẵn sàng.
- */
-const NEEDS_PUBLISHED_RECIPE = 'Chờ FR-RCP-003/005 (C) hoặc DbSeeder có công thức Published';
-
 test.describe('Trang chủ (FR-RCP-001)', () => {
   test('FR-RCP-001: hiện hero, ô tìm kiếm, danh mục và công thức mới nhất — không có lỗi tải', async ({ page }) => {
     await page.goto('/');
@@ -33,10 +27,14 @@ test.describe('Trang chủ (FR-RCP-001)', () => {
   test('FR-RCP-001/002: bấm card công thức ở trang chủ → trang chi tiết có Nguyên liệu và Các bước thực hiện', async ({
     page,
   }) => {
-    test.fixme(true, NEEDS_PUBLISHED_RECIPE);
-
+    // Dữ liệu: DbSeeder (Development) có sẵn công thức Published.
     await page.goto('/');
-    const card = page.getByRole('region', { name: 'Công thức mới nhất' }).getByRole('link').first();
+    // Card nằm trong danh sách — link đầu tiên của vùng là "Khám phá thêm →".
+    const card = page
+      .getByRole('region', { name: 'Công thức mới nhất' })
+      .getByRole('listitem')
+      .first()
+      .getByRole('link');
     const title = (await card.getByRole('heading').textContent())?.trim() ?? '';
     await card.click();
 
