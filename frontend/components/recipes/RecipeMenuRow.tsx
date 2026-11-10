@@ -19,7 +19,7 @@ export function RecipeMenuRow({ recipe, index }: { recipe: RecipeSummaryDto; ind
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-baseline gap-2.5">
-          <h3 className="min-w-0 font-display text-xl font-extrabold leading-tight md:text-2xl">
+          <h3 className="min-w-0 break-words font-display text-xl font-extrabold leading-tight md:text-2xl">
             <Link href={href} className="hover:text-accent">
               {recipe.title}
             </Link>

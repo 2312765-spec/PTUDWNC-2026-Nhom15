@@ -148,7 +148,7 @@ export default async function RecipeDetailPage({
 
       <header className="flex flex-col gap-4 border-b-2 border-ink pb-6">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">{recipe.category.name}</p>
-        <h1 className="text-5xl font-extrabold leading-none md:text-7xl">{recipe.title}</h1>
+        <h1 className="break-words text-4xl font-extrabold leading-none sm:text-5xl md:text-7xl">{recipe.title}</h1>
         {recipe.description && <p className="max-w-3xl text-lg leading-relaxed text-ink-muted">{recipe.description}</p>}
         <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
           <div className="flex flex-row-reverse gap-1.5">
@@ -259,7 +259,7 @@ export default async function RecipeDetailPage({
             {ingredients.map((ing) => (
               <li key={ing.id} className="border-b border-dashed border-border last:border-b-0">
                 <label className="flex min-h-11 cursor-pointer items-center gap-3 py-2">
-                  <input type="checkbox" className="size-[18px] flex-none accent-brand-600" />
+                  <input type="checkbox" className="size-6 flex-none accent-brand-600" />
                   <span className="flex-1">
                     {ing.name}
                     {ing.notes && <span className="block text-xs text-ink-muted">({ing.notes})</span>}

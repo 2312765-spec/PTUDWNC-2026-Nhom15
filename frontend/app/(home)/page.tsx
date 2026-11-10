@@ -57,7 +57,7 @@ function FeaturedRecipe({ recipe }: { recipe: RecipeSummaryDto }) {
         <p id="home-featured-label" className="text-xs font-bold uppercase tracking-[0.18em] text-accent">
           Món đáng thử
         </p>
-        <h2 className="text-4xl font-extrabold leading-none">{recipe.title}</h2>
+        <h2 className="break-words text-4xl font-extrabold leading-none">{recipe.title}</h2>
         {recipe.description && <p className="leading-relaxed text-ink-muted">{recipe.description}</p>}
         <p className="text-sm text-ink-muted">
           {formatMinutes(recipe.prepTimeMinutes + recipe.cookTimeMinutes)} · {difficultyLabel(recipe.difficulty)}

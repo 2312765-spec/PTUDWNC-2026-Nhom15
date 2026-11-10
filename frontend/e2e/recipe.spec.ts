@@ -16,8 +16,9 @@ test.describe('Trang chủ (FR-RCP-001, D97)', () => {
 
     await expect(page.getByRole('region', { name: 'Món đáng thử' })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Thực đơn mới' })).toBeVisible();
-    // Backend sống (global-setup) → không phần nào được rơi vào trạng thái lỗi.
-    await expect(page.getByRole('alert')).toHaveCount(0);
+    // Backend sống (global-setup) → không phần nào rơi vào trạng thái lỗi. Chỉ xét <main>: bộ thông báo chuyển
+    // trang của Next (next-route-announcer) cũng có role="alert".
+    await expect(page.getByRole('main').getByRole('alert')).toHaveCount(0);
   });
 
   test('FR-CAT-001: link "Danh mục" trên thanh bên dẫn tới /categories', async ({ page }) => {
