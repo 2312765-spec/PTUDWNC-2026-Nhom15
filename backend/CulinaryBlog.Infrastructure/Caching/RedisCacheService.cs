@@ -19,7 +19,23 @@ public sealed class RedisCacheService(
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    private static string TagKey(string tag) => $"tag:{tag}";
+    /// <summary>Tiền tố của tag set — <see cref="RedisCacheRecovery"/> quét theo mẫu <c>tag:*</c>.</summary>
+    internal const string TagKeyPrefix = "tag:";
+
+    private static string TagKey(string tag) => $"{TagKeyPrefix}{tag}";
+
+    /// <summary>Xóa mọi cache key ghi trong một tag set, rồi xóa chính tag set đó.</summary>
+    internal static async Task RemoveTagSetAsync(IDatabase db, RedisKey tagKey)
+    {
+        var members = await db.SetMembersAsync(tagKey);
+
+        if (members.Length > 0)
+        {
+            await db.KeyDeleteAsync([.. members.Select(m => (RedisKey)m.ToString())]);
+        }
+
+        await db.KeyDeleteAsync(tagKey);
+    }
 
     public async Task<T?> GetAsync<T>(string key, CancellationToken ct = default)
     {
@@ -71,15 +87,7 @@ public sealed class RedisCacheService(
 
             foreach (var tag in tags)
             {
-                var tagKey = TagKey(tag);
-                var members = await db.SetMembersAsync(tagKey);
-
-                if (members.Length > 0)
-                {
-                    await db.KeyDeleteAsync([.. members.Select(m => (RedisKey)m.ToString())]);
-                }
-
-                await db.KeyDeleteAsync(tagKey);
+                await RemoveTagSetAsync(db, TagKey(tag));
             }
         }
         catch (Exception ex)

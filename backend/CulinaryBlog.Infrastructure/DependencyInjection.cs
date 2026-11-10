@@ -16,6 +16,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 namespace CulinaryBlog.Infrastructure;
 
@@ -94,11 +95,22 @@ public static class DependencyInjection
         var redisConnection = configuration.GetConnectionString("Redis")
             ?? throw new InvalidOperationException("Thiếu ConnectionStrings:Redis trong cấu hình.");
 
-        services.AddSingleton<IConnectionMultiplexer>(_ =>
+        services.AddSingleton<IConnectionMultiplexer>(sp =>
         {
             var options = ConfigurationOptions.Parse(redisConnection);
             options.AbortOnConnectFail = false; // NFR-REL-002: Redis down vẫn phải khởi động được
-            return ConnectionMultiplexer.Connect(options);
+
+            // D90: Redis chỉ là cache — mất kết nối thì báo lỗi NGAY để đi thẳng xuống DB, không xếp
+            // lệnh vào backlog chờ kết nối lại (mặc định chờ 5 s → mỗi request treo 5 s).
+            options.BacklogPolicy = BacklogPolicy.FailFast;
+            // Redis còn kết nối nhưng không phản hồi: lệnh cache bình thường < 10 ms, 500 ms là dư.
+            options.AsyncTimeout = 500;
+            options.SyncTimeout = 500;
+
+            var multiplexer = ConnectionMultiplexer.Connect(options);
+            // D90: kết nối lại → xóa cache có thể đã cũ do lệnh ghi lúc Redis tắt.
+            RedisCacheRecovery.Attach(multiplexer, sp.GetRequiredService<ILogger<RedisCacheRecovery>>());
+            return multiplexer;
         });
         services.AddScoped<ICacheService, RedisCacheService>();
 
