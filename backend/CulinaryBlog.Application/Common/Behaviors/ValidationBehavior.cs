@@ -20,9 +20,17 @@ public sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidat
             return await next();
         }
 
-        var context = new ValidationContext<TRequest>(request);
-        var results = await Task.WhenAll(validators.Select(v => v.ValidateAsync(context, cancellationToken)));
-        var failures = results.SelectMany(r => r.Errors).Where(f => f is not null).ToList();
+        // Mỗi validator một ValidationContext riêng và chạy TUẦN TỰ (NFR-MAINT-002, 2026-11-10):
+        // - Dùng chung một context thì FluentValidation cộng dồn lỗi vào đó → validator sau trả cả lỗi
+        //   của validator trước, mỗi lỗi bị báo 2 lần khi có ≥ 2 validator.
+        // - Task.WhenAll chạy song song: validator có rule async đọc DB sẽ dùng chung DbContext scoped
+        //   cùng lúc → EF Core ném "A second operation was started on this context".
+        var failures = new List<FluentValidation.Results.ValidationFailure>();
+        foreach (var validator in validators)
+        {
+            var result = await validator.ValidateAsync(new ValidationContext<TRequest>(request), cancellationToken);
+            failures.AddRange(result.Errors.Where(f => f is not null));
+        }
 
         if (failures.Count > 0)
         {
