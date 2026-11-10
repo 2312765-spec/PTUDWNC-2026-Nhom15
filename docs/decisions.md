@@ -99,6 +99,7 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D86 | LCP `/search` + cách đo Lighthouse CI (NFR-PERF-005) | `/search` **không** stream kết quả qua `<Suspense>` (kết quả có ngay trong HTML đầu) · báo đang tải bằng transition (`aria-busy`) · làm nóng cache trước khi đo · ngưỡng giữ 2500ms |
 | D87 | Lighthouse CI chấm theo trung vị (NFR-PERF-005) | `aggregationMethod: "median"` — trung vị **9** lần đo cho từng chỉ số, thay `median-run` (chấm 1 lần "đại diện") · ngưỡng giữ nguyên |
 | D88 | Biến thể ảnh `card` (FR-JOB-002, NFR-PERF-005) | Thêm biến thể thứ ba: **crop giữa 760×320** WebP, không phóng to · `RecipeImage.CardUrl` · `RecipeSummaryDto.FeaturedImageCardUrl` · card dùng ảnh card, chưa có thì ảnh gốc · ảnh trước D88: job chỉ bổ sung card |
+| D90 | Redis tắt / lên lại (NFR-REL-002) | `BacklogPolicy.FailFast` + timeout lệnh 500 ms — mất kết nối thì đi thẳng xuống DB ngay, không chờ 5 s · kết nối lại → xóa **mọi** key cache theo `tag:*` (không trả bản cũ do lệnh ghi lúc Redis tắt) |
 
 ---
 
@@ -2536,6 +2537,51 @@ trì là tính năng mới không có FR, thêm vào là tự mở rộng scope 
 
 **Sửa SRS:** NFR-REL-001 — tách "readiness probe 10s" (v1) khỏi "uptime 99.5%, Uptime Robot, banner bảo trì"
 (vận hành sau khi deploy).
+
+---
+
+## D90 — NFR-REL-002: Redis tắt không làm chậm request, Redis lên lại không trả cache cũ
+
+> 2026-11-10. Phát hiện bằng chaos test `IntegrationTests/Resilience/RedisDownTests.cs` (plan
+> `plans/NFR-REL-002-redis-down.md`).
+
+**Nguồn thiếu:** SRS NFR-REL-002 chỉ ghi "Redis down → fallback database (không cache), không throw exception".
+D8 chốt "Redis down → log warning rồi đi thẳng xuống handler". Code đã không throw, nhưng chaos test cho thấy hai
+chỗ SRS và D8 không nói tới:
+
+1. **Chậm:** StackExchange.Redis mặc định xếp lệnh vào backlog chờ kết nối lại, tới `AsyncTimeout` 5 s mới báo lỗi.
+   Đo được: mỗi `GET /categories` và `POST /categories` mất **5,4–5,9 s** khi Redis tắt — không sập nhưng với
+   người dùng thì giống sập, và vượt xa p95 ≤ 500 ms (NFR-PERF-001).
+2. **Cache cũ:** ghi dữ liệu lúc Redis tắt → `CacheInvalidationBehavior` xóa tag thất bại (đúng D8: nuốt lỗi).
+   Redis lên lại với dữ liệu cũ (persistence) → API trả bản cũ tới hết TTL — `categories:all` tới **30 phút**.
+   Test: danh mục tạo lúc Redis tắt không hiện ở `GET /categories` sau khi Redis lên lại.
+
+**Chốt:**
+
+1. Multiplexer (`Infrastructure/DependencyInjection.cs`): `BacklogPolicy.FailFast` — mất kết nối thì lệnh cache lỗi
+   ngay, `CachingBehavior` đi thẳng xuống DB. `AsyncTimeout`/`SyncTimeout` = **500 ms** cho trường hợp Redis còn
+   kết nối nhưng không phản hồi (lệnh cache bình thường < 10 ms). `ConnectTimeout` giữ mặc định 5 s — đặt 1 s thì
+   trên Docker Desktop/Windows multiplexer không kết nối được Redis cả khi Redis đang chạy (đã thử).
+2. `Infrastructure/Caching/RedisCacheRecovery.cs`: sự kiện `ConnectionRestored` (kết nối Interactive) → quét mọi tag
+   set `tag:*` bằng SCAN, xóa key trong đó và chính tag set. Mọi key cache đều có ít nhất một tag (bảng D8) nên quét
+   tag là đủ. Không throw; lỗi → log Warning, cache tự hết hạn theo TTL.
+3. **Không** giữ danh sách "tag đã lỡ xóa" trong bộ nhớ API: nhiều instance thì instance khác cũng phải dọn được, và
+   NFR-SCALE-001 yêu cầu stateless.
+
+**Hạn chế đã biết (chấp nhận):**
+
+- Từ lúc kết nối lại tới khi dọn xong (vài chục ms) request vẫn có thể đọc bản cũ.
+- Một request đọc DB **trước** lệnh ghi nhưng ghi cache **sau** khi dọn xong có thể nạp lại bản cũ — cửa sổ rất
+  hẹp, tự hết theo TTL.
+- API khởi động khi Redis đang tắt: request đầu tiên dùng cache chờ tối đa `ConnectTimeout` (5 s) một lần duy nhất
+  để tạo multiplexer; các request sau FailFast.
+- Kịch bản Redis "treo" (kết nối mở nhưng không phản hồi) không có test tự động — chỉ dựa vào timeout 500 ms.
+
+**Vì:** Redis chỉ là cache; mọi dữ liệu đúng đều nằm ở PostgreSQL. Bỏ cache một lúc chỉ tốn thêm truy vấn DB, còn
+chờ 5 s hoặc trả dữ liệu sai 30 phút thì người dùng thấy ngay.
+
+**Sửa SRS:** NFR-REL-002 — thêm "lệnh cache thất bại phải trả về trong ≤ 500 ms" và "khi kết nối lại Redis, xóa
+cache có thể đã cũ".
 
 ---
 
