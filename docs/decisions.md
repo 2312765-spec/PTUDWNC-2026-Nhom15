@@ -100,6 +100,12 @@ SRS v1.0.0 có 22 chỗ tự mâu thuẫn hoặc thiếu thông tin. Tài liệu
 | D87 | Lighthouse CI chấm theo trung vị (NFR-PERF-005) | `aggregationMethod: "median"` — trung vị **9** lần đo cho từng chỉ số, thay `median-run` (chấm 1 lần "đại diện") · ngưỡng giữ nguyên |
 | D88 | Biến thể ảnh `card` (FR-JOB-002, NFR-PERF-005) | Thêm biến thể thứ ba: **crop giữa 760×320** WebP, không phóng to · `RecipeImage.CardUrl` · `RecipeSummaryDto.FeaturedImageCardUrl` · card dùng ảnh card, chưa có thì ảnh gốc · ảnh trước D88: job chỉ bổ sung card |
 | D90 | Redis tắt / lên lại (NFR-REL-002) | `BacklogPolicy.FailFast` + timeout lệnh 500 ms — mất kết nối thì đi thẳng xuống DB ngay, không chờ 5 s · kết nối lại → xóa **mọi** key cache theo `tag:*` (không trả bản cũ do lệnh ghi lúc Redis tắt) |
+| D91 | Cookie SameSite (NFR-SEC-005) | Cookie Auth.js giữ **`Lax`**, không `Strict` — `Strict` làm hỏng đăng nhập Google (cookie state/PKCE không được gửi khi Google redirect về). API dùng Bearer token nên không có CSRF qua cookie |
+| D92 | Audit log mọi write (NFR-SEC-006) | v1 = **request log có cấu trúc** (FR-OBS-002: method, path, status, `UserId`, `CorrelationId`, thời gian) cho mọi POST/PUT/PATCH/DELETE + log riêng `{RecipeId}`/`{UserId}` cho xóa/publish/archive. Không có bảng AuditLog |
+| D93 | Khóa JWT cũ trong lịch sử Git (NFR-SEC-007) | Không viết lại lịch sử Git. Khóa cũ coi như đã lộ, chỉ dùng dev; production **bắt buộc** sinh khóa mới (`openssl rand -base64 48`, `docs/deployment.md`) |
+| D94 | CDN (NFR-SCALE-003) | Ngoài phạm vi v1 (không có domain/ngân sách). Tài nguyên tĩnh đã sẵn sàng cho CDN: `/_next/static` immutable, ảnh tên GUID `expires 30d` — gắn CDN sau chỉ là cấu hình DNS, không đổi code |
+| D95 | "2 vCPU / 4 GB" (NFR-PERF-002) | Hiểu là giới hạn của **một instance API**; PostgreSQL / Redis là service riêng (NFR-SCALE-003: mỗi service 1 container). Đo toàn bộ stack trong 2 vCPU chưa làm |
+| D96 | SonarAnalyzer / StyleCop, Prettier (NFR-MAINT-001) | Dùng analyzer có sẵn của .NET (`AnalysisLevel=latest`) + `TreatWarningsAsErrors`, không thêm SonarAnalyzer/StyleCop. Prettier: có cấu hình, CI **chưa** kiểm (59 file chưa format) — format + thêm `prettier --check` sau demo |
 
 ---
 
@@ -2582,6 +2588,133 @@ chờ 5 s hoặc trả dữ liệu sai 30 phút thì người dùng thấy ngay.
 
 **Sửa SRS:** NFR-REL-002 — thêm "lệnh cache thất bại phải trả về trong ≤ 500 ms" và "khi kết nối lại Redis, xóa
 cache có thể đã cũ".
+
+---
+
+## D91 — NFR-SEC-005: cookie phiên giữ `SameSite=Lax`
+
+> 2026-11-10.
+
+**Nguồn:** SRS NFR-SEC-005 ghi "cookie SameSite=Strict".
+
+**Chốt:** cookie của Auth.js (session JWT mã hóa, `httpOnly`, `Secure` trên HTTPS) giữ mặc định **`Lax`**.
+
+**Vì:**
+
+1. Đăng nhập Google (FR-AUTH-003) chạy qua provider Google của Auth.js (`frontend/auth.ts`). Khi Google redirect về
+   `/api/auth/callback/google`, đó là điều hướng **cross-site**; với `Strict` trình duyệt không gửi cookie `state` /
+   `pkce.code_verifier` → Auth.js báo `InvalidCheck`, không đăng nhập được bằng Google.
+2. `Strict` còn làm người dùng bấm link từ email chào mừng (FR-JOB-001 → `/dashboard`) thấy như chưa đăng nhập ở lần
+   mở đầu tiên.
+3. Rủi ro CSRF mà `Strict` muốn chặn đã được xử lý chỗ khác: API backend xác thực bằng header `Authorization: Bearer`
+   (không đọc cookie) nên không bị CSRF; các route POST của Auth.js có CSRF token riêng. `Lax` vẫn không gửi cookie
+   trên request POST cross-site.
+
+**Sửa SRS:** NFR-SEC-005 — "cookie `SameSite=Lax` (Strict không tương thích OAuth redirect)".
+
+---
+
+## D92 — NFR-SEC-006: "audit log mọi write" trong v1
+
+> 2026-11-10.
+
+**Nguồn:** SRS NFR-SEC-006 ghi "audit log mọi write" nhưng không nói lưu ở đâu, giữ bao lâu, gồm trường nào.
+
+**Chốt:** audit log v1 là **log có cấu trúc**, không phải bảng riêng:
+
+- Mọi request HTTP — gồm mọi POST/PUT/PATCH/DELETE — có một dòng request log với method, path, status, thời gian,
+  `CorrelationId`, và `UserId` khi đã đăng nhập (FR-OBS-002, CONS-010 — test `Observability/StructuredLoggingTests.cs`).
+  Ai, làm gì, lúc nào, kết quả ra sao đều tra được trong Seq / file log.
+- `LoggingBehavior` ghi thêm tên Command (`CreateRecipeCommand`…) cùng `CorrelationId` → nối được request với use case.
+- Thao tác khó hoàn tác — xóa, publish/unpublish, archive recipe — ghi thêm log riêng có `{RecipeId}` / `{UserId}` (D77, D78).
+
+**Không làm trong v1:** bảng `AuditLog` trong DB, giao diện xem audit, lưu giá trị trước/sau khi sửa.
+
+**Vì:** SRS không có FR nào đọc audit log (không có màn hình, không có báo cáo) — một bảng không ai đọc chỉ thêm việc
+ghi mỗi request. Log có cấu trúc đã đủ trả lời "ai làm gì lúc nào" khi điều tra sự cố.
+
+**Sửa SRS:** NFR-SEC-006 — "audit log = structured request log có UserId cho mọi lệnh ghi".
+
+---
+
+## D93 — NFR-SEC-007: khóa JWT cũ còn trong lịch sử Git
+
+> 2026-11-10.
+
+**Nguồn:** NFR-SEC-007 "không secret trong Git". `Jwt:Key` từng nằm trong `appsettings.json` ở các commit đầu
+(đã bỏ ở CONS-009, xem traceability).
+
+**Chốt:** **không** viết lại lịch sử Git (`git filter-repo` / force push). Coi khóa đó là **đã lộ**: chỉ dùng cho dev;
+production bắt buộc sinh khóa mới bằng `openssl rand -base64 48` (`docs/deployment.md`, `.env.production.example`).
+`JwtKeyGuard` chặn API khởi động khi thiếu khóa hoặc khóa < 32 byte. Hook `gitleaks` (`.githooks/pre-commit`) và job CI
+"Quét secret" chặn secret mới.
+
+**Vì:** viết lại lịch sử buộc cả 4 người clone lại, phá các nhánh và PR đang mở, mà không thu hồi được bản đã có trên
+máy người khác hay trên GitHub. Đổi khóa mới hiệu quả hơn và không tốn gì.
+
+**Sửa SRS:** không cần.
+
+---
+
+## D94 — NFR-SCALE-003: CDN cho tài nguyên tĩnh ngoài phạm vi v1
+
+> 2026-11-10.
+
+**Nguồn:** NFR-SCALE-003 "CDN static assets".
+
+**Chốt:** v1 **không** gắn CDN. Tài nguyên tĩnh đã có header cache để gắn CDN sau mà không phải sửa code:
+
+- `/_next/static/*`: Next.js trả `Cache-Control: public, max-age=31536000, immutable` (tên file có hash).
+- Ảnh recipe `/culinary-blog/*`: tên object là GUID (D16), Nginx `expires 30d` (`nginx/nginx.prod.conf`).
+
+**Vì:** nhóm không có domain thật và ngân sách CDN cho đồ án; gắn CDN (Cloudflare…) là cấu hình DNS / origin, không
+thuộc code.
+
+**Sửa SRS:** NFR-SCALE-003 — chuyển "CDN static assets" sang "khuyến nghị khi triển khai thật".
+
+---
+
+## D95 — NFR-PERF-002: "2 vCPU / 4 GB" là giới hạn của instance API
+
+> 2026-11-10.
+
+**Nguồn:** NFR-PERF-002 "≥ 100 concurrent users trên 2 vCPU / 4GB" — không nói 2 vCPU là cho API hay cả hệ thống.
+
+**Chốt:** hiểu là **một instance API** (container `api`). PostgreSQL và Redis là service riêng (NFR-SCALE-003: mỗi
+service một container) và được tính tài nguyên riêng.
+
+**Đã đo** (`backend/tests/performance/results/perf-summary.md`, 2026-11-03): API giới hạn `cpus: 2`, `mem_limit: 4g` —
+100 VU 0% lỗi, p99 100,9 ms; 180 VU 0% lỗi, p99 424,8 ms; RAM tối đa ~515 MiB.
+
+**Chưa đo:** cả API + PostgreSQL + Redis cùng chia 2 vCPU / 4 GB (một VPS nhỏ chạy hết). Nếu triển khai kiểu đó thì
+phải đo lại.
+
+**Sửa SRS:** NFR-PERF-002 — "2 vCPU / 4 GB cho mỗi instance API".
+
+---
+
+## D96 — NFR-MAINT-001: analyzer có sẵn của .NET thay SonarAnalyzer / StyleCop; Prettier
+
+> 2026-11-10.
+
+**Nguồn:** NFR-MAINT-001 "0 compiler warning, SonarAnalyzer/StyleCop, ESLint + Prettier".
+
+**Chốt:**
+
+1. **Backend:** không thêm SonarAnalyzer / StyleCop. Dùng analyzer đi kèm .NET SDK (`AnalysisLevel=latest`) +
+   `TreatWarningsAsErrors=true` + `Nullable=enable` (`Directory.Build.props`). CI bước "Build (0 warning)" đỏ khi có
+   warning bất kỳ.
+2. **Frontend:** ESLint (`eslint-config-next`) chạy trong CI. Prettier có cấu hình (`frontend/.prettierrc`, script
+   `npm run format`) nhưng CI **chưa** kiểm: ngày 2026-11-10 `prettier --check --end-of-line auto app components lib`
+   báo 59 file chưa format.
+
+**Việc còn lại (sau demo):** chạy `npm run format` một lần trong PR riêng (chạm file của nhiều người — làm khi không
+còn nhánh đang mở), thêm `.prettierignore` và bước `npx prettier --check .` vào job CI Frontend.
+
+**Vì:** thêm StyleCop/Sonar lúc cuối dự án sinh hàng trăm cảnh báo về style, và với `TreatWarningsAsErrors` build sẽ
+đỏ — phải sửa hàng loạt file ngay trước demo mà không tăng chất lượng thực. Format hàng loạt bằng Prettier cũng vậy.
+
+**Sửa SRS:** NFR-MAINT-001 — "analyzer .NET SDK + TreatWarningsAsErrors" thay "SonarAnalyzer/StyleCop".
 
 ---
 
