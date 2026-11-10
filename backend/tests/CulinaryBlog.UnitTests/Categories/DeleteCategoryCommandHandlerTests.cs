@@ -95,7 +95,7 @@ public sealed class DeleteCategoryCommandHandlerTests
 
         public Task<Category?> GetBySlugAsync(string slug, CancellationToken ct = default) => Task.FromResult<Category?>(null);
         public Task<Category?> GetBySlugWithRecipesAsync(string slug, CancellationToken ct = default) => Task.FromResult<Category?>(null);
-        public Task<IReadOnlyList<Category>> GetAllWithRecipesAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Category>>(Array.Empty<Category>());
+        public Task<IReadOnlyList<CategorySummary>> GetAllWithPublishedRecipeCountAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<CategorySummary>>(Array.Empty<CategorySummary>());
         public Task<bool> ExistsByNameAsync(string name, CancellationToken ct = default) => Task.FromResult(false);
         public Task<bool> ExistsByNameAsync(string name, Guid excludeId, CancellationToken ct = default) => Task.FromResult(false);
         public Task<bool> ExistsBySlugAsync(string slug, CancellationToken ct = default) => Task.FromResult(false);

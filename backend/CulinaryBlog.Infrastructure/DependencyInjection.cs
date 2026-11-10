@@ -37,11 +37,13 @@ public static class DependencyInjection
         // dùng chung một instance cho mọi DbContext.
         services.AddSingleton<AuditInterceptor>();
         services.AddSingleton<RowVersionInterceptor>();
+        services.AddSingleton<SlowQueryInterceptor>(); // NFR-PERF-004: cảnh báo query > 100 ms
         services.AddDbContext<CulinaryBlogDbContext>((sp, options) =>
             options.UseNpgsql(connectionString)
                 .AddInterceptors(
                     sp.GetRequiredService<AuditInterceptor>(),
-                    sp.GetRequiredService<RowVersionInterceptor>()));
+                    sp.GetRequiredService<RowVersionInterceptor>(),
+                    sp.GetRequiredService<SlowQueryInterceptor>()));
 
         // 1. Cấu hình ASP.NET Core Identity
         services.AddIdentityCore<ApplicationUser>(options =>

@@ -1,10 +1,12 @@
 using CulinaryBlog.Application.Categories.DTOs;
-using CulinaryBlog.Domain.Enums;
 using CulinaryBlog.Domain.Interfaces;
 using MediatR;
 
 namespace CulinaryBlog.Application.Categories.Queries.GetCategories;
 
+/// <summary>
+/// FR-CAT-001. recipeCount = số công thức Published chưa xóa, đếm trong database (NFR-PERF-004).
+/// </summary>
 public sealed class GetCategoriesQueryHandler : IRequestHandler<GetCategoriesQuery, IReadOnlyList<CategoryDto>>
 {
     private readonly ICategoryRepository _categoryRepository;
@@ -15,19 +17,13 @@ public sealed class GetCategoriesQueryHandler : IRequestHandler<GetCategoriesQue
     }
 
     public async Task<IReadOnlyList<CategoryDto>> Handle(
-        GetCategoriesQuery request, 
+        GetCategoriesQuery request,
         CancellationToken cancellationToken)
     {
-        var categories = await _categoryRepository.GetAllWithRecipesAsync(cancellationToken);
+        var categories = await _categoryRepository.GetAllWithPublishedRecipeCountAsync(cancellationToken);
 
         return categories
-            .Select(c => new CategoryDto(
-                c.Id,
-                c.Name,
-                c.Slug,
-                c.Description,
-                c.Recipes.Count(r => r.Status == RecipeStatus.Published && !r.IsDeleted)
-            ))
+            .Select(c => new CategoryDto(c.Id, c.Name, c.Slug, c.Description, c.PublishedRecipeCount))
             .ToList();
     }
 }

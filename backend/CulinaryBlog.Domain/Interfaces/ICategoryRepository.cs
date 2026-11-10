@@ -14,15 +14,18 @@ public interface ICategoryRepository
     Task<IReadOnlyList<Category>> GetAllAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// FR-CAT-001: Lấy tất cả danh mục kèm các công thức đã xuất bản (Published).
-    /// Sắp xếp theo Name tăng dần.
+    /// FR-CAT-001 / NFR-PERF-004: mọi danh mục chưa xóa kèm số công thức Published chưa xóa, đếm trong
+    /// database (projection) — không nạp recipe. Sắp xếp theo Name tăng dần.
     /// </summary>
-    Task<IReadOnlyList<Category>> GetAllWithRecipesAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<CategorySummary>> GetAllWithPublishedRecipeCountAsync(CancellationToken cancellationToken = default);
 
     /// <summary>FR-CAT-004: Lấy danh mục theo ID.</summary>
     Task<Category?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
-    /// <summary>FR-CAT-002: Lấy danh mục theo Slug.</summary>
+    /// <summary>
+    /// FR-CAT-002: Lấy danh mục theo Slug — CHỈ danh mục, không kèm recipe. Recipe của danh mục lấy theo
+    /// trang qua <see cref="IRecipeRepository.GetPagedByCategoryIdAsync"/> (NFR-PERF-004).
+    /// </summary>
     Task<Category?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default);
 
     /// <summary>Kiểm tra tồn tại theo tên danh mục.</summary>
@@ -52,3 +55,11 @@ public interface ICategoryRepository
     /// <summary>FR-CAT-005: Xóa mềm danh mục (Soft Delete).</summary>
     void Delete(Category category);
 }
+
+/// <summary>FR-CAT-001 — một dòng danh mục kèm số công thức Published (read model, không phải entity).</summary>
+public sealed record CategorySummary(
+    Guid Id,
+    string Name,
+    string Slug,
+    string? Description,
+    int PublishedRecipeCount);
