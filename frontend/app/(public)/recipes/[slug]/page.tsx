@@ -47,10 +47,9 @@ export default async function RecipeDetailPage({
     notFound();
   }
 
+  // Chưa có ảnh → khung "Chưa có hình ảnh" như RecipeCard (frontend không có thư mục public/ chứa ảnh placeholder).
   const primaryImage =
-    recipe.images.find((img) => img.isPrimary)?.originalUrl ||
-    recipe.images[0]?.originalUrl ||
-    '/placeholder-recipe.jpg';
+    recipe.images.find((img) => img.isPrimary)?.originalUrl || recipe.images[0]?.originalUrl;
 
   const difficultyLabels: Record<number, string> = {
     0: 'Dễ',
@@ -104,14 +103,18 @@ export default async function RecipeDetailPage({
       </header>
 
       {/* Main Image */}
-      <div className="relative w-full h-[350px] md:h-[450px] rounded-xl overflow-hidden mb-8 shadow-sm">
-        <Image
-          src={primaryImage}
-          alt={recipe.title}
-          fill
-          priority
-          className="object-cover"
-        />
+      <div className="relative w-full h-[350px] md:h-[450px] rounded-xl overflow-hidden mb-8 shadow-sm bg-surface-subtle">
+        {primaryImage ? (
+          <Image
+            src={primaryImage}
+            alt={recipe.title}
+            fill
+            priority
+            className="object-cover"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-ink-muted">Chưa có hình ảnh</div>
+        )}
       </div>
 
       {/* Meta Grid (Thời gian, khẩu phần, độ khó) */}

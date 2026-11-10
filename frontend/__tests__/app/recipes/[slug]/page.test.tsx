@@ -98,6 +98,16 @@ describe('/recipes/[slug] — SEO (NFR-SEO-001/002)', () => {
     expect(JSON.parse(scripts[0].innerHTML)).toEqual(buildRecipeJsonLd(recipe, 'https://culinaryblog.vn'));
   });
 
+  it('FR-RCP-002: công thức chưa có ảnh → khung "Chưa có hình ảnh", không render <img> tới file không tồn tại', async () => {
+    mockGetRecipeBySlug.mockResolvedValue(recipeDetail({ images: [] }));
+
+    const { getByText, queryByAltText } = render(await RecipeDetailPage(props));
+
+    expect(getByText('Chưa có hình ảnh')).toBeInTheDocument();
+    // Ảnh của từng bước (nếu có) vẫn hiện; chỉ ảnh đại diện món là không có.
+    expect(queryByAltText('Phở bò Hà Nội')).toBeNull();
+  });
+
   it('NFR-SEO-001: mỗi bước có id="buoc-n" khớp HowToStep.url', async () => {
     mockGetRecipeBySlug.mockResolvedValue(recipeDetail());
 
