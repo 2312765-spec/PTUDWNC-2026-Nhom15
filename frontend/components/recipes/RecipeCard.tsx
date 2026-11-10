@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Badge, Card, CardBody } from '@/components/ui';
+import { formatMinutes } from '@/lib/recipe-format';
 import type { RecipeSummaryDto } from '@/lib/types';
 
 const DIFFICULTY_LABEL: Record<string, string> = {
@@ -65,7 +66,7 @@ export default function RecipeCard({ recipe, isLcp = false, sizes = GRID_3_COLS_
           <div className="flex items-center justify-between gap-2 text-xs">
             <Badge variant="warning">{DIFFICULTY_LABEL[recipe.difficulty] ?? recipe.difficulty}</Badge>
             <span className="text-ink-muted">
-              {recipe.prepTimeMinutes + recipe.cookTimeMinutes} phút
+              {formatMinutes(recipe.prepTimeMinutes + recipe.cookTimeMinutes)}
             </span>
           </div>
           <h3 className="font-semibold">{recipe.title}</h3>

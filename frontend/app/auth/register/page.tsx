@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ChefHat } from 'lucide-react';
+import { PotIcon } from '@/components/layout/SiteLogo';
 import { auth } from '@/auth';
 import { RegisterForm } from './RegisterForm';
 
@@ -28,7 +28,7 @@ export default async function RegisterPage() {
             className="inline-flex items-center gap-2 text-brand-700 hover:text-brand-600"
             aria-label="Culinary Blog — về trang chủ"
           >
-            <ChefHat className="size-8" aria-hidden="true" />
+            <PotIcon className="size-8" />
             <span className="text-xl font-bold">Culinary Blog</span>
           </Link>
           <h1 className="mt-6 text-2xl font-bold text-ink">Tạo tài khoản mới</h1>
