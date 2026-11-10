@@ -33,6 +33,10 @@ jobs:
           dotnet test backend/tests/CulinaryBlog.UnitTests --no-build -c Release
           --collect:"XPlat Code Coverage" --results-directory ./coverage
 
+      # NFR-MAINT-002 — unit test phải phủ ≥ 80% dòng tầng Application, tụt dưới ngưỡng thì CI đỏ
+      - name: Coverage tầng Application ≥ 80%
+        run: python3 scripts/check-coverage.py ./coverage --min 80
+
       - name: Integration tests
         run: dotnet test backend/tests/CulinaryBlog.IntegrationTests --no-build -c Release
 
