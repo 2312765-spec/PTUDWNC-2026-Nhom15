@@ -79,8 +79,8 @@ Theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và [SemVer](https
 
 ### Changed
 - D97: giao diện "sổ tay nấu ăn" tông tối — nền nâu than, chữ kem, màu chính cam đất (token mới `on-brand`, `accent`,
-  `danger`/`success`/`warning`, mọi cặp màu ≥ 4.5:1); font Baloo 2 (tiêu đề) + Be Vietnam Pro qua `next/font`; icon
-  niêu đất (favicon, logo). Header ngang → thanh bên Mục lục (danh mục đánh số, ô tìm kiếm chung). Trang chủ: Món
+  `danger`/`success`/`warning`, mọi cặp màu ≥ 4.5:1); chỉ font hệ thống (web font làm LCP chậm ~300–600ms — D97.2);
+  icon niêu đất (favicon, logo). Header ngang → thanh bên Mục lục (danh mục đánh số, ô tìm kiếm chung). Trang chủ: Món
   đáng thử + Thực đơn mới (đường chấm dẫn). Trang chi tiết: dòng thời gian nấu theo phút (cộng dồn thời lượng
   bước), nguyên liệu dạng danh sách đi chợ có ô tick. Thời gian ≥ 60 phút hiện theo giờ.
 - NFR-PERF-005: `/search` không stream kết quả qua Suspense (kết quả nằm sẵn trong HTML đầu tiên); preload ảnh

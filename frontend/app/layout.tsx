@@ -1,24 +1,14 @@
 import type { Metadata } from 'next';
-import { Baloo_2 } from 'next/font/google';
 import './globals.css';
 import { SiteSidebar } from '@/components/layout/SiteSidebar';
 import { getSiteUrl, SITE_NAME } from '@/lib/seo/site';
 import { Providers } from './providers';
 
 /**
- * D97.2 — chỉ tiêu đề dùng web font: Baloo 2 (variable font, một file cho mọi độ đậm), tự host lúc build (next/font).
- * Chữ nội dung dùng font hệ thống — không tải gì.
- *
- * NFR-PERF-005: LCP của mọi trang là CHỮ; với `display: 'swap'` Lighthouse tính LCP ở lần vẽ lại bằng web font
- * (đo 2026-11-10: render delay 3.3–3.9s, 9–12 file font / trang, LCP trung vị 3.7–4.2s). `display: 'optional'`: font
- * tới kịp trong ~100ms thì dùng, không thì giữ font dự phòng cho lần tải đó (không đổi giữa chừng → không đẩy LCP,
- * không CLS); lần xem sau font đã nằm trong cache.
+ * D97.2 — KHÔNG dùng web font (NFR-PERF-005). Đo Lighthouse 2026-11-10 trên cùng máy: mọi web font tải ở lần xem đầu
+ * (Baloo 2 + Be Vietnam Pro 107–150 KB; chỉ Baloo 2, có/không preload 43–70 KB) làm LCP chậm hơn main ~300–600ms
+ * (LCP mọi trang là chữ). Tiêu đề dùng font hệ thống cỡ lớn, đậm — nét riêng nằm ở màu, bố cục, icon.
  */
-const headingFont = Baloo_2({
-  subsets: ['latin', 'vietnamese'],
-  display: 'optional',
-  variable: '--font-heading',
-});
 
 export const metadata: Metadata = {
   // NFR-SEO-002: canonical / og:url tương đối của các trang con thành tuyệt đối theo gốc này
@@ -35,7 +25,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi" className={headingFont.variable}>
+    <html lang="vi">
       <body className="min-h-screen antialiased">
         {/* NFR-USE-002: skip link cho screen reader và điều hướng bàn phím */}
         <a

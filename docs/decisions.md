@@ -2733,12 +2733,11 @@ hero → lưới thẻ 3 cột, nền trắng + cam) dễ trùng với nhóm kh�
    token mới `on-brand` (`#1A1310`) — chữ trắng trên `#E8693F` chỉ ~3:1. Màu trạng thái thành token: `danger`,
    `success`, `warning` (chữ / nền nhạt / viền). Bảng contrast trong `globals.css`. Chỉ có giao diện tối
    (`color-scheme: dark`), không có công tắc sáng/tối.
-2. **Font:** tiêu đề *Baloo 2* (variable font) qua `next/font/google` (tự host lúc build, subset `vietnamese` +
-   `latin`, **`display: 'optional'`**), không gọi Google Fonts lúc chạy. Nội dung dùng **font hệ thống**.
-   - *D97.2 (2026-11-10, đo Lighthouse local):* bản đầu thêm *Be Vietnam Pro* (400/600/700) cho nội dung, cả hai
-     `display: swap` → 9–12 file font / trang (107–150 KB); LCP mọi trang là chữ, bị đẩy tới lần vẽ lại bằng web font
-     (render delay 3.3–3.9s, LCP trung vị 3.7–4.2s > 2.5s). Bỏ Be Vietnam Pro; Baloo 2 `optional` (không kịp ~100ms
-     thì giữ font dự phòng cho lần tải đó, không đổi giữa chừng).
+2. **Font:** chỉ **font hệ thống** (tiêu đề cỡ lớn, `font-extrabold`) — không web font.
+   - *D97.2 (2026-11-10, đo Lighthouse trên cùng máy, so với main):* bản đầu dùng *Baloo 2* (tiêu đề) + *Be Vietnam Pro*
+     (nội dung) qua `next/font` → 107–150 KB font / trang, LCP trung vị 3.7–4.4s; chỉ Baloo 2 (`display: optional`,
+     có hoặc không preload) → 43–70 KB, LCP 3.0–3.6s; main (không web font) → 2.8–3.0s. LCP mọi trang là chữ; JS / CSS /
+     HTML của D97 tương đương main. Web font nào cũng cộng ~300–600ms ở lần xem đầu → bỏ (người dùng chọn 2026-11-10).
 3. **Icon:** niêu đất (`app/icon.svg`, logo trên thanh bên).
 4. **Bố cục:** header ngang → thanh bên kiểu mục lục (danh mục đánh số); trang chủ dạng thực đơn có đường chấm dẫn;
    trang chi tiết có dòng thời gian nấu theo phút (cộng dồn `timerMinutes`). `/recipes`, `/search`, `/categories/*`,
