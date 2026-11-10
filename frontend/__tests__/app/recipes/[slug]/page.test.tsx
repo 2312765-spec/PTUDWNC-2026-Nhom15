@@ -117,3 +117,74 @@ describe('/recipes/[slug] — SEO (NFR-SEO-001/002)', () => {
     expect(container.querySelector('#buoc-2')).toHaveTextContent('Ninh nước dùng');
   });
 });
+
+describe('/recipes/[slug] — giao diện sổ tay (D97)', () => {
+  const timedSteps = [
+    { id: 's2', stepNumber: 2, title: 'Ninh nước dùng', description: 'Ninh xương.', timerMinutes: 480 },
+    { id: 's1', stepNumber: 1, title: 'Sơ chế xương', description: 'Chần xương.', timerMinutes: 30 },
+    { id: 's3', stepNumber: 3, title: 'Trụng bánh', description: 'Trụng bánh phở.', timerMinutes: 5 },
+  ];
+
+  it('D97: mọi bước có timerMinutes → dòng thời gian cộng dồn (phút 0, phút 30, 8 giờ 30 phút) + mốc dọn ra đĩa', async () => {
+    mockGetRecipeBySlug.mockResolvedValue(recipeDetail({ steps: timedSteps }));
+
+    const { container, getByText } = render(await RecipeDetailPage(props));
+
+    expect(container.querySelector('#buoc-1')).toHaveTextContent('phút 0');
+    expect(container.querySelector('#buoc-2')).toHaveTextContent('phút 30');
+    expect(container.querySelector('#buoc-3')).toHaveTextContent('8 giờ 30 phút');
+    expect(getByText('Dọn ra đĩa')).toBeInTheDocument();
+    expect(getByText('8 giờ 35 phút')).toBeInTheDocument();
+  });
+
+  it('D97: có bước thiếu timerMinutes → mốc "Bước n" (không cộng dồn sai), không có mốc dọn ra đĩa', async () => {
+    mockGetRecipeBySlug.mockResolvedValue(
+      recipeDetail({ steps: [timedSteps[1], { ...timedSteps[0], timerMinutes: undefined }] }),
+    );
+
+    const { container, queryByText } = render(await RecipeDetailPage(props));
+
+    expect(container.querySelector('#buoc-1')).toHaveTextContent('Bước 1');
+    expect(container.querySelector('#buoc-1')).not.toHaveTextContent('phút 0');
+    expect(container.querySelector('#buoc-2')).toHaveTextContent('Bước 2');
+    expect(queryByText('Dọn ra đĩa')).toBeNull();
+  });
+
+  it('D97: bước hiện theo stepNumber, nguyên liệu theo orderIndex dù API trả lộn thứ tự', async () => {
+    mockGetRecipeBySlug.mockResolvedValue(recipeDetail());
+
+    const { getAllByRole } = render(await RecipeDetailPage(props));
+
+    const boxes = getAllByRole('checkbox');
+    expect(boxes.map((b) => b.closest('label')?.textContent)).toEqual([
+      expect.stringContaining('xương bò'),
+      expect.stringContaining('bánh phở'),
+      expect.stringContaining('hành lá'),
+    ]);
+    const stepHeadings = getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+    expect(stepHeadings[0]).toContain('Sơ chế xương');
+    expect(stepHeadings[1]).toContain('Ninh nước dùng');
+  });
+
+  it('D97: nguyên liệu là danh sách đi chợ có ô tick, nhãn gồm tên + lượng; heading giữ "Nguyên liệu"', async () => {
+    mockGetRecipeBySlug.mockResolvedValue(recipeDetail());
+
+    const { getByRole } = render(await RecipeDetailPage(props));
+
+    expect(getByRole('heading', { level: 2, name: 'Nguyên liệu' })).toBeInTheDocument();
+    expect(getByRole('heading', { level: 2, name: 'Các bước thực hiện' })).toBeInTheDocument();
+    expect(getByRole('checkbox', { name: /xương bò.*1\.5 kg/ })).not.toBeChecked();
+  });
+
+  it('D97: dòng thông số — chuẩn bị, nấu (theo giờ khi ≥ 60 phút), khẩu phần, độ khó, tác giả', async () => {
+    mockGetRecipeBySlug.mockResolvedValue(recipeDetail());
+
+    const { getByText } = render(await RecipeDetailPage(props));
+
+    expect(getByText('30 phút')).toBeInTheDocument();
+    expect(getByText('8 giờ')).toBeInTheDocument();
+    expect(getByText('4 người')).toBeInTheDocument();
+    expect(getByText('Trung bình')).toBeInTheDocument();
+    expect(getByText('Nguyễn Văn An')).toBeInTheDocument();
+  });
+});
