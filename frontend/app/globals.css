@@ -46,9 +46,9 @@
   /* D84 — breakpoint theo SRS NFR-USE-001: md = 768px (mặc định), lg = 1200px (Tailwind mặc định 1024px). */
   --breakpoint-lg: 75rem;
 
-  /* D97 — biến font do next/font gắn lên <html> (app/layout.tsx); system-ui là dự phòng khi font chưa tải. */
-  --font-sans: var(--font-body), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-display: var(--font-heading), var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  /* D97.2 — nội dung: font hệ thống (không tải). Tiêu đề: Baloo 2 do next/font gắn biến lên <html> (app/layout.tsx). */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {

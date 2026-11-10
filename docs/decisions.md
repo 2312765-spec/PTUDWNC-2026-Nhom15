@@ -2733,8 +2733,12 @@ hero → lưới thẻ 3 cột, nền trắng + cam) dễ trùng với nhóm kh�
    token mới `on-brand` (`#1A1310`) — chữ trắng trên `#E8693F` chỉ ~3:1. Màu trạng thái thành token: `danger`,
    `success`, `warning` (chữ / nền nhạt / viền). Bảng contrast trong `globals.css`. Chỉ có giao diện tối
    (`color-scheme: dark`), không có công tắc sáng/tối.
-2. **Font:** tiêu đề *Baloo 2* (700/800), nội dung *Be Vietnam Pro* (400/600/700) — nạp qua `next/font/google`
-   (tự host lúc build, subset `vietnamese` + `latin`, `display: swap`), không gọi Google Fonts lúc chạy.
+2. **Font:** tiêu đề *Baloo 2* (variable font) qua `next/font/google` (tự host lúc build, subset `vietnamese` +
+   `latin`, **`display: 'optional'`**), không gọi Google Fonts lúc chạy. Nội dung dùng **font hệ thống**.
+   - *D97.2 (2026-11-10, đo Lighthouse local):* bản đầu thêm *Be Vietnam Pro* (400/600/700) cho nội dung, cả hai
+     `display: swap` → 9–12 file font / trang (107–150 KB); LCP mọi trang là chữ, bị đẩy tới lần vẽ lại bằng web font
+     (render delay 3.3–3.9s, LCP trung vị 3.7–4.2s > 2.5s). Bỏ Be Vietnam Pro; Baloo 2 `optional` (không kịp ~100ms
+     thì giữ font dự phòng cho lần tải đó, không đổi giữa chừng).
 3. **Icon:** niêu đất (`app/icon.svg`, logo trên thanh bên).
 4. **Bố cục:** header ngang → thanh bên kiểu mục lục (danh mục đánh số); trang chủ dạng thực đơn có đường chấm dẫn;
    trang chi tiết có dòng thời gian nấu theo phút (cộng dồn `timerMinutes`). `/recipes`, `/search`, `/categories/*`,

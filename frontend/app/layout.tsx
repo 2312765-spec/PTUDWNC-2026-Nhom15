@@ -1,25 +1,23 @@
 import type { Metadata } from 'next';
-import { Baloo_2, Be_Vietnam_Pro } from 'next/font/google';
+import { Baloo_2 } from 'next/font/google';
 import './globals.css';
 import { SiteSidebar } from '@/components/layout/SiteSidebar';
 import { getSiteUrl, SITE_NAME } from '@/lib/seo/site';
 import { Providers } from './providers';
 
 /**
- * D97 — font tự host lúc build (next/font), không gọi Google Fonts lúc chạy. Baloo 2 là variable font (một file cho
- * mọi độ đậm) dùng cho tiêu đề; Be Vietnam Pro chỉ nạp 3 độ đậm đang dùng để giữ LCP (NFR-PERF-005).
+ * D97.2 — chỉ tiêu đề dùng web font: Baloo 2 (variable font, một file cho mọi độ đậm), tự host lúc build (next/font).
+ * Chữ nội dung dùng font hệ thống — không tải gì.
+ *
+ * NFR-PERF-005: LCP của mọi trang là CHỮ; với `display: 'swap'` Lighthouse tính LCP ở lần vẽ lại bằng web font
+ * (đo 2026-11-10: render delay 3.3–3.9s, 9–12 file font / trang, LCP trung vị 3.7–4.2s). `display: 'optional'`: font
+ * tới kịp trong ~100ms thì dùng, không thì giữ font dự phòng cho lần tải đó (không đổi giữa chừng → không đẩy LCP,
+ * không CLS); lần xem sau font đã nằm trong cache.
  */
 const headingFont = Baloo_2({
   subsets: ['latin', 'vietnamese'],
-  display: 'swap',
+  display: 'optional',
   variable: '--font-heading',
-});
-
-const bodyFont = Be_Vietnam_Pro({
-  subsets: ['latin', 'vietnamese'],
-  weight: ['400', '600', '700'],
-  display: 'swap',
-  variable: '--font-body',
 });
 
 export const metadata: Metadata = {
@@ -37,7 +35,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi" className={`${headingFont.variable} ${bodyFont.variable}`}>
+    <html lang="vi" className={headingFont.variable}>
       <body className="min-h-screen antialiased">
         {/* NFR-USE-002: skip link cho screen reader và điều hướng bàn phím */}
         <a
