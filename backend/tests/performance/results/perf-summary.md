@@ -18,6 +18,7 @@
 | Kịch bản | VU | Request | Thông lượng | p50 | p95 | p99 | Lỗi | Ngưỡng |
 |---|---|---|---|---|---|---|---|---|
 | Smoke (cache **trống** lúc đầu) | 5 | 302 | 9,7 req/s | 8,0 ms | 165,5 ms | **13,9 s** | 0% | ❌ p99 |
+| Smoke (cache **trống**) — **đo lại 2026-11-10** sau NFR-PERF-004 | 5 | 522 | 16,6 req/s | 9,4 ms | 130,9 ms | **819,6 ms** | 0% | ✅ |
 | Load (cache nóng) | 20 → **100** (giữ 3 phút) | 88.777 | 295 req/s | 8,4 ms | 39,7 ms | 100,9 ms | 0% | ✅ |
 | Stress | 50 → **180** | 276.265 | 575 req/s | 22,7 ms | 212,5 ms | 424,8 ms | 0% | ✅ (p99 ≤ 2 s) |
 
@@ -28,6 +29,12 @@ CPU của API khi stress đạt ~210% (bão hòa 2 vCPU), RAM tối đa ~515 MiB
 categories (xem NFR-PERF-004 mục 1), p95 của endpoint này lên **13,83 s** (`smoke-output.txt`).
 Sau khi cache nóng (TTL 30 phút) median còn 7,5 ms. Mỗi lần cache hết hạn hoặc bị invalidate
 (mọi Command trên Category/Recipe, D8) sẽ lặp lại.
+
+**Đo lại 2026-11-10** (cùng dữ liệu 10.050 recipes, cùng giới hạn API 2 vCPU / 4 GB, image build từ `main` sau
+NFR-PERF-004, DB riêng `culinaryblog_perf` đã xóa sau khi đo, Redis `FLUSHALL` trước khi chạy): p95 `/categories` khi
+cache trống **13,83 s → 40,7 ms** — query đếm `recipeCount` trong SQL nên stampede không còn đắt. p95 từng endpoint:
+categories 40,7 · recipes 61,4 · detail 203,4 · search 125,3 ms. Output: `smoke-cold-2026-11-10-output.txt`,
+`smoke-cold-2026-11-10-summary.json`.
 
 Output gốc: `smoke-output.txt`, `load-output.txt`, `stress-output.txt`, `*-summary.json`.
 
@@ -79,7 +86,7 @@ perf. Chỉ chạy ở Development, ngoài phạm vi NFR-PERF-004.
 ## Việc cần làm (ngoài phạm vi PR đo hiệu năng)
 
 1. ~~**FR-CAT-001:** đếm `recipeCount` bằng projection `Count()` trong SQL~~ — xong 2026-11-10 (bảng trên).
-   Cache stampede khi cache trống chưa đo lại bằng k6.
+   Cache trống đo lại bằng k6 ngày 2026-11-10: p99 819,6 ms ✅ (bảng NFR-PERF-001 ở trên).
 2. ~~**NFR-PERF-004:** migration thêm index `("Status", "CreatedAt" DESC)`~~ — xong 2026-11-10:
    `IX_Recipes_Status_CreatedAt` `("Status", "CreatedAt" DESC, "Id")`, khớp `ORDER BY "CreatedAt" DESC, "Id"`.
 3. ~~**NFR-PERF-004:** cảnh báo slow query > 100 ms~~ — xong 2026-11-10: `Infrastructure/Persistence/SlowQueryInterceptor.cs`.
