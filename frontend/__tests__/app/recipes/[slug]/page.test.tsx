@@ -177,7 +177,7 @@ describe('/recipes/[slug] — giao diện sổ tay (D97)', () => {
   });
 
   it('D97: dòng thông số — chuẩn bị, nấu (theo giờ khi ≥ 60 phút), khẩu phần, độ khó, tác giả', async () => {
-    mockGetRecipeBySlug.mockResolvedValue(recipeDetail());
+    mockGetRecipeBySlug.mockResolvedValue(recipeDetail({ difficulty: 2 }));
 
     const { getByText } = render(await RecipeDetailPage(props));
 
@@ -186,5 +186,26 @@ describe('/recipes/[slug] — giao diện sổ tay (D97)', () => {
     expect(getByText('4 người')).toBeInTheDocument();
     expect(getByText('Trung bình')).toBeInTheDocument();
     expect(getByText('Nguyễn Văn An')).toBeInTheDocument();
+  });
+
+  it.each([
+    [1, 'Dễ'],
+    [2, 'Trung bình'],
+    [3, 'Khó'],
+    [4, 'Rất khó'],
+  ])('FR-RCP-002: độ khó theo enum RecipeDifficulty của backend (%i → %s, Easy = 1)', async (difficulty, label) => {
+    mockGetRecipeBySlug.mockResolvedValue(recipeDetail({ difficulty }));
+
+    const { getByText } = render(await RecipeDetailPage(props));
+
+    expect(getByText(label)).toBeInTheDocument();
+  });
+
+  it('FR-RCP-002: nutrition có nhưng mọi chỉ số rỗng → không hiện khung "Giá trị dinh dưỡng" trống', async () => {
+    mockGetRecipeBySlug.mockResolvedValue(recipeDetail({ nutrition: {} }));
+
+    const { queryByRole } = render(await RecipeDetailPage(props));
+
+    expect(queryByRole('heading', { name: /Giá trị dinh dưỡng/ })).toBeNull();
   });
 });

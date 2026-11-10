@@ -35,11 +35,12 @@ export async function generateMetadata({
   return buildRecipeMetadata(recipe);
 }
 
+/** Theo enum `RecipeDifficulty` của backend (SRS 7.2): Easy = 1 … Expert = 4 — KHÔNG bắt đầu từ 0. */
 const DIFFICULTY_LABELS: Record<number, string> = {
-  0: 'Dễ',
-  1: 'Trung bình',
-  2: 'Khó',
-  3: 'Rất khó',
+  1: 'Dễ',
+  2: 'Trung bình',
+  3: 'Khó',
+  4: 'Rất khó',
 };
 
 /** D97 — mốc thời gian của từng bước: "phút 0", "phút 30", "1 giờ 5 phút"… */
@@ -73,6 +74,11 @@ function NutritionSection({ nutrition }: { nutrition: NonNullable<RecipeDetailDt
     { label: 'Chất xơ', value: nutrition.fiber, unit: 'g' },
     { label: 'Natri', value: nutrition.sodium, unit: 'mg' },
   ].filter((item) => item.value);
+
+  // Có object nutrition nhưng mọi chỉ số rỗng → không vẽ khung trống.
+  if (items.length === 0) {
+    return null;
+  }
 
   return (
     <section aria-labelledby="recipe-nutrition" className="rounded-2xl border border-border bg-surface p-5">
@@ -157,10 +163,12 @@ export default async function RecipeDetailPage({
             <dt className="sr-only">Khẩu phần</dt>
             <dd className="font-bold">{recipe.servings} người</dd>
           </div>
-          <div className="flex gap-1.5">
-            <dt className="sr-only">Độ khó</dt>
-            <dd className="font-bold">{DIFFICULTY_LABELS[recipe.difficulty] ?? 'Dễ'}</dd>
-          </div>
+          {DIFFICULTY_LABELS[recipe.difficulty] && (
+            <div className="flex gap-1.5">
+              <dt className="sr-only">Độ khó</dt>
+              <dd className="font-bold">{DIFFICULTY_LABELS[recipe.difficulty]}</dd>
+            </div>
+          )}
         </dl>
         <p className="text-sm text-ink-muted">
           Bởi <span className="font-semibold text-ink">{recipe.author.displayName}</span>
