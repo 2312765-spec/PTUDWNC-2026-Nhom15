@@ -102,6 +102,10 @@ Theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và [SemVer](https
   `application/json`). Lỗi bind request (JSON hỏng, thiếu tham số) trả RFC 7807 thay vì 400 rỗng / 500 (D67).
 - CONS-009: `scripts/verify-prod.sh` bước 9 báo lỗi sai khi volume `apilogs` còn log của lần chạy trước —
   nay kiểm thẳng image (container tạm không gắn volume).
+- CONS-008: `ValidationBehavior` báo mỗi lỗi hai lần khi một request có từ 2 validator (dùng chung
+  `ValidationContext`), và chạy validator song song trên cùng `DbContext`. Nay mỗi validator một context, chạy
+  tuần tự. Chưa ảnh hưởng request nào (hiện mỗi command chỉ có một validator) — phát hiện bằng unit test
+  NFR-MAINT-002.
 
 ### Security
 - NFR-SEC-004: upload ảnh giới hạn 6MB ở tầng HTTP — vượt → 413 `FILE_SIZE_EXCEEDED`, không nhận hết body (D67).
