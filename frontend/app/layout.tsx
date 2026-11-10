@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Baloo_2, Be_Vietnam_Pro } from 'next/font/google';
 import './globals.css';
-import { SiteHeader } from '@/components/layout/SiteHeader';
+import { SiteSidebar } from '@/components/layout/SiteSidebar';
 import { getSiteUrl, SITE_NAME } from '@/lib/seo/site';
 import { Providers } from './providers';
 
@@ -47,8 +47,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Bỏ qua, tới nội dung chính
         </a>
         <Providers>
-          <SiteHeader />
-          <main id="main">{children}</main>
+          {/* D97: thanh bên trái (≥ lg) / dải trên cùng (màn nhỏ) + nội dung. */}
+          <div className="lg:flex">
+            <SiteSidebar />
+            <main id="main" className="min-w-0 flex-1">
+              {children}
+            </main>
+          </div>
         </Providers>
       </body>
     </html>

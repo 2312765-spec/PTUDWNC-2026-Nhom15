@@ -1,42 +1,41 @@
 import { expect, test } from '@playwright/test';
 
-test.describe('Trang chủ (FR-RCP-001)', () => {
-  test('FR-RCP-001: hiện hero, ô tìm kiếm, danh mục và công thức mới nhất — không có lỗi tải', async ({ page }) => {
+test.describe('Trang chủ (FR-RCP-001, D97)', () => {
+  test('FR-RCP-001: hiện tiêu đề, ô tìm kiếm, Mục lục danh mục, Món đáng thử và Thực đơn mới — không có lỗi tải', async ({
+    page,
+  }) => {
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { level: 1, name: /Nấu ngon mỗi ngày cùng Culinary Blog/ })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Hôm nay nấu gì đây?' })).toBeVisible();
     await expect(page.getByRole('search').getByRole('searchbox', { name: 'Từ khóa tìm kiếm' })).toBeVisible();
 
-    const categories = page.getByRole('region', { name: 'Danh mục món ăn' });
-    const latest = page.getByRole('region', { name: 'Công thức mới nhất' });
-    await expect(categories).toBeVisible();
-    await expect(latest).toBeVisible();
+    // D97: danh mục nằm ở Mục lục của thanh bên (viewport desktop ≥ 1200px → bản cột trái hiện).
+    const toc = page.getByRole('navigation', { name: 'Mục lục' });
+    await expect(toc).toBeVisible();
+    await expect(toc.getByRole('link').first()).toBeVisible();
+
+    await expect(page.getByRole('region', { name: 'Món đáng thử' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Thực đơn mới' })).toBeVisible();
     // Backend sống (global-setup) → không phần nào được rơi vào trạng thái lỗi.
-    await expect(categories.getByRole('alert')).toHaveCount(0);
-    await expect(latest.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByRole('alert')).toHaveCount(0);
   });
 
-  test('FR-CAT-001: "Xem tất cả" ở trang chủ dẫn tới /categories', async ({ page }) => {
+  test('FR-CAT-001: link "Danh mục" trên thanh bên dẫn tới /categories', async ({ page }) => {
     await page.goto('/');
 
-    await page.getByRole('region', { name: 'Danh mục món ăn' }).getByRole('link', { name: /Xem tất cả/ }).click();
+    await page.getByRole('navigation', { name: 'Điều hướng chính' }).getByRole('link', { name: 'Danh mục' }).click();
 
     await expect(page).toHaveURL(/\/categories$/);
   });
 
-  test('FR-RCP-001/002: bấm card công thức ở trang chủ → trang chi tiết có Nguyên liệu và Các bước thực hiện', async ({
+  test('FR-RCP-001/002: bấm món trong Thực đơn mới → trang chi tiết có Nguyên liệu và Các bước thực hiện', async ({
     page,
   }) => {
     // Dữ liệu: DbSeeder (Development) có sẵn công thức Published.
     await page.goto('/');
-    // Card nằm trong danh sách — link đầu tiên của vùng là "Khám phá thêm →".
-    const card = page
-      .getByRole('region', { name: 'Công thức mới nhất' })
-      .getByRole('listitem')
-      .first()
-      .getByRole('link');
-    const title = (await card.getByRole('heading').textContent())?.trim() ?? '';
-    await card.click();
+    const link = page.getByRole('region', { name: 'Thực đơn mới' }).getByRole('listitem').first().getByRole('link');
+    const title = (await link.textContent())?.trim() ?? '';
+    await link.click();
 
     await expect(page).toHaveURL(/\/recipes\/[^/]+$/);
     await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
