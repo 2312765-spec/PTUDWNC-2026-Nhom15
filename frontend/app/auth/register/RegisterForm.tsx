@@ -108,7 +108,7 @@ export function RegisterForm() {
       {formError && (
         <div
           role="alert"
-          className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+          className="rounded-md border border-danger-line bg-danger-subtle p-3 text-sm text-danger"
         >
           {formError}
         </div>
@@ -171,7 +171,7 @@ export function RegisterForm() {
                 key={rule.id}
                 className={cn(
                   'flex items-center gap-1.5',
-                  ok ? 'text-green-700' : 'text-ink-muted',
+                  ok ? 'text-success' : 'text-ink-muted',
                 )}
               >
                 <Icon className="size-3.5 shrink-0" aria-hidden="true" />

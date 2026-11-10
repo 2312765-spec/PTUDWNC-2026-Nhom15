@@ -31,7 +31,7 @@ export default function ProfilePage() {
             </div>
           </div>
         ) : isError ? (
-          <div role="alert" className="flex flex-col items-center gap-3 p-4 text-center text-sm text-red-700">
+          <div role="alert" className="flex flex-col items-center gap-3 p-4 text-center text-sm text-danger">
             <p>{toProblemDetails(error).detail ?? 'Không tải được hồ sơ.'}</p>
             <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
               Thử lại

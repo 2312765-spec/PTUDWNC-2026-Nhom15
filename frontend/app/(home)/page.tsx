@@ -67,7 +67,7 @@ export default async function HomePage() {
           </div>
 
           {categories === null ? (
-            <p role="alert" className="rounded-lg border border-border bg-surface p-6 text-center text-sm text-red-700">
+            <p role="alert" className="rounded-lg border border-border bg-surface p-6 text-center text-sm text-danger">
               Không tải được danh mục. Vui lòng thử lại sau.
             </p>
           ) : (
@@ -99,7 +99,7 @@ export default async function HomePage() {
           </div>
 
           {recipes === null ? (
-            <p role="alert" className="rounded-lg border border-border bg-surface p-6 text-center text-sm text-red-700">
+            <p role="alert" className="rounded-lg border border-border bg-surface p-6 text-center text-sm text-danger">
               Không tải được công thức. Vui lòng thử lại sau.
             </p>
           ) : recipes.length === 0 ? (

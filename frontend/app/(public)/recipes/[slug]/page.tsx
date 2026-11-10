@@ -63,7 +63,7 @@ export default async function RecipeDetailPage({
       <RecipeJsonLd recipe={recipe} />
 
       {/* Breadcrumb */}
-      <nav className="text-sm text-gray-500 mb-6 flex items-center space-x-2">
+      <nav className="text-sm text-ink-muted mb-6 flex items-center space-x-2">
         <Link href="/" className="inline-flex min-h-6 items-center hover:underline">
           Trang chủ
         </Link>
@@ -72,22 +72,22 @@ export default async function RecipeDetailPage({
           {recipe.category.name}
         </Link>
         <span>/</span>
-        <span className="text-gray-900 font-medium truncate">{recipe.title}</span>
+        <span className="text-ink font-medium truncate">{recipe.title}</span>
       </nav>
 
       {/* Header */}
       <header className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+        <h1 className="text-3xl md:text-4xl font-bold text-ink mb-4">
           {recipe.title}
         </h1>
-        <p className="text-lg text-gray-600 mb-6 leading-relaxed">
+        <p className="text-lg text-ink-muted mb-6 leading-relaxed">
           {recipe.description}
         </p>
 
         {/* Tác giả & Ngày đăng */}
-        <div className="flex items-center space-x-4 border-y border-gray-100 py-3 text-sm text-gray-600">
+        <div className="flex items-center space-x-4 border-y border-border py-3 text-sm text-ink-muted">
           <div className="flex items-center space-x-2">
-            <span className="font-semibold text-gray-900">
+            <span className="font-semibold text-ink">
               {recipe.author.displayName}
             </span>
           </div>
@@ -96,7 +96,7 @@ export default async function RecipeDetailPage({
             {new Date(recipe.publishedAt || recipe.createdAt).toLocaleDateString('vi-VN')}
           </time>
           <span>•</span>
-          <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded text-xs font-medium">
+          <span className="bg-brand-50 text-brand-700 px-2 py-0.5 rounded text-xs font-medium">
             {recipe.category.name}
           </span>
         </div>
@@ -118,21 +118,21 @@ export default async function RecipeDetailPage({
       </div>
 
       {/* Meta Grid (Thời gian, khẩu phần, độ khó) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-orange-50/50 rounded-xl mb-10 border border-orange-100/60">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-brand-50/50 rounded-xl mb-10 border border-brand-100/60">
         <div className="text-center">
-          <span className="block text-xs uppercase tracking-wider text-gray-500 mb-1">Chuẩn bị</span>
-          <span className="text-lg font-bold text-gray-900">{recipe.prepTime} phút</span>
+          <span className="block text-xs uppercase tracking-wider text-ink-muted mb-1">Chuẩn bị</span>
+          <span className="text-lg font-bold text-ink">{recipe.prepTime} phút</span>
         </div>
         <div className="text-center">
-          <span className="block text-xs uppercase tracking-wider text-gray-500 mb-1">Nấu nướng</span>
-          <span className="text-lg font-bold text-gray-900">{recipe.cookTime} phút</span>
+          <span className="block text-xs uppercase tracking-wider text-ink-muted mb-1">Nấu nướng</span>
+          <span className="text-lg font-bold text-ink">{recipe.cookTime} phút</span>
         </div>
         <div className="text-center">
-          <span className="block text-xs uppercase tracking-wider text-gray-500 mb-1">Khẩu phần</span>
-          <span className="text-lg font-bold text-gray-900">{recipe.servings} người</span>
+          <span className="block text-xs uppercase tracking-wider text-ink-muted mb-1">Khẩu phần</span>
+          <span className="text-lg font-bold text-ink">{recipe.servings} người</span>
         </div>
         <div className="text-center">
-          <span className="block text-xs uppercase tracking-wider text-gray-500 mb-1">Độ khó</span>
+          <span className="block text-xs uppercase tracking-wider text-ink-muted mb-1">Độ khó</span>
           <span className="text-lg font-bold text-brand-700">
             {difficultyLabels[recipe.difficulty] || 'Dễ'}
           </span>
@@ -141,45 +141,45 @@ export default async function RecipeDetailPage({
 
       {/* Dinh dưỡng (Nutrition) */}
       {recipe.nutrition && (
-        <section className="mb-10 p-5 bg-white rounded-xl border border-gray-100 shadow-sm">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">
+        <section className="mb-10 p-5 bg-surface rounded-xl border border-border shadow-sm">
+          <h2 className="text-xl font-bold text-ink mb-4">
             Giá trị dinh dưỡng (mỗi khẩu phần)
           </h2>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 text-center">
             {recipe.nutrition.calories && (
-              <div className="p-2 bg-gray-50 rounded">
-                <span className="block text-xs text-gray-500">Calories</span>
-                <span className="font-semibold text-gray-900">{recipe.nutrition.calories} kcal</span>
+              <div className="p-2 bg-surface-subtle rounded">
+                <span className="block text-xs text-ink-muted">Calories</span>
+                <span className="font-semibold text-ink">{recipe.nutrition.calories} kcal</span>
               </div>
             )}
             {recipe.nutrition.protein && (
-              <div className="p-2 bg-gray-50 rounded">
-                <span className="block text-xs text-gray-500">Protein</span>
-                <span className="font-semibold text-gray-900">{recipe.nutrition.protein}g</span>
+              <div className="p-2 bg-surface-subtle rounded">
+                <span className="block text-xs text-ink-muted">Protein</span>
+                <span className="font-semibold text-ink">{recipe.nutrition.protein}g</span>
               </div>
             )}
             {recipe.nutrition.carbohydrates && (
-              <div className="p-2 bg-gray-50 rounded">
-                <span className="block text-xs text-gray-500">Carbs</span>
-                <span className="font-semibold text-gray-900">{recipe.nutrition.carbohydrates}g</span>
+              <div className="p-2 bg-surface-subtle rounded">
+                <span className="block text-xs text-ink-muted">Carbs</span>
+                <span className="font-semibold text-ink">{recipe.nutrition.carbohydrates}g</span>
               </div>
             )}
             {recipe.nutrition.fat && (
-              <div className="p-2 bg-gray-50 rounded">
-                <span className="block text-xs text-gray-500">Chất béo</span>
-                <span className="font-semibold text-gray-900">{recipe.nutrition.fat}g</span>
+              <div className="p-2 bg-surface-subtle rounded">
+                <span className="block text-xs text-ink-muted">Chất béo</span>
+                <span className="font-semibold text-ink">{recipe.nutrition.fat}g</span>
               </div>
             )}
             {recipe.nutrition.fiber && (
-              <div className="p-2 bg-gray-50 rounded">
-                <span className="block text-xs text-gray-500">Chất xơ</span>
-                <span className="font-semibold text-gray-900">{recipe.nutrition.fiber}g</span>
+              <div className="p-2 bg-surface-subtle rounded">
+                <span className="block text-xs text-ink-muted">Chất xơ</span>
+                <span className="font-semibold text-ink">{recipe.nutrition.fiber}g</span>
               </div>
             )}
             {recipe.nutrition.sodium && (
-              <div className="p-2 bg-gray-50 rounded">
-                <span className="block text-xs text-gray-500">Natri</span>
-                <span className="font-semibold text-gray-900">{recipe.nutrition.sodium}mg</span>
+              <div className="p-2 bg-surface-subtle rounded">
+                <span className="block text-xs text-ink-muted">Natri</span>
+                <span className="font-semibold text-ink">{recipe.nutrition.sodium}mg</span>
               </div>
             )}
           </div>
@@ -190,18 +190,18 @@ export default async function RecipeDetailPage({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
         {/* Cột nguyên liệu */}
         <section className="md:col-span-1">
-          <div className="sticky top-6 p-6 bg-gray-50 rounded-xl border border-gray-100">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+          <div className="sticky top-6 p-6 bg-surface-subtle rounded-xl border border-border">
+            <h2 className="text-xl font-bold text-ink mb-4 pb-2 border-b border-border">
               Nguyên liệu
             </h2>
             <ul className="space-y-3">
               {recipe.ingredients.map((ing) => (
-                <li key={ing.id} className="text-sm text-gray-700 flex justify-between items-baseline">
+                <li key={ing.id} className="text-sm text-ink-muted flex justify-between items-baseline">
                   <span>
-                    <strong className="font-medium text-gray-900">{ing.name}</strong>
-                    {ing.notes && <span className="text-xs text-gray-500 block">({ing.notes})</span>}
+                    <strong className="font-medium text-ink">{ing.name}</strong>
+                    {ing.notes && <span className="text-xs text-ink-muted block">({ing.notes})</span>}
                   </span>
-                  <span className="text-gray-600 font-medium ml-2 whitespace-nowrap">
+                  <span className="text-ink-muted font-medium ml-2 whitespace-nowrap">
                     {ing.quantity ? `${ing.quantity} ` : ''}
                     {ing.unit || ''}
                   </span>
@@ -213,7 +213,7 @@ export default async function RecipeDetailPage({
 
         {/* Cột các bước thực hiện */}
         <section className="md:col-span-2">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">
+          <h2 className="text-2xl font-bold text-ink mb-6">
             Các bước thực hiện
           </h2>
           <div className="space-y-6">
@@ -221,21 +221,21 @@ export default async function RecipeDetailPage({
               <div
                 key={st.id}
                 id={`buoc-${st.stepNumber}`} // NFR-SEO-001: đích của HowToStep.url
-                className="scroll-mt-20 p-5 rounded-xl border border-gray-100 bg-white shadow-sm hover:border-orange-200 transition"
+                className="scroll-mt-20 p-5 rounded-xl border border-border bg-surface shadow-sm hover:border-brand-200 transition"
               >
                 <div className="flex items-center space-x-3 mb-3">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-600 text-white font-bold text-sm">
+                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-600 text-on-brand font-bold text-sm">
                     {st.stepNumber}
                   </span>
-                  <h3 className="font-semibold text-lg text-gray-900">{st.title}</h3>
+                  <h3 className="font-semibold text-lg text-ink">{st.title}</h3>
                 </div>
 
-                <p className="text-gray-700 leading-relaxed mb-3 whitespace-pre-line">
+                <p className="text-ink-muted leading-relaxed mb-3 whitespace-pre-line">
                   {st.description}
                 </p>
 
                 {st.timerMinutes && (
-                  <div className="inline-flex items-center space-x-1.5 text-xs text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md mb-2 font-medium">
+                  <div className="inline-flex items-center space-x-1.5 text-xs text-warning bg-warning-subtle px-2.5 py-1 rounded-md mb-2 font-medium">
                     <span>⏱ Thời gian: {st.timerMinutes} phút</span>
                   </div>
                 )}

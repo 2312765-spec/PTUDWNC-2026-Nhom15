@@ -1,8 +1,26 @@
 import type { Metadata } from 'next';
+import { Baloo_2, Be_Vietnam_Pro } from 'next/font/google';
 import './globals.css';
 import { SiteHeader } from '@/components/layout/SiteHeader';
 import { getSiteUrl, SITE_NAME } from '@/lib/seo/site';
 import { Providers } from './providers';
+
+/**
+ * D97 — font tự host lúc build (next/font), không gọi Google Fonts lúc chạy. Baloo 2 là variable font (một file cho
+ * mọi độ đậm) dùng cho tiêu đề; Be Vietnam Pro chỉ nạp 3 độ đậm đang dùng để giữ LCP (NFR-PERF-005).
+ */
+const headingFont = Baloo_2({
+  subsets: ['latin', 'vietnamese'],
+  display: 'swap',
+  variable: '--font-heading',
+});
+
+const bodyFont = Be_Vietnam_Pro({
+  subsets: ['latin', 'vietnamese'],
+  weight: ['400', '600', '700'],
+  display: 'swap',
+  variable: '--font-body',
+});
 
 export const metadata: Metadata = {
   // NFR-SEO-002: canonical / og:url tương đối của các trang con thành tuyệt đối theo gốc này
@@ -19,12 +37,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi">
+    <html lang="vi" className={`${headingFont.variable} ${bodyFont.variable}`}>
       <body className="min-h-screen antialiased">
         {/* NFR-USE-002: skip link cho screen reader và điều hướng bàn phím */}
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-white focus:px-4 focus:py-2 focus:shadow"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-surface focus:px-4 focus:py-2 focus:shadow"
         >
           Bỏ qua, tới nội dung chính
         </a>

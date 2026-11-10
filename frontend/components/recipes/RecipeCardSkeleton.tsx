@@ -10,7 +10,7 @@ import {Skeleton} from "@/components/ui/Skeleton";
 export function RecipeCardSkeleton() {
   return (
     <div 
-      className="flex flex-col overflow-hidden rounded-xl border border-border bg-white shadow-sm"
+      className="flex flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-sm"
       aria-hidden="true"
     >
       {/* Khung ảnh tỷ lệ 16:9 */}

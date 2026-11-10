@@ -167,7 +167,7 @@ export function RecipeWizard() {
                 aria-hidden="true"
                 className={cn(
                   'flex size-5 items-center justify-center rounded-full text-xs',
-                  index < current ? 'bg-brand-600 text-white' : 'bg-surface-subtle',
+                  index < current ? 'bg-brand-600 text-on-brand' : 'bg-surface-subtle',
                 )}
               >
                 {index < current ? <Check className="size-3" /> : index + 1}
@@ -180,7 +180,7 @@ export function RecipeWizard() {
       </nav>
 
       {formError && (
-        <p id="wizard-error" role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <p id="wizard-error" role="alert" className="rounded-md border border-danger-line bg-danger-subtle p-3 text-sm text-danger">
           {formError}
         </p>
       )}
@@ -199,7 +199,7 @@ export function RecipeWizard() {
             categoriesLoading={categories.isPending}
           />
           {categories.isError && (
-            <p role="alert" className="mt-2 text-sm text-red-700">
+            <p role="alert" className="mt-2 text-sm text-danger">
               Không tải được danh mục.{' '}
               <button type="button" className="underline" onClick={() => categories.refetch()}>
                 Thử lại

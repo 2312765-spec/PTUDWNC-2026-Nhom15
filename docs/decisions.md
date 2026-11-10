@@ -2718,6 +2718,36 @@ còn nhánh đang mở), thêm `.prettierignore` và bước `npx prettier --che
 
 ---
 
+## D97 — Bộ nhận diện thị giác: tông tối, "sổ tay nấu ăn" (NFR-USE-001/002)
+
+> 2026-11-10. Plan: `docs/plans/D97-giao-dien-so-tay.md`. Mockup: https://claude.ai/artifact/9B9gVDKQ5wujwRTP9wrBUJ
+
+**Nguồn thiếu:** SRS chỉ ràng buộc rendering (bảng 5.1), WCAG 2.1 AA (NFR-USE-002), responsive (NFR-USE-001) và hiệu
+năng (NFR-PERF-005) — không nói gì về màu, font, bố cục. Đề tài chung cho > 30 nhóm; bố cục mặc định (header ngang →
+hero → lưới thẻ 3 cột, nền trắng + cam) dễ trùng với nhóm khác.
+
+**Chốt:**
+
+1. **Màu (token `app/globals.css`, giữ nguyên tên token):** nền `#1A1310`, bề mặt `#241A16`, viền `#3A2C25`, chữ
+   `#F7EBDD` / phụ `#CDB8A6`, brand `#E8693F` (hover/link `#F2936D`), nhấn vàng `#F2B544`. Chữ trên nền brand dùng
+   token mới `on-brand` (`#1A1310`) — chữ trắng trên `#E8693F` chỉ ~3:1. Màu trạng thái thành token: `danger`,
+   `success`, `warning` (chữ / nền nhạt / viền). Bảng contrast trong `globals.css`. Chỉ có giao diện tối
+   (`color-scheme: dark`), không có công tắc sáng/tối.
+2. **Font:** tiêu đề *Baloo 2* (700/800), nội dung *Be Vietnam Pro* (400/600/700) — nạp qua `next/font/google`
+   (tự host lúc build, subset `vietnamese` + `latin`, `display: swap`), không gọi Google Fonts lúc chạy.
+3. **Icon:** niêu đất (`app/icon.svg`, logo trên thanh bên).
+4. **Bố cục:** header ngang → thanh bên kiểu mục lục (danh mục đánh số); trang chủ dạng thực đơn có đường chấm dẫn;
+   trang chi tiết có dòng thời gian nấu theo phút (cộng dồn `timerMinutes`). `/recipes`, `/search`, `/categories/*`,
+   dashboard, auth chỉ đổi màu, giữ bố cục.
+5. Giữ nguyên chữ trên link điều hướng, landmark và `aria-label` (E2E, NFR-USE-002); giữ neo `#buoc-n` (NFR-SEO-001).
+
+**Vì:** khác biệt rõ với các nhóm khác mà không đổi API, không thêm FR; đi qua token nên ít file phải sửa. Kiểm lại
+bằng axe (D83), Lighthouse (D87) và E2E sau mỗi bước.
+
+**Sửa SRS:** không (SRS không quy định giao diện).
+
+---
+
 ## Khi phát hiện mâu thuẫn mới lúc code
 
 1. Thêm mục mới vào cuối file này với mã `D23`, `D24`…

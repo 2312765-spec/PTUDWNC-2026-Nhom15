@@ -67,7 +67,7 @@ export function Pagination({ page, totalPages, onPageChange, className, pending 
             aria-current={p === page ? 'page' : undefined}
             className={cn(
               'inline-flex size-9 items-center justify-center rounded-md text-sm',
-              p === page ? 'bg-brand-600 text-white' : 'text-ink hover:bg-surface-subtle',
+              p === page ? 'bg-brand-600 text-on-brand' : 'text-ink hover:bg-surface-subtle',
             )}
           >
             {p}

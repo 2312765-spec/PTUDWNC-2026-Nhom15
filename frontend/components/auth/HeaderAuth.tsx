@@ -31,7 +31,7 @@ export function HeaderAuth() {
         </Link>
         <Link
           href="/auth/register"
-          className="rounded-md bg-brand-600 px-3 py-1.5 font-medium text-white hover:bg-brand-700"
+          className="rounded-md bg-brand-600 px-3 py-1.5 font-medium text-on-brand hover:bg-brand-700"
         >
           Đăng ký
         </Link>

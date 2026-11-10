@@ -47,7 +47,7 @@ export function Dialog({ open, onClose, title, description, children, className 
       }}
       className={cn(
         'w-full max-w-md rounded-lg border border-border bg-surface p-0 shadow-xl',
-        'backdrop:bg-ink/50',
+        'backdrop:bg-overlay/70',
         className,
       )}
     >

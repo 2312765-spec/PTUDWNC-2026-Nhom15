@@ -32,8 +32,8 @@ const variantIcon: Record<ToastVariant, typeof CheckCircle2> = {
 };
 
 const variantClasses: Record<ToastVariant, string> = {
-  success: 'border-green-200 bg-green-50 text-green-800',
-  error: 'border-red-200 bg-red-50 text-red-800',
+  success: 'border-success-line bg-success-subtle text-success',
+  error: 'border-danger-line bg-danger-subtle text-danger',
   info: 'border-border bg-surface text-ink',
 };
 

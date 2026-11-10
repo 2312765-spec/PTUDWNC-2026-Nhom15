@@ -40,7 +40,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             className={cn(
               'h-10 w-full appearance-none rounded-md border border-border-strong bg-surface px-3 pr-9 text-sm text-ink',
               'disabled:cursor-not-allowed disabled:opacity-50',
-              error && 'border-red-500',
+              error && 'border-danger-line',
               className,
             )}
             {...props}
@@ -62,7 +62,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           />
         </div>
         {error && (
-          <p id={errorId} role="alert" className="text-xs text-red-600">
+          <p id={errorId} role="alert" className="text-xs text-danger">
             {error}
           </p>
         )}

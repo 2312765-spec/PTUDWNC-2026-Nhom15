@@ -104,13 +104,13 @@ export function RecipeImageCard({
         )}
 
         {image.isPrimary && (
-          <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-bold text-white">
-            <Star className="size-2.5 fill-white" aria-hidden="true" />
+          <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-bold text-on-brand">
+            <Star className="size-2.5 fill-on-brand" aria-hidden="true" />
             Ảnh chính
           </span>
         )}
 
-        <div className="absolute inset-x-0 bottom-0 flex justify-center gap-3 bg-ink/70 py-1.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+        <div className="absolute inset-x-0 bottom-0 flex justify-center gap-3 bg-overlay/80 py-1.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           {onMoveEarlier && (
             <button
               ref={moveEarlierRef}
@@ -144,7 +144,7 @@ export function RecipeImageCard({
             type="button"
             onClick={() => onDelete(image.imageId)}
             aria-label="Xoá ảnh"
-            className="text-white hover:text-red-300"
+            className="text-white hover:text-danger"
           >
             <Trash2 className="size-4" aria-hidden="true" />
           </button>

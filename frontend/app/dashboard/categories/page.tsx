@@ -67,7 +67,7 @@ export default function AdminCategoriesPage() {
         ) : isError ? (
           <div
             role="alert"
-            className="flex flex-col items-center gap-3 p-8 text-center text-sm text-red-700"
+            className="flex flex-col items-center gap-3 p-8 text-center text-sm text-danger"
           >
             <p>{toProblemDetails(error).detail ?? 'Không tải được danh sách danh mục.'}</p>
             <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>

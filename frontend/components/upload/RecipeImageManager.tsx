@@ -106,7 +106,7 @@ export function RecipeImageManager({ recipeId, initialImages = [] }: RecipeImage
           {gallery.uploadingFiles.map((file) => (
             <div key={file.id} className="flex flex-col gap-1.5">
               <div className="relative h-[140px] w-full overflow-hidden rounded-lg border border-border bg-surface-subtle">
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/75 to-transparent p-2">
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-overlay/80 to-transparent p-2">
                   <div className="h-1.5 overflow-hidden rounded-full bg-white/35">
                     <div className="h-full bg-brand-500" style={{ width: `${file.progress}%` }} />
                   </div>
