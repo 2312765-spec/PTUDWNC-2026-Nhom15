@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { RecipeImagePlaceholder } from '@/components/recipes/RecipeImagePlaceholder';
 import { Badge, Card, CardBody } from '@/components/ui';
 import { formatMinutes } from '@/lib/recipe-format';
 import type { RecipeSummaryDto } from '@/lib/types';
@@ -57,9 +58,7 @@ export default function RecipeCard({ recipe, isLcp = false, sizes = GRID_3_COLS_
               className="object-cover"
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-xs text-ink-muted">
-              Chưa có hình ảnh
-            </div>
+            <RecipeImagePlaceholder title={recipe.title} slug={recipe.slug} size="card" />
           )}
         </div>
         <CardBody className="flex flex-col gap-2">

@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { CARD_IMAGE_QUALITY } from '@/components/recipes/RecipeCard';
+import { RecipeImagePlaceholder } from '@/components/recipes/RecipeImagePlaceholder';
 import { difficultyLabel, formatMinutes } from '@/lib/recipe-format';
 import type { RecipeSummaryDto } from '@/lib/types';
 
@@ -9,7 +10,9 @@ import type { RecipeSummaryDto } from '@/lib/types';
  * độ khó · tác giả, ảnh nhỏ cuối dòng. Ảnh lazy — không bao giờ là LCP (LCP là ảnh Món đáng thử).
  */
 export function RecipeMenuRow({ recipe, index }: { recipe: RecipeSummaryDto; index: number }) {
-  const imageUrl = recipe.featuredImageCardUrl ?? recipe.featuredImageUrl;
+  // Ảnh vuông lấy từ ảnh GỐC (4:3 → vuông giữ ~75%). Biến thể card 760×320 (D88) đã cắt sẵn, cắt vuông lần nữa chỉ
+  // còn ~24% ảnh. Ảnh 88px, lazy, next/image tự thu nhỏ → dung lượng không đáng kể.
+  const imageUrl = recipe.featuredImageUrl ?? recipe.featuredImageCardUrl;
   const href = `/recipes/${recipe.slug}`;
 
   return (
@@ -35,8 +38,10 @@ export function RecipeMenuRow({ recipe, index }: { recipe: RecipeSummaryDto; ind
         </p>
       </div>
       <div className="relative size-16 flex-none overflow-hidden rounded-xl bg-surface md:size-[88px]">
-        {imageUrl && (
+        {imageUrl ? (
           <Image src={imageUrl} alt="" fill sizes="88px" quality={CARD_IMAGE_QUALITY} loading="lazy" className="object-cover" />
+        ) : (
+          <RecipeImagePlaceholder title={recipe.title} slug={recipe.slug} size="thumb" />
         )}
       </div>
     </li>

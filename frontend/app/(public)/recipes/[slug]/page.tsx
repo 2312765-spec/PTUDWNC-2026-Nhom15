@@ -3,6 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { RecipeJsonLd } from '@/components/seo/RecipeJsonLd';
+import { RecipeImagePlaceholder } from '@/components/recipes/RecipeImagePlaceholder';
 import { formatMinutes } from '@/lib/recipe-format';
 import { getRecipeBySlug } from '@/lib/recipes';
 import { buildRecipeMetadata } from '@/lib/seo/recipeMeta';
@@ -119,7 +120,7 @@ export default async function RecipeDetailPage({
     notFound();
   }
 
-  // Chưa có ảnh → khung "Chưa có hình ảnh" như RecipeCard (frontend không có thư mục public/ chứa ảnh placeholder).
+  // Chưa có ảnh → khung minh họa RecipeImagePlaceholder (D97), như RecipeCard.
   const primaryImage =
     recipe.images.find((img) => img.isPrimary)?.originalUrl || recipe.images[0]?.originalUrl;
 
@@ -179,7 +180,11 @@ export default async function RecipeDetailPage({
         </p>
       </header>
 
-      <div className="relative h-[280px] w-full overflow-hidden rounded-3xl bg-brand-50 md:h-[380px]">
+      {/* D97: khung theo tỉ lệ 16:10 thay chiều cao cố định — ảnh 4:3 giữ ~83% (khung 900×380 cũ chỉ giữ ~56%). */}
+      {/* Không có ảnh → băng ngang thấp: khung 16:10 (~560px) trống chỉ có chữ cái đầu thì phí chỗ. */}
+      <div
+        className={`relative w-full overflow-hidden rounded-3xl bg-brand-50 ${primaryImage ? 'aspect-[16/10]' : 'h-40 md:h-52'}`}
+      >
         {primaryImage ? (
           <Image
             src={primaryImage}
@@ -190,7 +195,7 @@ export default async function RecipeDetailPage({
             className="object-cover"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-ink-muted">Chưa có hình ảnh</div>
+          <RecipeImagePlaceholder title={recipe.title} slug={recipe.slug} size="hero" />
         )}
       </div>
 

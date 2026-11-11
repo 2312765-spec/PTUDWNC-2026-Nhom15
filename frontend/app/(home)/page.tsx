@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { RecipeMenuRow } from '@/components/recipes/RecipeMenuRow';
+import { RecipeImagePlaceholder } from '@/components/recipes/RecipeImagePlaceholder';
 import { getLatestRecipes } from '@/lib/recipes';
 import { difficultyLabel, formatMinutes } from '@/lib/recipe-format';
 import type { RecipeSummaryDto } from '@/lib/types';
@@ -50,7 +51,7 @@ function FeaturedRecipe({ recipe }: { recipe: RecipeSummaryDto }) {
             className="object-cover"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-ink-muted">Chưa có hình ảnh</div>
+          <RecipeImagePlaceholder title={recipe.title} slug={recipe.slug} size="hero" className="absolute inset-0" />
         )}
       </div>
       <div className="flex flex-[2_1_280px] flex-col justify-center gap-3 p-6 md:p-8">

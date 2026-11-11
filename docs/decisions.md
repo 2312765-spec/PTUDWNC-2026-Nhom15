@@ -2743,6 +2743,15 @@ hero → lưới thẻ 3 cột, nền trắng + cam) dễ trùng với nhóm kh�
    trang chi tiết có dòng thời gian nấu theo phút (cộng dồn `timerMinutes`). `/recipes`, `/search`, `/categories/*`,
    dashboard, auth chỉ đổi màu, giữ bố cục.
 5. Giữ nguyên chữ trên link điều hướng, landmark và `aria-label` (E2E, NFR-USE-002); giữ neo `#buoc-n` (NFR-SEO-001).
+6. **Tỉ lệ khung ảnh (2026-11-11):** ảnh món chủ yếu 4:3. Ảnh nhỏ "Thực đơn mới" (vuông) lấy từ ảnh **gốc**, không
+   lấy biến thể card 760×320 (đã cắt sẵn → cắt vuông lần nữa chỉ còn ~24% ảnh; từ ảnh gốc giữ ~75%). Ảnh lớn trang chi
+   tiết dùng khung **16:10** thay chiều cao cố định 380px (~900×380 chỉ giữ ~56% ảnh; 16:10 giữ ~83%). Thẻ món ở
+   `/recipes`, `/search` giữ biến thể card của D88 (đổi khung cần đo lại LCP — chưa làm).
+7. **Công thức chưa có ảnh (2026-11-11):** SRS không bắt buộc ảnh để xuất bản (D3), 6/50 món seed không có ảnh giấy
+   phép phù hợp (`SeedImageAssets`). Thay khung xám "Chưa có hình ảnh" bằng `RecipeImagePlaceholder`: nền theo slug
+   (6 tông ấm, cùng món luôn cùng màu), chữ cái đầu tên món, icon niêu đất mờ; "Chưa có hình ảnh" giữ cho trình đọc
+   màn hình (`sr-only`). Dùng ở thẻ món, thực đơn, Món đáng thử, trang chi tiết (không ảnh → băng ngang thấp thay khung
+   16:10). Không tải file nào thêm. axe 0 vi phạm.
 
 **Vì:** khác biệt rõ với các nhóm khác mà không đổi API, không thêm FR; đi qua token nên ít file phải sửa. Kiểm lại
 bằng axe (D83), Lighthouse (D87) và E2E sau mỗi bước.
