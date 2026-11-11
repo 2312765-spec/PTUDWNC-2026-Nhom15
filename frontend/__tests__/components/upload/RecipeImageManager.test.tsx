@@ -238,6 +238,24 @@ describe('RecipeImageManager', () => {
     expect(gallery.updateAltText).toHaveBeenCalledWith('img-4', 'mới');
   });
 
+  it('FR-RCP-008: sửa alt text lỗi → lỗi được nuốt ở Manager (toast đã hiện ở hook), không unhandled rejection', async () => {
+    const updateAltText = jest.fn().mockRejectedValue(new Error('boom'));
+    setupGallery({ images: [image({ imageId: 'img-4', altText: 'cũ' })], updateAltText });
+    const unhandled = jest.fn();
+    process.on('unhandledRejection', unhandled);
+    render(<RecipeImageManager recipeId={RECIPE_ID} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /sửa mô tả/i }));
+    const input = screen.getByRole('textbox', { name: /mô tả ảnh/i });
+    await userEvent.clear(input);
+    await userEvent.type(input, 'mới{Enter}');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    process.off('unhandledRejection', unhandled);
+    expect(updateAltText).toHaveBeenCalledWith('img-4', 'mới');
+    expect(unhandled).not.toHaveBeenCalled();
+  });
+
   it('truyền initialImages xuống useRecipeImageGallery đúng recipeId', () => {
     setupGallery();
     const initial = [image({ imageId: 'seed' })];
