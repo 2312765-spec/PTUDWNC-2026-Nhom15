@@ -9,7 +9,9 @@ import type { RecipeSummaryDto } from '@/lib/types';
  * độ khó · tác giả, ảnh nhỏ cuối dòng. Ảnh lazy — không bao giờ là LCP (LCP là ảnh Món đáng thử).
  */
 export function RecipeMenuRow({ recipe, index }: { recipe: RecipeSummaryDto; index: number }) {
-  const imageUrl = recipe.featuredImageCardUrl ?? recipe.featuredImageUrl;
+  // Ảnh vuông lấy từ ảnh GỐC (4:3 → vuông giữ ~75%). Biến thể card 760×320 (D88) đã cắt sẵn, cắt vuông lần nữa chỉ
+  // còn ~24% ảnh. Ảnh 88px, lazy, next/image tự thu nhỏ → dung lượng không đáng kể.
+  const imageUrl = recipe.featuredImageUrl ?? recipe.featuredImageCardUrl;
   const href = `/recipes/${recipe.slug}`;
 
   return (

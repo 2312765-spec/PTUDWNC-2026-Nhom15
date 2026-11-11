@@ -2743,6 +2743,10 @@ hero → lưới thẻ 3 cột, nền trắng + cam) dễ trùng với nhóm kh�
    trang chi tiết có dòng thời gian nấu theo phút (cộng dồn `timerMinutes`). `/recipes`, `/search`, `/categories/*`,
    dashboard, auth chỉ đổi màu, giữ bố cục.
 5. Giữ nguyên chữ trên link điều hướng, landmark và `aria-label` (E2E, NFR-USE-002); giữ neo `#buoc-n` (NFR-SEO-001).
+6. **Tỉ lệ khung ảnh (2026-11-11):** ảnh món chủ yếu 4:3. Ảnh nhỏ "Thực đơn mới" (vuông) lấy từ ảnh **gốc**, không
+   lấy biến thể card 760×320 (đã cắt sẵn → cắt vuông lần nữa chỉ còn ~24% ảnh; từ ảnh gốc giữ ~75%). Ảnh lớn trang chi
+   tiết dùng khung **16:10** thay chiều cao cố định 380px (~900×380 chỉ giữ ~56% ảnh; 16:10 giữ ~83%). Thẻ món ở
+   `/recipes`, `/search` giữ biến thể card của D88 (đổi khung cần đo lại LCP — chưa làm).
 
 **Vì:** khác biệt rõ với các nhóm khác mà không đổi API, không thêm FR; đi qua token nên ít file phải sửa. Kiểm lại
 bằng axe (D83), Lighthouse (D87) và E2E sau mỗi bước.

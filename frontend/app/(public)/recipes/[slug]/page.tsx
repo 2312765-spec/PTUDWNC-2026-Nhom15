@@ -179,7 +179,8 @@ export default async function RecipeDetailPage({
         </p>
       </header>
 
-      <div className="relative h-[280px] w-full overflow-hidden rounded-3xl bg-brand-50 md:h-[380px]">
+      {/* D97: khung theo tỉ lệ 16:10 thay chiều cao cố định — ảnh 4:3 giữ ~83% (khung 900×380 cũ chỉ giữ ~56%). */}
+      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-3xl bg-brand-50">
         {primaryImage ? (
           <Image
             src={primaryImage}
