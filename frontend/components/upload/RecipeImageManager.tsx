@@ -71,6 +71,12 @@ export function RecipeImageManager({ recipeId, initialImages = [] }: RecipeImage
     gallery.setPrimary(imageId).catch(() => {});
   }
 
+  function updateAltText(imageId: string, altText: string) {
+    // Hook chỉ đổi alt text sau khi server OK — lỗi thì card giữ alt text cũ, toast ở useRecipeImages. Chỉ chặn
+    // unhandled rejection.
+    gallery.updateAltText(imageId, altText).catch(() => {});
+  }
+
   const hasTiles = gallery.images.length > 0 || gallery.uploadingFiles.length > 0;
 
   return (
@@ -88,7 +94,7 @@ export function RecipeImageManager({ recipeId, initialImages = [] }: RecipeImage
               focusAction={moveFocus?.imageId === img.imageId ? moveFocus.action : undefined}
               onFocusHandled={handleFocusHandled}
               onSetPrimary={setPrimary}
-              onUpdateAltText={gallery.updateAltText}
+              onUpdateAltText={updateAltText}
               onDelete={setPendingDeleteId}
               onDragStart={() => {
                 draggedImageId.current = img.imageId;
