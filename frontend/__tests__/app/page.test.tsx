@@ -1,10 +1,8 @@
 import { render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import HomePage, { revalidate } from '@/app/(home)/page';
 import { ApiError, getCategories } from '@/lib/categories';
 import { getLatestRecipes } from '@/lib/recipes';
-import type { CategoryDto, PagedResult, RecipeSummaryDto } from '@/lib/types';
-import { mockPush } from '../../jest.setup';
+import type { PagedResult, RecipeSummaryDto } from '@/lib/types';
 
 jest.mock('@/lib/categories', () => ({
   ...jest.requireActual('@/lib/categories'),
@@ -14,35 +12,24 @@ jest.mock('@/lib/recipes', () => ({
   ...jest.requireActual('@/lib/recipes'),
   getLatestRecipes: jest.fn(),
 }));
-jest.mock('@/components/recipes/RecipeCard', () => ({
-  __esModule: true,
-  default: ({ recipe }: { recipe: RecipeSummaryDto }) => <div data-testid="recipe-card">{recipe.title}</div>,
-}));
 
 const mockGetCategories = getCategories as jest.Mock;
 const mockGetLatestRecipes = getLatestRecipes as jest.Mock;
 
-const category = (i: number): CategoryDto => ({
-  id: `c${i}`,
-  name: `Danh mục ${i}`,
-  slug: `danh-muc-${i}`,
-  description: null,
-  recipeCount: i,
-});
-
-const recipe = (i: number): RecipeSummaryDto => ({
+const recipe = (i: number, overrides: Partial<RecipeSummaryDto> = {}): RecipeSummaryDto => ({
   id: `r${i}`,
   title: `Món ${i}`,
   slug: `mon-${i}`,
-  description: null,
+  description: `Mô tả món ${i}`,
   featuredImageUrl: null,
   status: 'Published',
   prepTimeMinutes: 5,
-  cookTimeMinutes: 0,
+  cookTimeMinutes: 10,
   difficulty: 'Easy',
   authorId: 'u1',
-  authorName: null,
+  authorName: 'Bếp Nhà',
   createdAt: '2026-10-01T00:00:00Z',
+  ...overrides,
 });
 
 const paged = (items: RecipeSummaryDto[]): PagedResult<RecipeSummaryDto> => ({
@@ -61,35 +48,76 @@ async function renderHome() {
 
 beforeEach(() => {
   jest.resetAllMocks();
-  mockGetCategories.mockResolvedValue([category(1), category(2)]);
-  mockGetLatestRecipes.mockResolvedValue(paged([recipe(1), recipe(2)]));
+  mockGetLatestRecipes.mockResolvedValue(paged([1, 2, 3].map((i) => recipe(i))));
 });
 
-describe('/ — trang chủ (FR-RCP-001)', () => {
+describe('/ — trang chủ dạng thực đơn (FR-RCP-001, D97)', () => {
   it('SRS 5.1: trang chủ ISR revalidate 3600', () => {
     expect(revalidate).toBe(3600);
   });
 
-  it('FR-RCP-001: lấy 6 công thức mới nhất và hiển thị bằng RecipeCard dùng chung', async () => {
+  it('D97: đúng 1 h1 "Hôm nay nấu gì đây?", không lồng <main>', async () => {
+    const { container } = await renderHome();
+
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Hôm nay nấu gì đây?');
+    expect(container.querySelector('main')).toBeNull();
+  });
+
+  it('FR-RCP-001: lấy 6 công thức mới nhất; món đầu là "Món đáng thử" có link tới trang chi tiết', async () => {
     await renderHome();
 
     expect(mockGetLatestRecipes).toHaveBeenCalledWith(6);
-    const section = screen.getByRole('region', { name: 'Công thức mới nhất' });
-    expect(within(section).getAllByTestId('recipe-card').map((c) => c.textContent)).toEqual(['Món 1', 'Món 2']);
+    const featured = screen.getByRole('region', { name: 'Món đáng thử' });
+    expect(within(featured).getByRole('heading', { level: 2, name: 'Món 1' })).toBeInTheDocument();
+    expect(within(featured).getByText('Mô tả món 1')).toBeInTheDocument();
+    expect(within(featured).getByRole('link', { name: 'Xem công thức Món 1' })).toHaveAttribute('href', '/recipes/mon-1');
   });
 
-  it('FR-CAT-001: hiện tối đa 6 danh mục, mỗi danh mục link tới /categories/{slug}', async () => {
-    mockGetCategories.mockResolvedValue(Array.from({ length: 8 }, (_, i) => category(i + 1)));
+  it('D97: các món còn lại thành "Thực đơn mới" — đánh số 01, 02…, tổng thời gian, độ khó, link chi tiết', async () => {
+    await renderHome();
+
+    const menu = screen.getByRole('region', { name: 'Thực đơn mới' });
+    const rows = within(menu).getAllByRole('listitem');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent('01');
+    expect(rows[0]).toHaveTextContent('15 phút');
+    expect(rows[0]).toHaveTextContent('Dễ');
+    expect(within(rows[0]).getByRole('link', { name: 'Món 2' })).toHaveAttribute('href', '/recipes/mon-2');
+    expect(rows[1]).toHaveTextContent('02');
+    expect(within(menu).getByRole('link', { name: 'Xem cả thực đơn' })).toHaveAttribute('href', '/recipes');
+  });
+
+  it('D97: thời gian ≥ 60 phút hiện theo giờ ("3 giờ 40 phút", "1 giờ")', async () => {
+    mockGetLatestRecipes.mockResolvedValue(
+      paged([
+        recipe(1),
+        recipe(2, { prepTimeMinutes: 40, cookTimeMinutes: 180 }),
+        recipe(3, { prepTimeMinutes: 30, cookTimeMinutes: 30 }),
+      ]),
+    );
 
     await renderHome();
 
-    const section = screen.getByRole('region', { name: 'Danh mục món ăn' });
-    const links = within(section)
-      .getAllByRole('link')
-      .filter((a) => a.getAttribute('href')?.startsWith('/categories/'));
-    expect(links).toHaveLength(6);
-    expect(links[0]).toHaveAttribute('href', '/categories/danh-muc-1');
-    expect(links[0]).toHaveTextContent('1 công thức');
+    const rows = within(screen.getByRole('region', { name: 'Thực đơn mới' })).getAllByRole('listitem');
+    expect(rows[0]).toHaveTextContent('3 giờ 40 phút');
+    expect(rows[1]).toHaveTextContent('1 giờ');
+    expect(rows[1]).not.toHaveTextContent('1 giờ 0 phút');
+  });
+
+  it('D97: danh mục nằm ở thanh bên (layout), trang chủ không gọi lại API danh mục', async () => {
+    await renderHome();
+
+    expect(mockGetCategories).not.toHaveBeenCalled();
+  });
+
+  it('chỉ có 1 công thức → hiện Món đáng thử, không có Thực đơn mới rỗng', async () => {
+    mockGetLatestRecipes.mockResolvedValue(paged([recipe(1)]));
+
+    await renderHome();
+
+    expect(screen.getByRole('region', { name: 'Món đáng thử' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Thực đơn mới' })).not.toBeInTheDocument();
   });
 
   it('chưa có công thức → thông báo trống (không phải lỗi)', async () => {
@@ -99,6 +127,7 @@ describe('/ — trang chủ (FR-RCP-001)', () => {
 
     expect(screen.getByText('Chưa có công thức nào được đăng tải.')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Món đáng thử' })).not.toBeInTheDocument();
   });
 
   it('NFR-USE-003: API công thức lỗi → báo lỗi rõ ràng, không giả làm "chưa có công thức"', async () => {
@@ -106,54 +135,9 @@ describe('/ — trang chủ (FR-RCP-001)', () => {
 
     await renderHome();
 
-    const section = screen.getByRole('region', { name: 'Công thức mới nhất' });
-    expect(within(section).getByRole('alert')).toHaveTextContent('Không tải được công thức');
+    expect(screen.getByRole('alert')).toHaveTextContent('Không tải được công thức');
     expect(screen.queryByText('Chưa có công thức nào được đăng tải.')).not.toBeInTheDocument();
-    // Lỗi một phần không làm sập trang: danh mục vẫn hiện.
-    expect(screen.getByRole('link', { name: /Danh mục 1/ })).toBeInTheDocument();
-  });
-
-  it('NFR-USE-003: API danh mục lỗi → báo lỗi ở phần danh mục, công thức vẫn hiện', async () => {
-    mockGetCategories.mockRejectedValue(new ApiError(500, 'INTERNAL_ERROR'));
-
-    await renderHome();
-
-    const section = screen.getByRole('region', { name: 'Danh mục món ăn' });
-    expect(within(section).getByRole('alert')).toHaveTextContent('Không tải được danh mục');
-    expect(screen.getAllByTestId('recipe-card')).toHaveLength(2);
-  });
-
-  it('FR-SRCH-001: dùng chung SearchForm — form GET tới /search (chạy cả khi chưa có JS), ô có nhãn', async () => {
-    await renderHome();
-
-    const form = screen.getByRole('search');
-    expect(form).toHaveAttribute('action', '/search');
-    expect(within(form).getByRole('searchbox', { name: 'Từ khóa tìm kiếm' })).toHaveAttribute('name', 'q');
-  });
-
-  it('FR-SRCH-001: từ khóa < 2 ký tự → thông báo tiếng Việt, không chuyển trang', async () => {
-    await renderHome();
-
-    await userEvent.type(screen.getByRole('searchbox'), ' a ');
-    await userEvent.click(screen.getByRole('button', { name: 'Tìm kiếm' }));
-
-    expect(within(screen.getByRole('search')).getByRole('alert')).toHaveTextContent('ít nhất 2 ký tự');
-    expect(mockPush).not.toHaveBeenCalled();
-  });
-
-  it('FR-SRCH-001: từ khóa hợp lệ → chuyển trang mềm tới /search?q= (đã trim + encode)', async () => {
-    await renderHome();
-
-    await userEvent.type(screen.getByRole('searchbox'), '  phở bò ');
-    await userEvent.click(screen.getByRole('button', { name: 'Tìm kiếm' }));
-
-    expect(mockPush).toHaveBeenCalledWith(`/search?q=${encodeURIComponent('phở bò')}`);
-  });
-
-  it('WCAG: không lồng <main> (layout gốc đã có <main id="main">), có đúng 1 h1', async () => {
-    const { container } = await renderHome();
-
-    expect(container.querySelector('main')).toBeNull();
-    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    // Lỗi không làm sập trang: tiêu đề vẫn hiện.
+    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
   });
 });

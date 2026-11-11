@@ -13,7 +13,7 @@ import { SEARCH_MIN_LENGTH } from '@/lib/recipes';
  * (trang đó tự trim và bỏ qua q < 2 ký tự). Khi đã có JS, onSubmit chặn lại để validate tiếng Việt
  * và chuyển trang mềm bằng router.
  */
-export default function SearchForm({ initialQuery }: { initialQuery: string }) {
+export default function SearchForm({ initialQuery, stacked = false }: { initialQuery: string; stacked?: boolean }) {
   const router = useRouter();
   const [value, setValue] = useState(initialQuery);
   const [error, setError] = useState<string>();
@@ -36,10 +36,11 @@ export default function SearchForm({ initialQuery }: { initialQuery: string }) {
       action="/search"
       method="get"
       onSubmit={onSubmit}
-      className="flex items-start gap-2"
+      // D97: `stacked` — ô nhập và nút xếp dọc cho thanh bên hẹp.
+      className={stacked ? 'flex flex-col gap-2' : 'flex items-start gap-2'}
       noValidate
     >
-      <div className="flex-1">
+      <div className={stacked ? undefined : 'flex-1'}>
         <Input
           type="search"
           name="q"

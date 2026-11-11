@@ -1,15 +1,17 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
-import RecipeCard from '@/components/recipes/RecipeCard';
-import SearchForm from '@/components/search/SearchForm';
-import { getCategories } from '@/lib/categories';
+import { RecipeMenuRow } from '@/components/recipes/RecipeMenuRow';
 import { getLatestRecipes } from '@/lib/recipes';
-import type { CategoryDto, RecipeSummaryDto } from '@/lib/types';
+import { difficultyLabel, formatMinutes } from '@/lib/recipe-format';
+import type { RecipeSummaryDto } from '@/lib/types';
 
 /**
- * Trang chủ — chủ sở hữu: B. FR-RCP-001 (công thức mới nhất) + FR-CAT-001 (danh mục) +
- * lối vào FR-SRCH-001. SRS mục 5.1: ISR revalidate = 3600 — mọi fetch ở đây phải dùng
- * `revalidate`, không `no-store`.
+ * Trang chủ — chủ sở hữu: B. FR-RCP-001 (công thức mới nhất). SRS mục 5.1: ISR revalidate = 3600 — mọi fetch ở đây
+ * phải dùng `revalidate`, không `no-store`.
+ *
+ * D97 — bố cục "sổ tay nấu ăn": món mới nhất là "Món đáng thử", các món sau là "Thực đơn mới" (danh sách có đường
+ * chấm dẫn). Danh mục (FR-CAT-001) và ô tìm kiếm (FR-SRCH-001) nằm ở thanh bên của layout gốc.
  */
 export const revalidate = 3600;
 
@@ -19,104 +21,101 @@ export const metadata: Metadata = {
 };
 
 const LATEST_RECIPES = 6;
-const FEATURED_CATEGORIES = 6;
 
-/** Lỗi từng phần không làm sập trang (NFR-USE-003) — `null` nghĩa là tải lỗi, khác danh sách rỗng. */
-async function orNull<T>(promise: Promise<T>): Promise<T | null> {
+/** Lỗi không làm sập trang (NFR-USE-003) — `null` nghĩa là tải lỗi, khác danh sách rỗng. */
+async function latestOrNull(): Promise<RecipeSummaryDto[] | null> {
   try {
-    return await promise;
+    return (await getLatestRecipes(LATEST_RECIPES)).items;
   } catch {
     return null;
   }
 }
 
+function FeaturedRecipe({ recipe }: { recipe: RecipeSummaryDto }) {
+  const href = `/recipes/${recipe.slug}`;
+  return (
+    <section
+      aria-labelledby="home-featured-label"
+      className="flex flex-wrap overflow-hidden rounded-3xl border border-border bg-surface"
+    >
+      <div className="relative min-h-60 flex-[3_1_360px] bg-brand-50 md:min-h-80">
+        {recipe.featuredImageUrl ? (
+          // NFR-PERF-005/D86 — ảnh này là LCP của trang chủ: preload trong <head>.
+          <Image
+            src={recipe.featuredImageUrl}
+            alt={recipe.title}
+            fill
+            sizes="(min-width: 1200px) 560px, 100vw"
+            preload
+            className="object-cover"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-ink-muted">Chưa có hình ảnh</div>
+        )}
+      </div>
+      <div className="flex flex-[2_1_280px] flex-col justify-center gap-3 p-6 md:p-8">
+        <p id="home-featured-label" className="text-xs font-bold uppercase tracking-[0.18em] text-accent">
+          Món đáng thử
+        </p>
+        <h2 className="break-words text-4xl font-extrabold leading-none">{recipe.title}</h2>
+        {recipe.description && <p className="leading-relaxed text-ink-muted">{recipe.description}</p>}
+        <p className="text-sm text-ink-muted">
+          {formatMinutes(recipe.prepTimeMinutes + recipe.cookTimeMinutes)} · {difficultyLabel(recipe.difficulty)}
+          {recipe.authorName && ` · ${recipe.authorName}`}
+        </p>
+        <Link
+          href={href}
+          aria-label={`Xem công thức ${recipe.title}`}
+          className="mt-2 inline-flex h-11 items-center self-start rounded-lg bg-brand-600 px-5 font-bold text-on-brand hover:bg-brand-700"
+        >
+          Xem công thức
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 export default async function HomePage() {
-  const [categories, recipes] = await Promise.all([
-    orNull<CategoryDto[]>(getCategories()),
-    orNull(getLatestRecipes(LATEST_RECIPES)).then((r): RecipeSummaryDto[] | null => r?.items ?? null),
-  ]);
+  const recipes = await latestOrNull();
+  const [featured, ...rest] = recipes ?? [];
 
   return (
-    <div>
-      {/* Hero + tìm kiếm nhanh (FR-SRCH-001) — cùng SearchForm với /search. */}
-      <section className="border-b border-border bg-brand-50 py-16 md:py-24">
-        <div className="mx-auto max-w-5xl px-4 text-center">
-          <h1 className="text-4xl font-extrabold tracking-tight text-ink md:text-5xl">
-            Nấu ngon mỗi ngày cùng <span className="text-brand-700">Culinary Blog</span>
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-base text-ink-muted md:text-lg">
-            Công thức nấu ăn từ các đầu bếp gia đình và chuyên nghiệp.
-          </p>
+    <div className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8 md:gap-12 md:px-8 md:py-10 lg:px-12">
+      <h1 className="text-4xl font-extrabold leading-none md:text-6xl">
+        Hôm nay nấu <span className="text-brand-600">gì</span> đây?
+      </h1>
 
-          <div className="mx-auto mt-8 max-w-xl text-left">
-            <SearchForm initialQuery="" />
-          </div>
-        </div>
-      </section>
+      {recipes === null ? (
+        <p role="alert" className="rounded-xl border border-danger-line bg-danger-subtle p-6 text-center text-sm text-danger">
+          Không tải được công thức. Vui lòng thử lại sau.
+        </p>
+      ) : !featured ? (
+        <p className="rounded-xl border border-dashed border-border bg-surface p-12 text-center text-ink-muted">
+          Chưa có công thức nào được đăng tải.
+        </p>
+      ) : (
+        <>
+          <FeaturedRecipe recipe={featured} />
 
-      <div className="mx-auto max-w-6xl space-y-16 px-4 py-12">
-        {/* Danh mục (FR-CAT-001) */}
-        <section aria-labelledby="home-categories">
-          <div className="mb-6 flex items-center justify-between">
-            <h2 id="home-categories" className="text-2xl font-bold text-ink">
-              Danh mục món ăn
-            </h2>
-            <Link href="/categories" className="inline-flex min-h-6 items-center text-sm font-semibold text-brand-700 hover:underline">
-              Xem tất cả →
-            </Link>
-          </div>
-
-          {categories === null ? (
-            <p role="alert" className="rounded-lg border border-border bg-surface p-6 text-center text-sm text-red-700">
-              Không tải được danh mục. Vui lòng thử lại sau.
-            </p>
-          ) : (
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              {categories.slice(0, FEATURED_CATEGORIES).map((cat) => (
-                <li key={cat.id}>
-                  <Link
-                    href={`/categories/${cat.slug}`}
-                    className="flex min-h-24 flex-col items-center justify-center rounded-lg border border-border bg-surface p-4 text-center transition hover:shadow-md focus-visible:outline-2 focus-visible:outline-brand-600"
-                  >
-                    <span className="text-sm font-semibold text-ink">{cat.name}</span>
-                    <span className="mt-1 text-xs text-ink-muted">{cat.recipeCount} công thức</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+          {rest.length > 0 && (
+            <section aria-labelledby="home-menu">
+              <div className="flex flex-wrap items-baseline justify-between gap-3 border-b-2 border-ink pb-3">
+                <h2 id="home-menu" className="text-3xl font-extrabold leading-none md:text-4xl">
+                  Thực đơn mới
+                </h2>
+                <Link href="/recipes" className="inline-flex min-h-6 items-center font-semibold text-accent hover:underline">
+                  Xem cả thực đơn
+                </Link>
+              </div>
+              <ol>
+                {rest.map((recipe, index) => (
+                  <RecipeMenuRow key={recipe.id} recipe={recipe} index={index} />
+                ))}
+              </ol>
+            </section>
           )}
-        </section>
-
-        {/* Công thức mới nhất (FR-RCP-001) */}
-        <section aria-labelledby="home-latest">
-          <div className="mb-6 flex items-center justify-between">
-            <h2 id="home-latest" className="text-2xl font-bold text-ink">
-              Công thức mới nhất
-            </h2>
-            <Link href="/recipes" className="inline-flex min-h-6 items-center text-sm font-semibold text-brand-700 hover:underline">
-              Khám phá thêm →
-            </Link>
-          </div>
-
-          {recipes === null ? (
-            <p role="alert" className="rounded-lg border border-border bg-surface p-6 text-center text-sm text-red-700">
-              Không tải được công thức. Vui lòng thử lại sau.
-            </p>
-          ) : recipes.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border bg-surface p-12 text-center text-ink-muted">
-              Chưa có công thức nào được đăng tải.
-            </p>
-          ) : (
-            <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {recipes.map((recipe, index) => (
-                <li key={recipe.id}>
-                  <RecipeCard recipe={recipe} isLcp={index === 0} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
+        </>
+      )}
     </div>
   );
 }

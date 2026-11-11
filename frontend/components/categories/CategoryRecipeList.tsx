@@ -1,9 +1,11 @@
 'use client';
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useState } from 'react';
 import { Badge, Button, Card, CardBody, Pagination, Skeleton } from '@/components/ui';
 import { ApiError, getCategoryBySlug } from '@/lib/categories';
+import { difficultyLabel, formatMinutes } from '@/lib/recipe-format';
 import type { PagedResult, RecipeSummaryDto } from '@/lib/types';
 
 interface Props {
@@ -12,13 +14,6 @@ interface Props {
   /** Trang 1 đã render sẵn ở server (ISR 600) — chỉ gọi API khi người dùng sang trang khác. */
   initialRecipes: PagedResult<RecipeSummaryDto>;
 }
-
-const DIFFICULTY_LABEL: Record<string, string> = {
-  Easy: 'Dễ',
-  Medium: 'Trung bình',
-  Hard: 'Khó',
-  Expert: 'Rất khó',
-};
 
 /**
  * FR-CAT-002 — phân trang phía client. Không dùng `searchParams` ở page vì nó ép route thành
@@ -72,28 +67,31 @@ export default function CategoryRecipeList({ slug, pageSize, initialRecipes }: P
         className={`grid grid-cols-1 gap-4 md:grid-cols-2 ${isFetching ? 'opacity-60' : ''}`}
       >
         {data.items.map((recipe) => (
-          // TODO(S4 — B): bọc <Link href={`/recipes/${recipe.slug}`}> khi có trang chi tiết công thức.
           <li key={recipe.id}>
-            <Card className="h-full">
-              <CardBody className="flex h-full flex-col gap-2">
-                <div className="flex items-center justify-between gap-2 text-xs">
-                  <Badge variant="warning">
-                    {DIFFICULTY_LABEL[recipe.difficulty] ?? recipe.difficulty}
-                  </Badge>
-                  <span className="text-ink-muted">
-                    {recipe.prepTimeMinutes + recipe.cookTimeMinutes} phút
-                  </span>
-                </div>
-                <h3 className="font-semibold">{recipe.title}</h3>
-                {recipe.description && (
-                  <p className="line-clamp-2 text-sm text-ink-muted">{recipe.description}</p>
-                )}
-                <div className="mt-auto flex items-center justify-between gap-2 pt-2 text-xs text-ink-muted">
-                  <span>Tác giả: {recipe.authorName ?? 'Ẩn danh'}</span>
-                  {recipe.status !== 'Published' && <Badge>Nháp</Badge>}
-                </div>
-              </CardBody>
-            </Card>
+            {/* FR-CAT-002 — dẫn tới trang chi tiết như thẻ ở /recipes (trước đây còn TODO S4, chưa gắn link). */}
+            <Link
+              href={`/recipes/${recipe.slug}`}
+              className="block h-full rounded-lg focus-visible:outline-2 focus-visible:outline-brand-600"
+            >
+              <Card className="h-full transition hover:border-brand-200">
+                <CardBody className="flex h-full flex-col gap-2">
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <Badge variant="warning">{difficultyLabel(recipe.difficulty)}</Badge>
+                    <span className="text-ink-muted">
+                      {formatMinutes(recipe.prepTimeMinutes + recipe.cookTimeMinutes)}
+                    </span>
+                  </div>
+                  <h3 className="font-semibold">{recipe.title}</h3>
+                  {recipe.description && (
+                    <p className="line-clamp-2 text-sm text-ink-muted">{recipe.description}</p>
+                  )}
+                  <div className="mt-auto flex items-center justify-between gap-2 pt-2 text-xs text-ink-muted">
+                    <span>Tác giả: {recipe.authorName ?? 'Ẩn danh'}</span>
+                    {recipe.status !== 'Published' && <Badge>Nháp</Badge>}
+                  </div>
+                </CardBody>
+              </Card>
+            </Link>
           </li>
         ))}
       </ul>

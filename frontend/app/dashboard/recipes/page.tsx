@@ -86,7 +86,7 @@ function CreateLink() {
   return (
     <Link
       href="/dashboard/recipes/new"
-      className="inline-flex h-10 items-center gap-2 rounded-md bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
+      className="inline-flex h-10 items-center gap-2 rounded-md bg-brand-600 px-4 text-sm font-medium text-on-brand hover:bg-brand-700"
     >
       <PlusCircle className="size-4" aria-hidden="true" /> Tạo công thức mới
     </Link>
@@ -140,7 +140,7 @@ function MyRecipes() {
     const problem = toProblemDetails(error);
     body = (
       <div role="alert" className="flex flex-col items-center rounded-lg border border-border bg-surface p-8 text-center">
-        <AlertTriangle className="size-8 text-red-600" aria-hidden="true" />
+        <AlertTriangle className="size-8 text-danger" aria-hidden="true" />
         <p className="mt-2 font-semibold text-ink">Không tải được danh sách công thức</p>
         <p className="mt-1 text-sm text-ink-muted">
           {RECIPE_ERROR_MESSAGES[problem.type] ?? problem.detail ?? 'Vui lòng thử lại.'}

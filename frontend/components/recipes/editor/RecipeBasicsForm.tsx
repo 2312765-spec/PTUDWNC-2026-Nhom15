@@ -101,7 +101,7 @@ export function RecipeBasicsForm({ recipe, onSaved, onReload }: RecipeBasicsForm
   return (
     <form noValidate onSubmit={handleSubmit((v) => mutation.mutate(v))} className="flex flex-col gap-4">
       {conflict && (
-        <div role="alert" className="flex flex-col gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+        <div role="alert" className="flex flex-col gap-3 rounded-md border border-warning-line bg-warning-subtle p-3 text-sm text-warning">
           <p>{RECIPE_ERROR_MESSAGES.RECIPE_CONCURRENCY_CONFLICT}</p>
           <Button type="button" variant="outline" size="sm" className="self-start" loading={reloading} onClick={() => void reloadLatest()}>
             Tải lại bản mới nhất
@@ -109,7 +109,7 @@ export function RecipeBasicsForm({ recipe, onSaved, onReload }: RecipeBasicsForm
         </div>
       )}
       {formError && (
-        <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <p role="alert" className="rounded-md border border-danger-line bg-danger-subtle p-3 text-sm text-danger">
           {formError}
         </p>
       )}

@@ -31,7 +31,7 @@ export function HeaderAuth() {
         </Link>
         <Link
           href="/auth/register"
-          className="rounded-md bg-brand-600 px-3 py-1.5 font-medium text-white hover:bg-brand-700"
+          className="rounded-md bg-brand-600 px-3 py-1.5 font-medium text-on-brand hover:bg-brand-700"
         >
           Đăng ký
         </Link>
@@ -40,7 +40,7 @@ export function HeaderAuth() {
   }
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
       {/* Màn hẹp: ẩn tên để 3 lối tắt không xuống dòng — trang /dashboard đã chào bằng tên. */}
       <span className="hidden max-w-40 truncate text-sm font-medium text-ink sm:block" title={profile.displayName}>
         {profile.displayName}

@@ -56,7 +56,8 @@ describe('SearchResults — FR-SRCH-001', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Tìm thấy 1 kết quả cho "pho"');
     expect(screen.getByRole('link', { name: /Phở bò/ })).toHaveAttribute('href', '/recipes/pho-bo');
     expect(screen.getByRole('img', { name: 'Phở bò' })).toBeInTheDocument();
-    expect(screen.getByText('60 phút')).toBeInTheDocument();
+    // D97: tổng ≥ 60 phút hiện theo giờ (formatMinutes).
+    expect(screen.getByText('1 giờ')).toBeInTheDocument();
     expect(screen.getByText('Trung bình')).toBeInTheDocument();
   });
 

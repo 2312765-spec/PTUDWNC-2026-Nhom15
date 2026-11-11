@@ -78,6 +78,11 @@ Theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và [SemVer](https
   public, preset mobile, trung vị 9 lần đo (D87): LCP ≤ 2500ms, CLS ≤ 0.1, TBT ≤ 200ms (thay INP), JS ≤ 200KB (D64).
 
 ### Changed
+- D97: giao diện "sổ tay nấu ăn" tông tối — nền nâu than, chữ kem, màu chính cam đất (token mới `on-brand`, `accent`,
+  `danger`/`success`/`warning`, mọi cặp màu ≥ 4.5:1); chỉ font hệ thống (web font làm LCP chậm ~300–600ms — D97.2);
+  icon niêu đất (favicon, logo). Header ngang → thanh bên Mục lục (danh mục đánh số, ô tìm kiếm chung). Trang chủ: Món
+  đáng thử + Thực đơn mới (đường chấm dẫn). Trang chi tiết: dòng thời gian nấu theo phút (cộng dồn thời lượng
+  bước), nguyên liệu dạng danh sách đi chợ có ô tick. Thời gian ≥ 60 phút hiện theo giờ.
 - NFR-PERF-005: `/search` không stream kết quả qua Suspense (kết quả nằm sẵn trong HTML đầu tiên); preload ảnh
   thẻ đầu tiên; ảnh thẻ nhẹ hơn (quality 50, biến thể card); làm nóng cache trước khi đo (D86). LCP `/search`
   2.6–3.0s → 2486ms.
@@ -89,6 +94,8 @@ Theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và [SemVer](https
   cổng 9000 và biến `MINIO_ROOT_*`; image ghi đè qua `S3_IMAGE` (bỏ `MINIO_IMAGE`/`MC_IMAGE`).
 
 ### Fixed
+- FR-RCP-002: độ khó ở trang chi tiết lệch một bậc (đọc 0/1/2 thay vì enum Easy = 1 … Expert = 4); khung "Giá trị
+  dinh dưỡng" trống khi mọi chỉ số rỗng.
 - FR-RCP-008: upload ảnh từ giao diện luôn bị 415 — axios biến `FormData` thành JSON vì `apiClient` mặc định
   `Content-Type: application/json`. Nay gửi đúng multipart.
 - FR-RCP-003: tạo hai công thức cùng tiêu đề đồng thời không còn trả 500 — slug thứ hai tự thêm hậu tố (D85).

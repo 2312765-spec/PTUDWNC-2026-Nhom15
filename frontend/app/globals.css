@@ -1,40 +1,69 @@
 @import 'tailwindcss';
 
 /*
-  Design token — chủ sở hữu: C (Sprint 0).
-  NFR-USE-002: mọi cặp màu chữ/nền phải đạt contrast >= 4.5:1, viền thành phần UI >= 3:1 (WCAG 2.1 AA, 1.4.3 + 1.4.11).
-  D83 (2026-11-08): brand-600/700 đậm thêm một bậc — #ea580c chỉ đạt 3.55:1 với chữ trắng trên nút chính.
-    brand-600 #c2410c: chữ trắng 5.18:1, viền focus trên nền trắng 5.18:1.
-    brand-700 #9a3412: nút hover / link ~7.3:1.
-    border-strong #78716c: viền ô nhập ~4.8:1 (border #e7e5e4 chỉ 1.26:1 — để cho đường kẻ trang trí, không cho ô nhập).
+  Design token — chủ sở hữu: C (Sprint 0). D97 (2026-11-10): tông tối "sổ tay nấu ăn" — giữ nguyên TÊN token,
+  đổi giá trị; thêm on-brand, accent, overlay và màu trạng thái (danger / success / warning).
+  NFR-USE-002: chữ >= 4.5:1, viền thành phần UI >= 3:1 (WCAG 2.1 AA, 1.4.3 + 1.4.11). Đo bằng công thức WCAG:
+    ink #f7ebdd trên surface 14.5:1 · trên nền 15.6:1        ink-muted #cdb8a6 trên surface 8.9:1, trên brand-50 8.6:1
+    brand-600 #e8693f (chữ) trên surface 5.3:1              brand-700 #f2936d (link) trên surface 7.4:1
+    on-brand #1a1310 trên brand-600 5.7:1, trên brand-700 8.0:1 — chữ trắng trên brand-600 chỉ ~3:1, KHÔNG dùng
+    accent #f2b544 trên surface 9.3:1                       border-strong #8f7766 (viền ô nhập) trên surface 4.1:1
+    danger #ff8f80 trên surface 7.7:1, trên danger-subtle 7.0:1 · danger-line 3.8:1 · on-brand trên danger-strong 5.4:1
+    success #8fd3a4 trên success-subtle 8.6:1 · success-line 4.2:1
+    warning #f2c46b trên warning-subtle 9.4:1 · warning-line 3.4:1
+    focus ring brand-600 trên nền 5.7:1
 */
 @theme {
-  --color-brand-50: #fff7ed;
-  --color-brand-100: #ffedd5;
-  --color-brand-500: #f97316;
-  --color-brand-600: #c2410c;
-  --color-brand-700: #9a3412;
+  --color-brand-50: #2a1d17;
+  --color-brand-100: #3a271e;
+  --color-brand-200: #6b3f2c;
+  --color-brand-500: #e8693f;
+  --color-brand-600: #e8693f;
+  --color-brand-700: #f2936d;
+  --color-on-brand: #1a1310;
+  --color-accent: #f2b544;
 
-  --color-ink: #1c1917;
-  --color-ink-muted: #57534e;
-  --color-surface: #ffffff;
-  --color-surface-subtle: #fafaf9;
-  --color-border: #e7e5e4;
-  --color-border-strong: #78716c;
+  --color-ink: #f7ebdd;
+  --color-ink-muted: #cdb8a6;
+  --color-surface: #241a16;
+  --color-surface-subtle: #1a1310;
+  --color-surface-sunken: #140e0c;
+  --color-border: #3a2c25;
+  --color-border-strong: #8f7766;
+  --color-overlay: #0d0907;
+
+  --color-danger: #ff8f80;
+  --color-danger-subtle: #3a1c17;
+  --color-danger-line: #c0574a;
+  --color-danger-strong: #e5604f;
+  --color-success: #8fd3a4;
+  --color-success-subtle: #1c2a20;
+  --color-success-line: #4f8a60;
+  --color-warning: #f2c46b;
+  --color-warning-subtle: #2e2414;
+  --color-warning-line: #8a6a2e;
 
   /* D84 — breakpoint theo SRS NFR-USE-001: md = 768px (mặc định), lg = 1200px (Tailwind mặc định 1024px). */
   --breakpoint-lg: 75rem;
 
+  /* D97.2 — chỉ font hệ thống, không tải web font (NFR-PERF-005 — xem app/layout.tsx). */
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: var(--font-sans);
 }
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 body {
   background-color: var(--color-surface-subtle);
   color: var(--color-ink);
+}
+
+/* D97 — tiêu đề dùng font display (hiện = font hệ thống, D97.2). */
+h1,
+h2 {
+  font-family: var(--font-display);
 }
 
 /* NFR-USE-002: focus ring rõ ràng cho điều hướng bàn phím */

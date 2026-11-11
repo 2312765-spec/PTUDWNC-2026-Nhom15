@@ -73,7 +73,7 @@ export function ImageUploadDropzone({ onFilesSelected, disabled = false }: Image
         type="button"
         disabled={disabled}
         onClick={() => inputRef.current?.click()}
-        className="h-10 rounded-md bg-brand-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-brand-600/50"
+        className="h-10 rounded-md bg-brand-600 px-5 text-sm font-semibold text-on-brand transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-brand-600/50"
       >
         Chọn ảnh từ máy
       </button>
@@ -97,7 +97,7 @@ export function ImageUploadDropzone({ onFilesSelected, disabled = false }: Image
         }}
       />
       {error && (
-        <p role="alert" className="text-xs font-medium text-red-700">
+        <p role="alert" className="text-xs font-medium text-danger">
           {error}
         </p>
       )}

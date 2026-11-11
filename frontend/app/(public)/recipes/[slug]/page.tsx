@@ -3,8 +3,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { RecipeJsonLd } from '@/components/seo/RecipeJsonLd';
+import { formatMinutes } from '@/lib/recipe-format';
 import { getRecipeBySlug } from '@/lib/recipes';
 import { buildRecipeMetadata } from '@/lib/seo/recipeMeta';
+import type { RecipeDetailDto } from '@/lib/types';
 
 export const revalidate = 300; // SRS 5.1: ISR 5 phút (300 giây)
 
@@ -33,6 +35,76 @@ export async function generateMetadata({
   return buildRecipeMetadata(recipe);
 }
 
+/** Theo enum `RecipeDifficulty` của backend (SRS 7.2): Easy = 1 … Expert = 4 — KHÔNG bắt đầu từ 0. */
+const DIFFICULTY_LABELS: Record<number, string> = {
+  1: 'Dễ',
+  2: 'Trung bình',
+  3: 'Khó',
+  4: 'Rất khó',
+};
+
+/** D97 — mốc thời gian của từng bước: "phút 0", "phút 30", "1 giờ 5 phút"… */
+function formatMark(minute: number): string {
+  return minute < 60 ? `phút ${minute}` : formatMinutes(minute);
+}
+
+/**
+ * D97 — dòng thời gian nấu: cộng dồn `timerMinutes` để biết mỗi bước bắt đầu ở phút thứ mấy. Chỉ khi MỌI bước có
+ * thời lượng; thiếu một bước thì cộng dồn sẽ sai → trả null, trang đánh dấu "Bước n".
+ */
+function buildTimeline(steps: RecipeDetailDto['steps']): { starts: string[]; end: string } | null {
+  if (steps.length === 0 || steps.some((st) => !st.timerMinutes)) {
+    return null;
+  }
+  let at = 0;
+  const starts = steps.map((st) => {
+    const mark = formatMark(at);
+    at += st.timerMinutes ?? 0;
+    return mark;
+  });
+  return { starts, end: formatMark(at) };
+}
+
+function NutritionSection({ nutrition }: { nutrition: NonNullable<RecipeDetailDto['nutrition']> }) {
+  const items = [
+    { label: 'Calories', value: nutrition.calories, unit: ' kcal' },
+    { label: 'Protein', value: nutrition.protein, unit: 'g' },
+    { label: 'Carbs', value: nutrition.carbohydrates, unit: 'g' },
+    { label: 'Chất béo', value: nutrition.fat, unit: 'g' },
+    { label: 'Chất xơ', value: nutrition.fiber, unit: 'g' },
+    { label: 'Natri', value: nutrition.sodium, unit: 'mg' },
+  ].filter((item) => item.value);
+
+  // Có object nutrition nhưng mọi chỉ số rỗng → không vẽ khung trống.
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <section aria-labelledby="recipe-nutrition" className="rounded-2xl border border-border bg-surface p-5">
+      <h2 id="recipe-nutrition" className="mb-4 text-xl font-extrabold">
+        Giá trị dinh dưỡng (mỗi khẩu phần)
+      </h2>
+      <dl className="grid grid-cols-3 gap-3 text-center sm:grid-cols-6">
+        {items.map((item) => (
+          <div key={item.label} className="rounded-lg bg-surface-subtle p-2">
+            <dt className="text-xs text-ink-muted">{item.label}</dt>
+            <dd className="font-semibold">
+              {item.value}
+              {item.unit}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+/**
+ * FR-RCP-002 — chi tiết công thức. D97: bố cục "sổ tay" — tiêu đề lớn + dòng thông số, ảnh rộng, "Các bước thực
+ * hiện" dạng dòng thời gian theo phút, "Nguyên liệu" là danh sách đi chợ có ô tick (cột phải ≥ lg, trên các bước ở
+ * màn nhỏ). Giữ neo `#buoc-n` (NFR-SEO-001) và heading "Nguyên liệu" / "Các bước thực hiện" (E2E).
+ */
 export default async function RecipeDetailPage({
   params,
 }: {
@@ -51,65 +123,70 @@ export default async function RecipeDetailPage({
   const primaryImage =
     recipe.images.find((img) => img.isPrimary)?.originalUrl || recipe.images[0]?.originalUrl;
 
-  const difficultyLabels: Record<number, string> = {
-    0: 'Dễ',
-    1: 'Trung bình',
-    2: 'Khó',
-  };
+  const steps = [...recipe.steps].sort((a, b) => a.stepNumber - b.stepNumber);
+  const ingredients = [...recipe.ingredients].sort((a, b) => a.orderIndex - b.orderIndex);
+  const timeline = buildTimeline(steps);
 
   return (
-    <article className="max-w-4xl mx-auto px-4 py-8">
+    <article className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-8 md:px-8 lg:px-12">
       {/* NFR-SEO-001: Schema.org JSON-LD Recipe */}
       <RecipeJsonLd recipe={recipe} />
 
-      {/* Breadcrumb */}
-      <nav className="text-sm text-gray-500 mb-6 flex items-center space-x-2">
+      <nav aria-label="Đường dẫn" className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
         <Link href="/" className="inline-flex min-h-6 items-center hover:underline">
           Trang chủ
         </Link>
-        <span>/</span>
+        <span aria-hidden="true">/</span>
         <Link href={`/categories/${recipe.category.slug}`} className="inline-flex min-h-6 items-center hover:underline">
           {recipe.category.name}
         </Link>
-        <span>/</span>
-        <span className="text-gray-900 font-medium truncate">{recipe.title}</span>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page" className="truncate text-ink">
+          {recipe.title}
+        </span>
       </nav>
 
-      {/* Header */}
-      <header className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-          {recipe.title}
-        </h1>
-        <p className="text-lg text-gray-600 mb-6 leading-relaxed">
-          {recipe.description}
-        </p>
-
-        {/* Tác giả & Ngày đăng */}
-        <div className="flex items-center space-x-4 border-y border-gray-100 py-3 text-sm text-gray-600">
-          <div className="flex items-center space-x-2">
-            <span className="font-semibold text-gray-900">
-              {recipe.author.displayName}
-            </span>
+      <header className="flex flex-col gap-4 border-b-2 border-ink pb-6">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">{recipe.category.name}</p>
+        <h1 className="break-words text-4xl font-extrabold leading-none sm:text-5xl md:text-7xl">{recipe.title}</h1>
+        {recipe.description && <p className="max-w-3xl text-lg leading-relaxed text-ink-muted">{recipe.description}</p>}
+        <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <div className="flex flex-row-reverse gap-1.5">
+            <dt className="text-ink-muted">chuẩn bị</dt>
+            <dd className="font-bold">{formatMinutes(recipe.prepTime)}</dd>
           </div>
-          <span>•</span>
+          <div className="flex flex-row-reverse gap-1.5">
+            <dt className="text-ink-muted">nấu</dt>
+            <dd className="font-bold">{formatMinutes(recipe.cookTime)}</dd>
+          </div>
+          <div className="flex gap-1.5">
+            <dt className="sr-only">Khẩu phần</dt>
+            <dd className="font-bold">{recipe.servings} người</dd>
+          </div>
+          {DIFFICULTY_LABELS[recipe.difficulty] && (
+            <div className="flex gap-1.5">
+              <dt className="sr-only">Độ khó</dt>
+              <dd className="font-bold">{DIFFICULTY_LABELS[recipe.difficulty]}</dd>
+            </div>
+          )}
+        </dl>
+        <p className="text-sm text-ink-muted">
+          Bởi <span className="font-semibold text-ink">{recipe.author.displayName}</span>
+          {' · '}
           <time dateTime={recipe.publishedAt || recipe.createdAt}>
             {new Date(recipe.publishedAt || recipe.createdAt).toLocaleDateString('vi-VN')}
           </time>
-          <span>•</span>
-          <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded text-xs font-medium">
-            {recipe.category.name}
-          </span>
-        </div>
+        </p>
       </header>
 
-      {/* Main Image */}
-      <div className="relative w-full h-[350px] md:h-[450px] rounded-xl overflow-hidden mb-8 shadow-sm bg-surface-subtle">
+      <div className="relative h-[280px] w-full overflow-hidden rounded-3xl bg-brand-50 md:h-[380px]">
         {primaryImage ? (
           <Image
             src={primaryImage}
             alt={recipe.title}
             fill
             priority
+            sizes="(min-width: 1200px) 900px, 100vw"
             className="object-cover"
           />
         ) : (
@@ -117,142 +194,85 @@ export default async function RecipeDetailPage({
         )}
       </div>
 
-      {/* Meta Grid (Thời gian, khẩu phần, độ khó) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-orange-50/50 rounded-xl mb-10 border border-orange-100/60">
-        <div className="text-center">
-          <span className="block text-xs uppercase tracking-wider text-gray-500 mb-1">Chuẩn bị</span>
-          <span className="text-lg font-bold text-gray-900">{recipe.prepTime} phút</span>
-        </div>
-        <div className="text-center">
-          <span className="block text-xs uppercase tracking-wider text-gray-500 mb-1">Nấu nướng</span>
-          <span className="text-lg font-bold text-gray-900">{recipe.cookTime} phút</span>
-        </div>
-        <div className="text-center">
-          <span className="block text-xs uppercase tracking-wider text-gray-500 mb-1">Khẩu phần</span>
-          <span className="text-lg font-bold text-gray-900">{recipe.servings} người</span>
-        </div>
-        <div className="text-center">
-          <span className="block text-xs uppercase tracking-wider text-gray-500 mb-1">Độ khó</span>
-          <span className="text-lg font-bold text-brand-700">
-            {difficultyLabels[recipe.difficulty] || 'Dễ'}
-          </span>
-        </div>
-      </div>
+      {recipe.nutrition && <NutritionSection nutrition={recipe.nutrition} />}
 
-      {/* Dinh dưỡng (Nutrition) */}
-      {recipe.nutrition && (
-        <section className="mb-10 p-5 bg-white rounded-xl border border-gray-100 shadow-sm">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">
-            Giá trị dinh dưỡng (mỗi khẩu phần)
-          </h2>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 text-center">
-            {recipe.nutrition.calories && (
-              <div className="p-2 bg-gray-50 rounded">
-                <span className="block text-xs text-gray-500">Calories</span>
-                <span className="font-semibold text-gray-900">{recipe.nutrition.calories} kcal</span>
-              </div>
-            )}
-            {recipe.nutrition.protein && (
-              <div className="p-2 bg-gray-50 rounded">
-                <span className="block text-xs text-gray-500">Protein</span>
-                <span className="font-semibold text-gray-900">{recipe.nutrition.protein}g</span>
-              </div>
-            )}
-            {recipe.nutrition.carbohydrates && (
-              <div className="p-2 bg-gray-50 rounded">
-                <span className="block text-xs text-gray-500">Carbs</span>
-                <span className="font-semibold text-gray-900">{recipe.nutrition.carbohydrates}g</span>
-              </div>
-            )}
-            {recipe.nutrition.fat && (
-              <div className="p-2 bg-gray-50 rounded">
-                <span className="block text-xs text-gray-500">Chất béo</span>
-                <span className="font-semibold text-gray-900">{recipe.nutrition.fat}g</span>
-              </div>
-            )}
-            {recipe.nutrition.fiber && (
-              <div className="p-2 bg-gray-50 rounded">
-                <span className="block text-xs text-gray-500">Chất xơ</span>
-                <span className="font-semibold text-gray-900">{recipe.nutrition.fiber}g</span>
-              </div>
-            )}
-            {recipe.nutrition.sodium && (
-              <div className="p-2 bg-gray-50 rounded">
-                <span className="block text-xs text-gray-500">Natri</span>
-                <span className="font-semibold text-gray-900">{recipe.nutrition.sodium}mg</span>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Layout 2 cột: Nguyên liệu & Các bước */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-        {/* Cột nguyên liệu */}
-        <section className="md:col-span-1">
-          <div className="sticky top-6 p-6 bg-gray-50 rounded-xl border border-gray-100">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-              Nguyên liệu
-            </h2>
-            <ul className="space-y-3">
-              {recipe.ingredients.map((ing) => (
-                <li key={ing.id} className="text-sm text-gray-700 flex justify-between items-baseline">
-                  <span>
-                    <strong className="font-medium text-gray-900">{ing.name}</strong>
-                    {ing.notes && <span className="text-xs text-gray-500 block">({ing.notes})</span>}
-                  </span>
-                  <span className="text-gray-600 font-medium ml-2 whitespace-nowrap">
-                    {ing.quantity ? `${ing.quantity} ` : ''}
-                    {ing.unit || ''}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
-        {/* Cột các bước thực hiện */}
-        <section className="md:col-span-2">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">
+      {/* flex-wrap-reverse: màn nhỏ Nguyên liệu (khai báo sau) nằm trên Các bước; ≥ lg là cột phải. Trục phụ bị đảo
+          nên items-end mới là căn ĐỈNH (để cột Nguyên liệu sticky từ trên). */}
+      <div className="flex flex-wrap-reverse items-end gap-8">
+        <section aria-labelledby="recipe-steps" className="min-w-0 flex-[999_1_480px]">
+          <h2 id="recipe-steps" className="mb-6 text-3xl font-extrabold leading-none">
             Các bước thực hiện
           </h2>
-          <div className="space-y-6">
-            {recipe.steps.map((st) => (
-              <div
+          <ol>
+            {steps.map((st, index) => (
+              <li
                 key={st.id}
                 id={`buoc-${st.stepNumber}`} // NFR-SEO-001: đích của HowToStep.url
-                className="scroll-mt-20 p-5 rounded-xl border border-gray-100 bg-white shadow-sm hover:border-orange-200 transition"
+                className="flex scroll-mt-20 gap-4 md:gap-5"
               >
-                <div className="flex items-center space-x-3 mb-3">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-600 text-white font-bold text-sm">
-                    {st.stepNumber}
-                  </span>
-                  <h3 className="font-semibold text-lg text-gray-900">{st.title}</h3>
+                <div className="w-20 flex-none pt-0.5 text-right font-display text-lg font-extrabold leading-tight text-accent md:w-24">
+                  {timeline ? timeline.starts[index] : `Bước ${st.stepNumber}`}
                 </div>
-
-                <p className="text-gray-700 leading-relaxed mb-3 whitespace-pre-line">
-                  {st.description}
-                </p>
-
-                {st.timerMinutes && (
-                  <div className="inline-flex items-center space-x-1.5 text-xs text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md mb-2 font-medium">
-                    <span>⏱ Thời gian: {st.timerMinutes} phút</span>
-                  </div>
-                )}
-
-                {st.imageUrl && (
-                  <div className="relative w-full h-48 rounded-lg overflow-hidden mt-3">
-                    <Image
-                      src={st.imageUrl}
-                      alt={`Bước ${st.stepNumber}: ${st.title}`}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                )}
-              </div>
+                <div aria-hidden="true" className="flex w-4 flex-none flex-col items-center">
+                  <span className="mt-1.5 size-3.5 rounded-full bg-brand-600" />
+                  <span className="w-0.5 flex-1 bg-border" />
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5 pb-8">
+                  <h3 className="text-lg font-bold">
+                    Bước {st.stepNumber} · {st.title}
+                    {st.timerMinutes ? (
+                      <span className="ml-2 text-sm font-normal text-ink-muted">({formatMinutes(st.timerMinutes)})</span>
+                    ) : null}
+                  </h3>
+                  <p className="whitespace-pre-line leading-relaxed text-ink-muted">{st.description}</p>
+                  {st.imageUrl && (
+                    <div className="relative mt-2 h-48 w-full overflow-hidden rounded-xl">
+                      <Image src={st.imageUrl} alt={`Bước ${st.stepNumber}: ${st.title}`} fill className="object-cover" />
+                    </div>
+                  )}
+                </div>
+              </li>
             ))}
-          </div>
+            {timeline && (
+              <li className="flex gap-4 md:gap-5">
+                <div className="w-20 flex-none text-right font-display text-lg font-extrabold leading-tight text-accent md:w-24">
+                  {timeline.end}
+                </div>
+                <div aria-hidden="true" className="flex w-4 flex-none justify-center">
+                  <span className="mt-1.5 size-3.5 rounded bg-accent" />
+                </div>
+                <p className="font-bold">Dọn ra đĩa</p>
+              </li>
+            )}
+          </ol>
+        </section>
+
+        <section
+          aria-labelledby="recipe-ingredients"
+          className="flex-[1_1_280px] rounded-2xl border border-border bg-surface p-5 lg:sticky lg:top-6"
+        >
+          <h2 id="recipe-ingredients" className="text-2xl font-extrabold leading-none">
+            Nguyên liệu
+          </h2>
+          <p className="mb-3 mt-1 text-sm text-ink-muted">Đi chợ cho {recipe.servings} người — tick khi đã có</p>
+          <ul>
+            {ingredients.map((ing) => (
+              <li key={ing.id} className="border-b border-dashed border-border last:border-b-0">
+                <label className="flex min-h-11 cursor-pointer items-center gap-3 py-2">
+                  <input type="checkbox" className="size-6 flex-none accent-brand-600" />
+                  <span className="flex-1">
+                    {ing.name}
+                    {ing.notes && <span className="block text-xs text-ink-muted">({ing.notes})</span>}
+                  </span>
+                  {(ing.quantity || ing.unit) && (
+                    <span className="whitespace-nowrap text-sm font-semibold text-accent">
+                      {[ing.quantity, ing.unit].filter(Boolean).join(' ')}
+                    </span>
+                  )}
+                </label>
+              </li>
+            ))}
+          </ul>
         </section>
       </div>
     </article>

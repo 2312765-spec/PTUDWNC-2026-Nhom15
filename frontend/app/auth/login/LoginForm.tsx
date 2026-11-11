@@ -178,8 +178,8 @@ export function LoginForm({
           className={cn(
             'flex items-start gap-2 rounded-md border p-3 text-sm',
             formError.locked
-              ? 'border-amber-200 bg-amber-50 text-amber-900'
-              : 'border-red-200 bg-red-50 text-red-800',
+              ? 'border-warning-line bg-warning-subtle text-warning'
+              : 'border-danger-line bg-danger-subtle text-danger',
           )}
         >
           {formError.locked && <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}

@@ -105,7 +105,7 @@ export function CategoryFormDialog({ open, onClose, category, onSaved }: Categor
     >
       <form onSubmit={handleSubmit((values) => mutation.mutate(values))} noValidate className="flex flex-col gap-4">
         {formError && (
-          <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <p role="alert" className="rounded-md border border-danger-line bg-danger-subtle p-3 text-sm text-danger">
             {formError}
           </p>
         )}

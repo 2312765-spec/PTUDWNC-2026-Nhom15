@@ -45,14 +45,14 @@ export default function AdminCategoriesLayout({ children }: { children: ReactNod
   if (!session?.profile?.roles.includes('Admin')) {
     return (
       <div role="alert" className="mx-auto flex max-w-md flex-col items-center px-4 py-16 text-center">
-        <ShieldAlert className="size-10 text-red-600" aria-hidden="true" />
+        <ShieldAlert className="size-10 text-danger" aria-hidden="true" />
         <h1 className="mt-3 text-xl font-bold text-ink">Truy cập bị từ chối (403)</h1>
         <p className="mt-2 text-sm text-ink-muted">
           Trang quản trị danh mục chỉ dành cho tài khoản có quyền <strong>Quản trị viên (Admin)</strong>.
         </p>
         <Link
           href="/"
-          className="mt-6 inline-flex h-10 items-center rounded-md bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
+          className="mt-6 inline-flex h-10 items-center rounded-md bg-brand-600 px-4 text-sm font-medium text-on-brand hover:bg-brand-700"
         >
           Trở về Trang chủ
         </Link>
