@@ -2747,6 +2747,11 @@ hero → lưới thẻ 3 cột, nền trắng + cam) dễ trùng với nhóm kh�
    lấy biến thể card 760×320 (đã cắt sẵn → cắt vuông lần nữa chỉ còn ~24% ảnh; từ ảnh gốc giữ ~75%). Ảnh lớn trang chi
    tiết dùng khung **16:10** thay chiều cao cố định 380px (~900×380 chỉ giữ ~56% ảnh; 16:10 giữ ~83%). Thẻ món ở
    `/recipes`, `/search` giữ biến thể card của D88 (đổi khung cần đo lại LCP — chưa làm).
+7. **Công thức chưa có ảnh (2026-11-11):** SRS không bắt buộc ảnh để xuất bản (D3), 6/50 món seed không có ảnh giấy
+   phép phù hợp (`SeedImageAssets`). Thay khung xám "Chưa có hình ảnh" bằng `RecipeImagePlaceholder`: nền theo slug
+   (6 tông ấm, cùng món luôn cùng màu), chữ cái đầu tên món, icon niêu đất mờ; "Chưa có hình ảnh" giữ cho trình đọc
+   màn hình (`sr-only`). Dùng ở thẻ món, thực đơn, Món đáng thử, trang chi tiết (không ảnh → băng ngang thấp thay khung
+   16:10). Không tải file nào thêm. axe 0 vi phạm.
 
 **Vì:** khác biệt rõ với các nhóm khác mà không đổi API, không thêm FR; đi qua token nên ít file phải sửa. Kiểm lại
 bằng axe (D83), Lighthouse (D87) và E2E sau mỗi bước.

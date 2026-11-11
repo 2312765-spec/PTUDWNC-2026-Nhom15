@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { CARD_IMAGE_QUALITY } from '@/components/recipes/RecipeCard';
+import { RecipeImagePlaceholder } from '@/components/recipes/RecipeImagePlaceholder';
 import { difficultyLabel, formatMinutes } from '@/lib/recipe-format';
 import type { RecipeSummaryDto } from '@/lib/types';
 
@@ -37,8 +38,10 @@ export function RecipeMenuRow({ recipe, index }: { recipe: RecipeSummaryDto; ind
         </p>
       </div>
       <div className="relative size-16 flex-none overflow-hidden rounded-xl bg-surface md:size-[88px]">
-        {imageUrl && (
+        {imageUrl ? (
           <Image src={imageUrl} alt="" fill sizes="88px" quality={CARD_IMAGE_QUALITY} loading="lazy" className="object-cover" />
+        ) : (
+          <RecipeImagePlaceholder title={recipe.title} slug={recipe.slug} size="thumb" />
         )}
       </div>
     </li>

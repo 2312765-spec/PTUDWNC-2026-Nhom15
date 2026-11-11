@@ -50,9 +50,11 @@ describe('RecipeMenuRow — ảnh nhỏ (D97)', () => {
     expect(container.querySelector('img')).toHaveAttribute('src', CARD);
   });
 
-  it('không có ảnh nào → không render <img>', () => {
-    const { container } = renderRow(recipe({ featuredImageUrl: null, featuredImageCardUrl: null }));
+  it('D97: không có ảnh nào → khung minh họa (chữ cái đầu), không render <img>, không để ô trống', () => {
+    const { container, getByText } = renderRow(recipe({ featuredImageUrl: null, featuredImageCardUrl: null }));
 
     expect(container.querySelector('img')).toBeNull();
+    expect(getByText('Chưa có hình ảnh')).toBeInTheDocument();
+    expect(container.querySelector('[aria-hidden="true"] .font-extrabold')).toHaveTextContent('B');
   });
 });
