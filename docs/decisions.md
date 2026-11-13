@@ -2782,6 +2782,11 @@ nhận ảnh mới nếu chỉ thay file.
    ảnh, alt = tên món và nội dung trùng một hash cũ → gỡ ảnh, enqueue xóa file gốc + biến thể (D43), gắn ảnh mới,
    enqueue tạo biến thể (FR-JOB-002). Nhận diện theo nội dung nên ảnh người dùng upload không bao giờ khớp; object
    không đọc được → để nguyên.
+5. *D98.2 (2026-11-13, người dùng xem trên web):* thẻ món (biến thể card 760×320 ≈ 2,4:1, D88) chỉ giữ dải giữa
+   ~56% chiều cao ảnh → ảnh cận (thịt kho, rau xào) và ly cao (trà sữa, sinh tố) mất chủ thể. Thịt kho, rau xào đổi
+   sang ảnh có món nằm gọn giữa khung; trà sữa, sinh tố (nền tối trơn) thu nhỏ cả ly đặt giữa khung, mép ảnh mờ dần
+   vào màu nền — cả ly lọt dải card. Hash bản trước thêm vào `RetiredSha256`. **Quy tắc chọn ảnh từ nay:** xem cả dải
+   2,4:1 ở giữa, không chỉ khung 4:3.
 
 **Vì:** ảnh mẫu là thứ đầu tiên người xem thấy khi demo; thay bằng ảnh đúng món, chụp chuyên nghiệp mà không đổi
 API, schema hay frontend. Không bắt cả nhóm xóa volume dev.

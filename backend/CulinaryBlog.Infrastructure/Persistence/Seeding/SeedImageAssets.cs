@@ -67,6 +67,12 @@ public static class SeedImageAssets
         "70656786ad61adc7d03fbf5c27b65c341463c31f3d46db7c0631f77716033207", // thit-kho-trung
         "f1f5376c0d262e77008576714e787d941ce27ce00808b2a566af630c7f59ae94", // tra-sua-tran-chau
         "158951767882b49632b280b018a39b0cfa271205079d40056c2b39fe8e0d481d", // tra-tac-mat-ong
+
+        // D98.2 — bản D98 đầu bị dải card 760×320 cắt mất chủ thể (ảnh cận / ly cao), đã thay.
+        "f8ace0200968be40b385e10454970eb79e844f301158e13e5577a6f0a70dbc33", // thit-kho-trung
+        "d54a5f558e3cd7c6fcb3625ae3ad9527323df4967b550dd7b1f09f960c73ccb5", // tra-sua-tran-chau
+        "a03a235b31bc5084361f6da796789fb77d31dcab026aecf1c937cc1cdd19a566", // rau-cu-xao-thap-cam
+        "e17f7217980c84a84f9eb1e22820d62ab1e450c192a6865907465f6586a06d55", // sinh-to-bo
     };
 
     public static string FileName(string slug) => slug + Extension;

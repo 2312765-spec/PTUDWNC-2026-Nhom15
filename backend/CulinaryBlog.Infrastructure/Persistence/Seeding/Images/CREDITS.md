@@ -53,12 +53,12 @@ Không dùng ảnh do AI tạo. Món chưa tìm được ảnh đúng món thì 
 | `nuoc-chanh-day.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/13640505/ |
 | `nuoc-sam-bi-dao.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/38030756/ |
 | `pho-bo-ha-noi.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/4153908/ |
-| `rau-cu-xao-thap-cam.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/5848482/ |
+| `rau-cu-xao-thap-cam.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/37297752/ |
 | `sinh-to-bo.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/11009209/ |
 | `sua-chua-nep-cam.webp` | Wikimedia Commons | Buileducanh (thảo luận) | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0) | [Sữa chua nếp cẩm.jpg](https://commons.wikimedia.org/wiki/File:S%E1%BB%AFa_chua_n%E1%BA%BFp_c%E1%BA%A9m.jpg) |
 | `suon-xao-chua-ngot.webp` | Wikimedia Commons | Liam Chucao Maixlld | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [HK CWB 銅鑼灣 Causeway Bay 溫莎大廈 Windsor House mall shop 稻香酒家 Tao Heung Restaurant 糖醋排骨 Sweet and Sour Ribs September 2022 Px3 01.jpg](https://commons.wikimedia.org/wiki/File:HK_CWB_%E9%8A%85%E9%91%BC%E7%81%A3_Causeway_Bay_%E6%BA%AB%E8%8E%8E%E5%A4%A7%E5%BB%88_Windsor_House_mall_shop_%E7%A8%BB%E9%A6%99%E9%85%92%E5%AE%B6_Tao_Heung_Restaurant_%E7%B3%96%E9%86%8B%E6%8E%92%E9%AA%A8_Sweet_and_Sour_Ribs_September_2022_Px3_01.jpg) |
 | `sup-cua.webp` | Wikimedia Commons | Phương Huy | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Mũi Né th7n2023, Khu ND (bữa sáng với món súp cua) (2).jpg](https://commons.wikimedia.org/wiki/File:M%C5%A9i_N%C3%A9_th7n2023,_Khu_ND_(b%E1%BB%AFa_s%C3%A1ng_v%E1%BB%9Bi_m%C3%B3n_s%C3%BAp_cua)_(2).jpg) |
-| `thit-kho-trung.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/34474143/ |
+| `thit-kho-trung.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/36126349/ |
 | `tom-rim-man-ngot.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/36942418/ |
 | `tra-sua-tran-chau.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/11160112/ |
 | `tra-tac-mat-ong.webp` | Wikimedia Commons | Cohaithaofoody | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Trà tắc và bánh tráng.jpg](https://commons.wikimedia.org/wiki/File:Tr%C3%A0_t%E1%BA%AFc_v%C3%A0_b%C3%A1nh_tr%C3%A1ng.jpg) |
