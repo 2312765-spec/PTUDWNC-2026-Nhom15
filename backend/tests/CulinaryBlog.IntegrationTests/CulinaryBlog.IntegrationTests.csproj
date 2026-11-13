@@ -16,4 +16,8 @@
     <PackageReference Include="OpenTelemetry.Exporter.InMemory" />
     <PackageReference Include="coverlet.collector" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- D98: một ảnh seed bản cũ (đã thay) để test seeder nhận ra và thay nó. -->
+    <None Include="Seeding\Fixtures\*.webp" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

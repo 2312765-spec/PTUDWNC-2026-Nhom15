@@ -18,7 +18,8 @@ namespace CulinaryBlog.Infrastructure.Persistence.Seeding;
 /// theo slug, recipe chỉ tạo khi tác giả seed chưa có recipe nào.
 ///
 /// Ảnh món ăn (<see cref="SeedImageAssets"/>, plan docs/plans/DEV-SEED-anh-mon-an.md) gắn ở bước riêng chạy MỌI lần,
-/// kể cả DB đã seed trước khi có ảnh thật: thay ảnh placehold.co cũ, giữ nguyên ảnh người dùng tự upload.
+/// kể cả DB đã seed trước khi có ảnh thật: thay ảnh placehold.co cũ và ảnh seed bản cũ (D98), giữ nguyên ảnh
+/// người dùng tự upload.
 /// </summary>
 public static class DbSeeder
 {
@@ -101,11 +102,21 @@ public static class DbSeeder
             .ToListAsync(ct);
 
         var attached = new List<(Guid RecipeId, Guid ImageId)>();
+        var retiredFiles = new List<string>();
         foreach (var recipe in recipes.Where(r => catalogTitles.Contains(r.Title)))
         {
             if (recipe.Images.Any(i => !IsPlaceholder(i.OriginalUrl)))
             {
-                continue; // đã có ảnh thật (seed lần trước hoặc người dùng upload).
+                var retired = await FindRetiredSeedImageAsync(recipe, fileStorage, ct);
+                if (retired is null)
+                {
+                    continue; // ảnh seed hiện hành hoặc ảnh người dùng upload — giữ nguyên.
+                }
+
+                // D98: ảnh seed bản cũ → gỡ khỏi aggregate, xóa file gốc + biến thể (D43) rồi gắn ảnh mới bên dưới.
+                db.RecipeImages.Remove(recipe.RemoveImage(retired.Id));
+                retiredFiles.AddRange(new[] { retired.OriginalUrl, retired.MediumUrl, retired.ThumbnailUrl, retired.CardUrl }
+                    .OfType<string>().Where(url => url.Length > 0));
             }
 
             foreach (var placeholder in recipe.Images.ToList())
@@ -137,6 +148,35 @@ public static class DbSeeder
         foreach (var (recipeId, imageId) in attached.Concat(missingCard))
         {
             backgroundJobs.EnqueueGenerateImageVariants(recipeId, imageId);
+        }
+
+        foreach (var url in retiredFiles)
+        {
+            backgroundJobs.EnqueueDeleteImageFile(url);
+        }
+    }
+
+    /// <summary>
+    /// D98 — ảnh duy nhất của recipe, alt = tên món (dấu hiệu ảnh seed) và nội dung trùng SHA-256 một ảnh seed bản cũ
+    /// (<see cref="SeedImageAssets.RetiredSha256"/>). Nhận diện theo nội dung nên ảnh người dùng upload không bao giờ khớp.
+    /// Object không đọc được (storage dev đã bị xóa…) thì coi như không phải ảnh cũ — để nguyên.
+    /// </summary>
+    private static async Task<RecipeImage?> FindRetiredSeedImageAsync(
+        Recipe recipe, IFileStorageService fileStorage, CancellationToken ct)
+    {
+        if (recipe.Images.Count != 1 || recipe.Images.Single() is not { } image || image.AltText != recipe.Title)
+        {
+            return null;
+        }
+
+        try
+        {
+            await using var content = await fileStorage.DownloadAsync(image.OriginalUrl, ct);
+            return SeedImageAssets.IsRetired(content) ? image : null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return null;
         }
     }
 

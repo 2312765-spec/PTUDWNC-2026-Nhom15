@@ -253,6 +253,7 @@ D 8/8 (FR-RCP-008, FR-FILE-001/002, FR-JOB-002/003, FR-OBS-001/002/003)
 | Nguồn | Yêu cầu | File | Test | Trạng thái |
 |---|---|---|---|---|
 | SRS dòng 295 · roadmap S4 · roadmap mục Auth | Bogus seed 50 recipe / 5 tác giả, có cả Draft + Archived, 1 Admin. Nội dung viết tay (không Lorem) — plan `docs/plans/DEV-SEED-du-lieu-mau-that.md` | `Infrastructure/Persistence/Seeding/DbSeeder.cs` · `SeedRecipeCatalog.cs` | `IntegrationTests/Seeding/DbSeederTests.cs` (11) | ✅ |
+| SRS dòng 295 · **D98** | Ảnh món seed: 49/50 món có ảnh (Pexels / Unsplash / Wikimedia Commons, không ảnh AI, nguồn trong `Seeding/Images/CREDITS.md`); DB dev đã seed tự thay ảnh seed cũ theo SHA-256, không đụng ảnh người dùng — plan `docs/plans/DEV-SEED-anh-mon-an.md` | `Infrastructure/Persistence/Seeding/DbSeeder.cs` · `SeedImageAssets.cs` · `Images/*.webp` | `IntegrationTests/Seeding/DbSeederImagesTests.cs` (12) | ✅ |
 
 ---
 

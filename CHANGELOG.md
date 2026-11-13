@@ -83,6 +83,10 @@ Theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/) và [SemVer](https
   icon niêu đất (favicon, logo). Header ngang → thanh bên Mục lục (danh mục đánh số, ô tìm kiếm chung). Trang chủ: Món
   đáng thử + Thực đơn mới (đường chấm dẫn). Trang chi tiết: dòng thời gian nấu theo phút (cộng dồn thời lượng
   bước), nguyên liệu dạng danh sách đi chợ có ô tick. Thời gian ≥ 60 phút hiện theo giờ.
+- D98 (dữ liệu mẫu dev): ảnh món seed thay bằng ảnh chụp chuyên nghiệp — 37 ảnh mới, 5 món trước chưa có ảnh nay có
+  (Pexels, Unsplash, Wikimedia Commons; không dùng ảnh AI); 49/50 món có ảnh. Bỏ các ảnh sai món (canh nấm chay
+  từng là bò hầm Hàn Quốc). DB dev đã seed tự thay ảnh cũ khi khởi động lại API — nhận diện theo SHA-256, không đụng
+  ảnh người dùng upload.
 - NFR-PERF-005: `/search` không stream kết quả qua Suspense (kết quả nằm sẵn trong HTML đầu tiên); preload ảnh
   thẻ đầu tiên; ảnh thẻ nhẹ hơn (quality 50, biến thể card); làm nóng cache trước khi đo (D86). LCP `/search`
   2.6–3.0s → 2486ms.
