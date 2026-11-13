@@ -44,3 +44,14 @@ Khởi động lại API trên máy dev, xem `/`, `/recipes`, trang chi tiết c
   thêm vào là tính năng mới (cần FR/D).
 - Gỡ `placehold.co` khỏi `remotePatterns` và CSP `img-src` (`frontend/next.config.ts`) — không còn dùng.
 - DB dev máy C: 44 ảnh placeholder đã được thay, Hangfire tạo đủ thumbnail.
+
+## D98 — Thay ảnh bằng nguồn kết hợp (2026-11-13)
+
+- **Lý do:** ảnh Commons phần lớn nghiệp dư, một số sai món (canh nấm chay = bò hầm Hàn Quốc), ảnh bị cắt xấu.
+- **Nguồn:** Pexels (37), Unsplash (1), Wikimedia Commons (4 mới + 7 giữ lại). Không dùng ảnh AI. Chọn tay từ bảng ứng
+  viên (ảnh hiện tại đặt cạnh để so), kiểm tra lại cả khung 4:3 lẫn dải card 2,4:1.
+- **Kết quả:** 49/50 món có ảnh; còn trống `goi-ngo-sen-tom-thit` (không có ảnh ngó sen đúng món).
+- **DB đã seed:** `DbSeeder.FindRetiredSeedImageAsync` + `SeedImageAssets.RetiredSha256` — ảnh seed cũ (khớp SHA-256)
+  được thay khi khởi động lại API, file cũ + biến thể bị xóa qua job (D43). Không cần xóa volume.
+- **Test:** `DbSeederLegacyImagesTests` thêm 2 case D98 (ảnh cũ bị thay + xóa file; seed lần 2 không thay lại),
+  fixture ảnh cũ `IntegrationTests/Seeding/Fixtures/retired-seed-image.webp`.

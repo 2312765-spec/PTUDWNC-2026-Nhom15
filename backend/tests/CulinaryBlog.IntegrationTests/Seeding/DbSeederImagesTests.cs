@@ -157,13 +157,34 @@ public sealed class DbSeederLegacyImagesTests(DbSeederLegacyImagesFixture fixtur
         fixture.Jobs.GenerateImageVariants.Should().Contain((fixture.UserImageRecipeId, fixture.UserImageId));
     }
 
+    [Fact(DisplayName = "DEV-SEED ảnh / D98: ảnh seed bản cũ (đã thay) được thay bằng ảnh mới, file cũ + biến thể bị xóa")]
+    public async Task RetiredSeedImage_IsReplaced()
+    {
+        var recipe = await LoadAsync(fixture.RetiredRecipeId);
+
+        var image = recipe.Images.Should().ContainSingle().Subject;
+        image.Id.Should().NotBe(fixture.RetiredImageId);
+        image.IsPrimary.Should().BeTrue();
+        image.AltText.Should().Be(recipe.Title);
+        fixture.Storage.Objects.Should().ContainKey(image.OriginalUrl);
+        fixture.Jobs.DeleteImageFileUrls.Should().BeEquivalentTo(fixture.RetiredImageUrls);
+        fixture.Jobs.GenerateImageVariants.Should().Contain((fixture.RetiredRecipeId, image.Id));
+    }
+
+    [Fact(DisplayName = "DEV-SEED ảnh / D98: ảnh hiện hành không bị thay lại ở lần seed sau")]
+    public void CurrentSeedImage_IsNotReplacedAgain()
+    {
+        // Seed chạy 2 lần: lần 2 thấy ảnh mới (không thuộc danh sách đã thay) → không upload thêm.
+        fixture.Storage.Uploads.Should().HaveCount(3, "ảnh cũ do fixture tạo + 1 ảnh thay placeholder + 1 ảnh thay ảnh seed cũ");
+    }
+
     [Fact(DisplayName = "DEV-SEED ảnh: DB seed cũ — không tạo thêm recipe seed")]
     public async Task Legacy_DoesNotCreateMoreRecipes()
     {
         using var scope = fixture.Factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
 
-        (await db.Recipes.IgnoreQueryFilters().CountAsync()).Should().Be(3);
+        (await db.Recipes.IgnoreQueryFilters().CountAsync()).Should().Be(4);
     }
 
     private async Task<Recipe> LoadAsync(Guid id)
@@ -191,9 +212,27 @@ public sealed class DbSeederLegacyImagesFixture : IAsyncLifetime
 
     public RecordingBackgroundJobService Jobs { get; } = new();
 
+    public FakeFileStorageService Storage { get; } = new();
+
+    /// <summary>D98 — recipe đang mang ảnh seed bản cũ (file <c>Seeding/Fixtures/retired-seed-image.webp</c>).</summary>
+    public Guid RetiredRecipeId { get; private set; }
+
+    public Guid RetiredImageId { get; private set; }
+
+    public List<string> RetiredImageUrls { get; } = [];
+
     public async Task InitializeAsync()
     {
         await Factory.InitializeAsync();
+
+        var retiredBytes = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Seeding", "Fixtures", "retired-seed-image.webp"));
+        using (var upload = new MemoryStream(retiredBytes))
+        {
+            RetiredImageUrls.Add(await Storage.UploadAsync(upload, "old.webp", "image/webp", "recipes/old"));
+        }
+
+        RetiredImageUrls.Add("https://fake-minio.local/culinary-blog/recipes/old/medium.webp");
+        RetiredImageUrls.Add("https://fake-minio.local/culinary-blog/recipes/old/thumb.webp");
 
         using (var scope = Factory.Services.CreateScope())
         {
@@ -227,10 +266,22 @@ public sealed class DbSeederLegacyImagesFixture : IAsyncLifetime
             UserImageRecipeId = withUserImage.Id;
             UserImageId = withUserImage.Images.Single().Id;
             withUserImage.SetImageVariants(UserImageId, "https://fake-minio.local/m.webp", "https://fake-minio.local/t.webp");
+
+            // Món có asset hiện hành, khác 3 món trên, đang mang ảnh seed bản cũ đã có medium + thumbnail.
+            var retired = SeedRecipeCatalog.Recipes
+                .Where(r => SeedImageAssets.Slugs.Contains(slugHelper.Generate(r.Title)))
+                .First(r => r.Title != withAsset.Title && r.Title != userImage.Title);
+            var withRetired = Legacy(retired.Title, RetiredImageUrls[0]);
+            RetiredRecipeId = withRetired.Id;
+            RetiredImageId = withRetired.Images.Single().Id;
+            withRetired.SetImageVariants(RetiredImageId, RetiredImageUrls[1], RetiredImageUrls[2]);
             await db.SaveChangesAsync();
         }
 
-        await DbSeederRunner.RunAsync(Factory, new FakeFileStorageService(), Jobs);
+        for (var run = 0; run < 2; run++)
+        {
+            await DbSeederRunner.RunAsync(Factory, Storage, Jobs);
+        }
     }
 
     public async Task DisposeAsync() => await ((IAsyncLifetime)Factory).DisposeAsync();

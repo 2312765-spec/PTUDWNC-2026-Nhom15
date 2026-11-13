@@ -1,52 +1,64 @@
-# Ghi công ảnh seed
+# Nguồn ảnh seed
 
-Ảnh món ăn cho dữ liệu mẫu Development (`DbSeeder`, plan `docs/plans/DEV-SEED-anh-mon-an.md`).
-Nguồn: Wikimedia Commons. Mọi ảnh đã được **cắt + thu nhỏ về 1200×900 và chuyển sang WebP** — đây là bản phái sinh;
-ảnh CC BY-SA giữ nguyên giấy phép CC BY-SA tương ứng. Chỉ nhận CC0 / Public Domain / CC BY / CC BY-SA.
+Ảnh món ăn cho dữ liệu mẫu Development (`DbSeeder`, plan `docs/plans/DEV-SEED-anh-mon-an.md`, quyết định D98).
+Mọi ảnh đã được **cắt về 4:3, thu nhỏ còn 1200×900 và chuyển sang WebP**. Nguồn kết hợp:
 
-| File | Món | Tác giả | Giấy phép | Nguồn |
+- **Pexels / Unsplash:** giấy phép [Pexels License](https://www.pexels.com/license/) /
+  [Unsplash License](https://unsplash.com/license) — dùng tự do, không bắt buộc ghi công; vẫn ghi link gốc để tra lại.
+- **Wikimedia Commons:** CC0 / Public Domain / CC BY / CC BY-SA — ghi tác giả + giấy phép theo yêu cầu giấy phép;
+  bản phái sinh của ảnh CC BY-SA giữ nguyên giấy phép CC BY-SA tương ứng.
+
+Không dùng ảnh do AI tạo. Món chưa tìm được ảnh đúng món thì để trống (frontend hiện khung minh họa — D97 mục 7):
+`goi-ngo-sen-tom-thit`.
+
+| File | Nguồn | Tác giả | Giấy phép | Link gốc |
 |---|---|---|---|---|
-| `banh-bot-loc.webp` | Bánh bột lọc | Vietcuongdao | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Bánh bột lọc saigonnais.jpg](https://commons.wikimedia.org/wiki/File:B%C3%A1nh_b%E1%BB%99t_l%E1%BB%8Dc_saigonnais.jpg) |
-| `banh-canh-cua.webp` | Bánh canh cua | Phương Huy | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) | [Tô bánh canh cua ở Q1 ng6th1n2022 (bánh canh bột gạo năng) (1).jpg](https://commons.wikimedia.org/wiki/File:T%C3%B4_b%C3%A1nh_canh_cua_%E1%BB%9F_Q1_ng6th1n2022_(b%C3%A1nh_canh_b%E1%BB%99t_g%E1%BA%A1o_n%C4%83ng)_(1).jpg) |
-| `banh-da-lon.webp` | Bánh da lợn | Crasheerr | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Bánh da lơn đậu xanh và lá dứa..jpg](https://commons.wikimedia.org/wiki/File:B%C3%A1nh_da_l%C6%A1n_%C4%91%E1%BA%ADu_xanh_v%C3%A0_l%C3%A1_d%E1%BB%A9a..jpg) |
-| `banh-flan-caramel.webp` | Bánh flan caramel | Cary Bass | [CC BY-SA 2.5](https://creativecommons.org/licenses/by-sa/2.5) | [Homemade Flan.jpg](https://commons.wikimedia.org/wiki/File:Homemade_Flan.jpg) |
-| `banh-flan-nuong-mini.webp` | Bánh flan nướng mini | Oleg Yunakov | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Crème caramel at NB Steak JK.jpg](https://commons.wikimedia.org/wiki/File:Cr%C3%A8me_caramel_at_NB_Steak_JK.jpg) |
-| `banh-khot.webp` | Bánh khọt | Joshua Rappeneker from Tokyo, Japan | [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0) | [Bánh khọt trên khuôn.jpg](https://commons.wikimedia.org/wiki/File:B%C3%A1nh_kh%E1%BB%8Dt_tr%C3%AAn_khu%C3%B4n.jpg) |
-| `banh-mi-thit.webp` | Bánh mì thịt | Bahnfrend | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Vietnamese Grilled Pork Bánh Mì, Bánh Mì Bánh Mì Westfield Carousel, 2026 (01).jpg](https://commons.wikimedia.org/wiki/File:Vietnamese_Grilled_Pork_B%C3%A1nh_M%C3%AC,_B%C3%A1nh_M%C3%AC_B%C3%A1nh_M%C3%AC_Westfield_Carousel,_2026_(01).jpg) |
-| `banh-trang-tron.webp` | Bánh tráng trộn | Memberofc1 | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0) | [Vietnamese "banh trang tron".JPG](https://commons.wikimedia.org/wiki/File:Vietnamese_%22banh_trang_tron%22.JPG) |
-| `bap-xao-bo.webp` | Bắp xào bơ | Phương Huy (thảo luận) | [Public domain](https://commons.wikimedia.org/wiki/File:B%E1%BA%AFp_x%C3%A0o_b%C6%A1_(b%E1%BA%AFp_n%E1%BA%BFp)_%E1%BB%9F_B%C3%ACnh_T%C3%A2n_(1).jpg) | [Bắp xào bơ (bắp nếp) ở Bình Tân (1).jpg](https://commons.wikimedia.org/wiki/File:B%E1%BA%AFp_x%C3%A0o_b%C6%A1_(b%E1%BA%AFp_n%E1%BA%BFp)_%E1%BB%9F_B%C3%ACnh_T%C3%A2n_(1).jpg) |
-| `bo-luc-lac.webp` | Bò lúc lắc | Nick Nguyen | [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0) | [Bo Luc Lac- the shaking beef.jpg](https://commons.wikimedia.org/wiki/File:Bo_Luc_Lac-_the_shaking_beef.jpg) |
-| `bo-nuong-la-lot.webp` | Bò nướng lá lốt | Minh28397 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Bò nướng lá lốt tại Manchester.jpg](https://commons.wikimedia.org/wiki/File:B%C3%B2_n%C6%B0%E1%BB%9Bng_l%C3%A1_l%E1%BB%91t_t%E1%BA%A1i_Manchester.jpg) |
-| `bun-bo-hue.webp` | Bún bò Huế | Kham Tran - www.khamtran.com | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0) | [Bun-Bo-Hue-from-Huong-Giang-2011.jpg](https://commons.wikimedia.org/wiki/File:Bun-Bo-Hue-from-Huong-Giang-2011.jpg) |
-| `bun-cha-ha-noi.webp` | Bún chả Hà Nội | Phương Huy | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Bún chả Hà Nội (tháng 7 năm 2018) (1).jpg](https://commons.wikimedia.org/wiki/File:B%C3%BAn_ch%E1%BA%A3_H%C3%A0_N%E1%BB%99i_(th%C3%A1ng_7_n%C4%83m_2018)_(1).jpg) |
-| `bun-rieu-cua.webp` | Bún riêu cua | TarnishedPath | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Bún riêu đặc biệt.jpg](https://commons.wikimedia.org/wiki/File:B%C3%BAn_ri%C3%AAu_%C4%91%E1%BA%B7c_bi%E1%BB%87t.jpg) |
-| `bun-xao-chay.webp` | Bún xào chay | naotakem | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0) | [Stir fried rice vermicelli with pork and vegetables 豚肉と野菜たっぷり焼きビーフン.jpg](https://commons.wikimedia.org/wiki/File:Stir_fried_rice_vermicelli_with_pork_and_vegetables_%E8%B1%9A%E8%82%89%E3%81%A8%E9%87%8E%E8%8F%9C%E3%81%9F%E3%81%A3%E3%81%B7%E3%82%8A%E7%84%BC%E3%81%8D%E3%83%93%E3%83%BC%E3%83%95%E3%83%B3.jpg) |
-| `ca-kho-to.webp` | Cá kho tộ | Phương Huy | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Phú Quốc 2022 (cá kho tộ) (2).jpg](https://commons.wikimedia.org/wiki/File:Ph%C3%BA_Qu%E1%BB%91c_2022_(c%C3%A1_kho_t%E1%BB%99)_(2).jpg) |
-| `ca-phe-trung.webp` | Cà phê trứng | travel oriented | [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0) | [Cà phê trứng.jpg](https://commons.wikimedia.org/wiki/File:C%C3%A0_ph%C3%AA_tr%E1%BB%A9ng.jpg) |
-| `canh-chua-ca-loc.webp` | Canh chua cá lóc | Phương Huy (thảo luận) | [Public domain](https://commons.wikimedia.org/wiki/File:Canh_chua_c%C3%A1_l%C3%B3c_%E1%BB%9F_Th%E1%BB%A7y_Tr%C3%BAc_Qu%C3%A1n,_%C4%91%C6%B0%E1%BB%9Dng_Nguy%E1%BB%85n_Nh%E1%BB%AF_L%C3%A3m_(4).jpg) | [Canh chua cá lóc ở Thủy Trúc Quán, đường Nguyễn Nhữ Lãm (4).jpg](https://commons.wikimedia.org/wiki/File:Canh_chua_c%C3%A1_l%C3%B3c_%E1%BB%9F_Th%E1%BB%A7y_Tr%C3%BAc_Qu%C3%A1n,_%C4%91%C6%B0%E1%BB%9Dng_Nguy%E1%BB%85n_Nh%E1%BB%AF_L%C3%A3m_(4).jpg) |
-| `canh-nam-chay.webp` | Canh nấm chay | Tim1965 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Bowl of Korean short rib stew.jpg](https://commons.wikimedia.org/wiki/File:Bowl_of_Korean_short_rib_stew.jpg) |
-| `cha-ca-la-vong.webp` | Chả cá Lã Vọng | Phương Huy | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Chả cá Lã Vọng Hà Nội tháng 2 năm 2018 (2).jpg](https://commons.wikimedia.org/wiki/File:Ch%E1%BA%A3_c%C3%A1_L%C3%A3_V%E1%BB%8Dng_H%C3%A0_N%E1%BB%99i_th%C3%A1ng_2_n%C4%83m_2018_(2).jpg) |
-| `cha-gio-chay.webp` | Chả giò chay | Nguyen Thi Quynh Tram | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0) | [Chagiochay.JPG](https://commons.wikimedia.org/wiki/File:Chagiochay.JPG) |
-| `cha-gio-re.webp` | Chả giò rế | Phương Huy | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Chả giò rế giòn rụm 20201108.jpg](https://commons.wikimedia.org/wiki/File:Ch%E1%BA%A3_gi%C3%B2_r%E1%BA%BF_gi%C3%B2n_r%E1%BB%A5m_20201108.jpg) |
-| `che-chuoi-nuoc-cot-dua.webp` | Chè chuối nước cốt dừa | HungryHuy | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0) | [Banana, tapioca, coconut creme Vietnamese pudding (che chuoi).jpg](https://commons.wikimedia.org/wiki/File:Banana,_tapioca,_coconut_creme_Vietnamese_pudding_(che_chuoi).jpg) |
-| `che-dau-xanh-nuoc-cot-dua.webp` | Chè đậu xanh nước cốt dừa | bryan... from Taipei, Taiwan | [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0) | [Food 綠豆湯, 冰糖銀耳, 阿猜嬤, 甜湯鹹圓, 台北 (17296663148).jpg](https://commons.wikimedia.org/wiki/File:Food_%E7%B6%A0%E8%B1%86%E6%B9%AF,_%E5%86%B0%E7%B3%96%E9%8A%80%E8%80%B3,_%E9%98%BF%E7%8C%9C%E5%AC%A4,_%E7%94%9C%E6%B9%AF%E9%B9%B9%E5%9C%93,_%E5%8F%B0%E5%8C%97_(17296663148).jpg) |
-| `com-chien-chay.webp` | Cơm chiên chay | Ganesh Mohan T | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Kerala vegetable fried rice 2.jpg](https://commons.wikimedia.org/wiki/File:Kerala_vegetable_fried_rice_2.jpg) |
-| `com-tam-suon-nuong.webp` | Cơm tấm sườn nướng | Phương Huy | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) | [Cơm tấm SG, sườn cọng nướng, ng23th8n2022 (5).jpg](https://commons.wikimedia.org/wiki/File:C%C6%A1m_t%E1%BA%A5m_SG,_s%C6%B0%E1%BB%9Dn_c%E1%BB%8Dng_n%C6%B0%E1%BB%9Bng,_ng23th8n2022_(5).jpg) |
-| `dau-hu-sot-ca-chua.webp` | Đậu hũ sốt cà chua | Mickey Đại Phát | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Tomato-sauced tofu.jpg](https://commons.wikimedia.org/wiki/File:Tomato-sauced_tofu.jpg) |
-| `ga-kho-gung.webp` | Gà kho gừng | Phương Huy (thảo luận) | [Public domain](https://commons.wikimedia.org/wiki/File:G%C3%A0_ta_kho_ng%C5%A9_v%E1%BB%8B_h%C6%B0%C6%A1ng,_T%E1%BA%BFt_2018_(2).jpg) | [Gà ta kho ngũ vị hương, Tết 2018 (2).jpg](https://commons.wikimedia.org/wiki/File:G%C3%A0_ta_kho_ng%C5%A9_v%E1%BB%8B_h%C6%B0%C6%A1ng,_T%E1%BA%BFt_2018_(2).jpg) |
-| `ga-nuong-mat-ong.webp` | Gà nướng mật ong | Phương Huy | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) | [Liên hoan SNMheo ng13th9n2020 (gà nướng mật ong nguyên con) (2).jpg](https://commons.wikimedia.org/wiki/File:Li%C3%AAn_hoan_SNMheo_ng13th9n2020_(g%C3%A0_n%C6%B0%E1%BB%9Bng_m%E1%BA%ADt_ong_nguy%C3%AAn_con)_(2).jpg) |
-| `goi-cuon-tom-thit.webp` | Gỏi cuốn tôm thịt | N509FZ | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Gỏi cuốn at a Vietnamese-style restaurant in Beijing (20180103175625).jpg](https://commons.wikimedia.org/wiki/File:G%E1%BB%8Fi_cu%E1%BB%91n_at_a_Vietnamese-style_restaurant_in_Beijing_(20180103175625).jpg) |
-| `hu-tieu-nam-vang.webp` | Hủ tiếu Nam Vang | Tonbi ko | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Hủ tiếu Nam Vang Sài Gòn.jpg](https://commons.wikimedia.org/wiki/File:H%E1%BB%A7_ti%E1%BA%BFu_Nam_Vang_S%C3%A0i_G%C3%B2n.jpg) |
-| `khoai-lang-lac-pho-mai.webp` | Khoai lang lắc phô mai | Thriving Vegetarian | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0) | [Baked Sweet Potato Fries With Rosemary and Parmesan - 8420845814.jpg](https://commons.wikimedia.org/wiki/File:Baked_Sweet_Potato_Fries_With_Rosemary_and_Parmesan_-_8420845814.jpg) |
-| `mi-quang-ga.webp` | Mì Quảng gà | Jpatokal | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Mi Quang 1A Danang.jpg](https://commons.wikimedia.org/wiki/File:Mi_Quang_1A_Danang.jpg) |
-| `muc-nuong-sa-te.webp` | Mực nướng sa tế | Phương Huy | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Món nướng quán Chú Tèo ngày 04 tháng 8 năm 2016, mực và bạch tuộc (27).jpg](https://commons.wikimedia.org/wiki/File:M%C3%B3n_n%C6%B0%E1%BB%9Bng_qu%C3%A1n_Ch%C3%BA_T%C3%A8o_ng%C3%A0y_04_th%C3%A1ng_8_n%C4%83m_2016,_m%E1%BB%B1c_v%C3%A0_b%E1%BA%A1ch_tu%E1%BB%99c_(27).jpg) |
-| `nem-lui-hue.webp` | Nem lụi Huế | Phương Huy | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Nhà mình Lễ 30th4n2023 (chạo nem lụi) (1).jpg](https://commons.wikimedia.org/wiki/File:Nh%C3%A0_m%C3%ACnh_L%E1%BB%85_30th4n2023_(ch%E1%BA%A1o_nem_l%E1%BB%A5i)_(1).jpg) |
-| `nuoc-chanh-day.webp` | Nước chanh dây | Acabashi | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [J2O orange and passion fruit soft drink at Matching Green, Essex, England.jpg](https://commons.wikimedia.org/wiki/File:J2O_orange_and_passion_fruit_soft_drink_at_Matching_Green,_Essex,_England.jpg) |
-| `pho-bo-ha-noi.webp` | Phở bò Hà Nội | Codename5281 | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0) | [Phở bò, Cầu Giấy, Hà Nội.jpg](https://commons.wikimedia.org/wiki/File:Ph%E1%BB%9F_b%C3%B2,_C%E1%BA%A7u_Gi%E1%BA%A5y,_H%C3%A0_N%E1%BB%99i.jpg) |
-| `rau-cu-xao-thap-cam.webp` | Rau củ xào thập cẩm | Vee Satayamas from Bangkok, Thailand | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0) | [ผัดผักรวมมิตร Stir-fried mixed vegetables (9306903082).jpg](https://commons.wikimedia.org/wiki/File:%E0%B8%9C%E0%B8%B1%E0%B8%94%E0%B8%9C%E0%B8%B1%E0%B8%81%E0%B8%A3%E0%B8%A7%E0%B8%A1%E0%B8%A1%E0%B8%B4%E0%B8%95%E0%B8%A3_Stir-fried_mixed_vegetables_(9306903082).jpg) |
-| `sinh-to-bo.webp` | Sinh tố bơ | Hoangkid (thảo luận) | [Public domain](https://commons.wikimedia.org/wiki/File:Sinh_t%E1%BB%91_b%C6%A1.jpg) | [Sinh tố bơ.jpg](https://commons.wikimedia.org/wiki/File:Sinh_t%E1%BB%91_b%C6%A1.jpg) |
-| `suon-xao-chua-ngot.webp` | Sườn xào chua ngọt | Liam Chucao Maixlld | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [HK CWB 銅鑼灣 Causeway Bay 溫莎大廈 Windsor House mall shop 稻香酒家 Tao Heung Restaurant 糖醋排骨 Sweet and Sour Ribs September 2022 Px3 01.jpg](https://commons.wikimedia.org/wiki/File:HK_CWB_%E9%8A%85%E9%91%BC%E7%81%A3_Causeway_Bay_%E6%BA%AB%E8%8E%8E%E5%A4%A7%E5%BB%88_Windsor_House_mall_shop_%E7%A8%BB%E9%A6%99%E9%85%92%E5%AE%B6_Tao_Heung_Restaurant_%E7%B3%96%E9%86%8B%E6%8E%92%E9%AA%A8_Sweet_and_Sour_Ribs_September_2022_Px3_01.jpg) |
-| `sup-cua.webp` | Súp cua | Phương Huy | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Mũi Né th7n2023, Khu ND (bữa sáng với món súp cua) (2).jpg](https://commons.wikimedia.org/wiki/File:M%C5%A9i_N%C3%A9_th7n2023,_Khu_ND_(b%E1%BB%AFa_s%C3%A1ng_v%E1%BB%9Bi_m%C3%B3n_s%C3%BAp_cua)_(2).jpg) |
-| `thit-kho-trung.webp` | Thịt kho trứng | Baoothersks | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Thịt kho hột vịt.jpg](https://commons.wikimedia.org/wiki/File:Th%E1%BB%8Bt_kho_h%E1%BB%99t_v%E1%BB%8Bt.jpg) |
-| `tra-sua-tran-chau.webp` | Trà sữa trân châu | Battlesnake1 | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) | [Pearl Milk Tea in Chun Shui Tang.jpg](https://commons.wikimedia.org/wiki/File:Pearl_Milk_Tea_in_Chun_Shui_Tang.jpg) |
-| `tra-tac-mat-ong.webp` | Trà tắc mật ong | Cohaithaofoody | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Trà tắc và bánh tráng.jpg](https://commons.wikimedia.org/wiki/File:Tr%C3%A0_t%E1%BA%AFc_v%C3%A0_b%C3%A1nh_tr%C3%A1ng.jpg) |
+| `banh-bot-loc.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/5948999/ |
+| `banh-canh-cua.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/5966249/ |
+| `banh-da-lon.webp` | Wikimedia Commons | Crasheerr | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Bánh da lơn đậu xanh và lá dứa..jpg](https://commons.wikimedia.org/wiki/File:B%C3%A1nh_da_l%C6%A1n_%C4%91%E1%BA%ADu_xanh_v%C3%A0_l%C3%A1_d%E1%BB%A9a..jpg) |
+| `banh-flan-caramel.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/14665242/ |
+| `banh-flan-nuong-mini.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/29819833/ |
+| `banh-khot.webp` | Wikimedia Commons | Joshua Rappeneker from Tokyo, Japan | [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0) | [Bánh khọt trên khuôn.jpg](https://commons.wikimedia.org/wiki/File:B%C3%A1nh_kh%E1%BB%8Dt_tr%C3%AAn_khu%C3%B4n.jpg) |
+| `banh-mi-thit.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/32961654/ |
+| `banh-trang-tron.webp` | Wikimedia Commons | Cohaithaofoody | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Chi tiết bánh tráng trộn Cô Hai Thảo .jpg](https://commons.wikimedia.org/wiki/File:Chi_ti%E1%BA%BFt_b%C3%A1nh_tr%C3%A1ng_tr%E1%BB%99n_C%C3%B4_Hai_Th%E1%BA%A3o_.jpg) |
+| `bap-xao-bo.webp` | Wikimedia Commons | Phương Huy (thảo luận) | [Public domain](https://commons.wikimedia.org/wiki/File:B%E1%BA%AFp_x%C3%A0o_b%C6%A1_(b%E1%BA%AFp_n%E1%BA%BFp)_%E1%BB%9F_B%C3%ACnh_T%C3%A2n_(1).jpg) | [Bắp xào bơ (bắp nếp) ở Bình Tân (1).jpg](https://commons.wikimedia.org/wiki/File:B%E1%BA%AFp_x%C3%A0o_b%C6%A1_(b%E1%BA%AFp_n%E1%BA%BFp)_%E1%BB%9F_B%C3%ACnh_T%C3%A2n_(1).jpg) |
+| `bo-luc-lac.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/28902895/ |
+| `bo-nuong-la-lot.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/30207048/ |
+| `bun-bo-hue.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/7715477/ |
+| `bun-cha-ha-noi.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/3858270/ |
+| `bun-rieu-cua.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/8480674/ |
+| `bun-xao-chay.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/15797948/ |
+| `ca-kho-to.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/36090534/ |
+| `ca-phe-trung.webp` | Unsplash | — | Unsplash License | https://images.unsplash.com/photo-1751569543716-70c5fb9a8298 |
+| `canh-chua-ca-loc.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/38101252/ |
+| `canh-nam-chay.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/37140262/ |
+| `cha-ca-la-vong.webp` | Wikimedia Commons | Phương Huy | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Chả cá Lã Vọng Hà Nội tháng 2 năm 2018 (2).jpg](https://commons.wikimedia.org/wiki/File:Ch%E1%BA%A3_c%C3%A1_L%C3%A3_V%E1%BB%8Dng_H%C3%A0_N%E1%BB%99i_th%C3%A1ng_2_n%C4%83m_2018_(2).jpg) |
+| `cha-gio-chay.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/38947729/ |
+| `cha-gio-re.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/840216/ |
+| `che-ba-mau.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/37146773/ |
+| `che-chuoi-nuoc-cot-dua.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/36050910/ |
+| `che-dau-xanh-nuoc-cot-dua.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/36211530/ |
+| `com-chien-chay.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/34668494/ |
+| `com-tam-suon-nuong.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/5949001/ |
+| `dau-hu-sot-ca-chua.webp` | Wikimedia Commons | Mickey Đại Phát | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Tomato-sauced tofu.jpg](https://commons.wikimedia.org/wiki/File:Tomato-sauced_tofu.jpg) |
+| `ga-kho-gung.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/35156472/ |
+| `ga-nuong-mat-ong.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/11414299/ |
+| `goi-cuon-tom-thit.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/6646031/ |
+| `hu-tieu-nam-vang.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/6434180/ |
+| `khoai-lang-lac-pho-mai.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/1893555/ |
+| `mi-quang-ga.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/6063326/ |
+| `muc-nuong-sa-te.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/10836201/ |
+| `nem-chua-ran.webp` | Wikimedia Commons | Rungbachduong at Vietnamese Wikipedia | [CC BY-SA 3.0](http://creativecommons.org/licenses/by-sa/3.0/) | [Nem chua nuong.JPG](https://commons.wikimedia.org/wiki/File:Nem_chua_nuong.JPG) |
+| `nem-lui-hue.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/37211519/ |
+| `nuoc-chanh-day.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/13640505/ |
+| `nuoc-sam-bi-dao.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/38030756/ |
+| `pho-bo-ha-noi.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/4153908/ |
+| `rau-cu-xao-thap-cam.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/37297752/ |
+| `sinh-to-bo.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/11009209/ |
+| `sua-chua-nep-cam.webp` | Wikimedia Commons | Buileducanh (thảo luận) | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0) | [Sữa chua nếp cẩm.jpg](https://commons.wikimedia.org/wiki/File:S%E1%BB%AFa_chua_n%E1%BA%BFp_c%E1%BA%A9m.jpg) |
+| `suon-xao-chua-ngot.webp` | Wikimedia Commons | Liam Chucao Maixlld | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [HK CWB 銅鑼灣 Causeway Bay 溫莎大廈 Windsor House mall shop 稻香酒家 Tao Heung Restaurant 糖醋排骨 Sweet and Sour Ribs September 2022 Px3 01.jpg](https://commons.wikimedia.org/wiki/File:HK_CWB_%E9%8A%85%E9%91%BC%E7%81%A3_Causeway_Bay_%E6%BA%AB%E8%8E%8E%E5%A4%A7%E5%BB%88_Windsor_House_mall_shop_%E7%A8%BB%E9%A6%99%E9%85%92%E5%AE%B6_Tao_Heung_Restaurant_%E7%B3%96%E9%86%8B%E6%8E%92%E9%AA%A8_Sweet_and_Sour_Ribs_September_2022_Px3_01.jpg) |
+| `sup-cua.webp` | Wikimedia Commons | Phương Huy | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Mũi Né th7n2023, Khu ND (bữa sáng với món súp cua) (2).jpg](https://commons.wikimedia.org/wiki/File:M%C5%A9i_N%C3%A9_th7n2023,_Khu_ND_(b%E1%BB%AFa_s%C3%A1ng_v%E1%BB%9Bi_m%C3%B3n_s%C3%BAp_cua)_(2).jpg) |
+| `thit-kho-trung.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/36126349/ |
+| `tom-rim-man-ngot.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/36942418/ |
+| `tra-sua-tran-chau.webp` | Pexels | — | Pexels License | https://www.pexels.com/photo/11160112/ |
+| `tra-tac-mat-ong.webp` | Wikimedia Commons | Cohaithaofoody | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Trà tắc và bánh tráng.jpg](https://commons.wikimedia.org/wiki/File:Tr%C3%A0_t%E1%BA%AFc_v%C3%A0_b%C3%A1nh_tr%C3%A1ng.jpg) |

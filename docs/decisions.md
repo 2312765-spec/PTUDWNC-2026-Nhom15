@@ -2760,6 +2760,48 @@ bằng axe (D83), Lighthouse (D87) và E2E sau mỗi bước.
 
 ---
 
+## D98 — Ảnh món seed: nguồn kết hợp, thay ảnh seed cũ trên DB dev (DEV-SEED)
+
+> 2026-11-13. Plan: `docs/plans/DEV-SEED-anh-mon-an.md` (mục "D98").
+
+**Nguồn thiếu:** SRS chỉ yêu cầu dữ liệu mẫu (dòng 295), không nói về ảnh. Bản đầu (2026-11-08) chỉ lấy Wikimedia
+Commons: phần lớn ảnh chụp nghiệp dư, một số **sai món** (canh nấm *chay* là bò hầm Hàn Quốc, cơm chiên chay kiểu
+Kerala, chả giò chay có watermark blog), 6/50 món không có ảnh. Seeder bỏ qua recipe đã có ảnh → DB dev đã seed không
+nhận ảnh mới nếu chỉ thay file.
+
+**Chốt:**
+
+1. **Nguồn:** Pexels, Unsplash (giấy phép cho dùng tự do, không bắt buộc ghi công) và Wikimedia Commons (CC0 / PD /
+   CC BY / CC BY-SA, ghi công theo giấy phép). **Không dùng ảnh AI.** `CREDITS.md` vẫn ghi link gốc mọi ảnh.
+2. **Chọn ảnh:** ưu tiên đúng món; không có ảnh đúng món thì lấy món gần giống nhưng không trái nội dung (món chay
+   không có thịt). Không có ảnh chấp nhận được → để trống (khung minh họa D97 mục 7). Kết quả: 37 ảnh thay, 5 món mới
+   có ảnh, 7 ảnh Commons giữ nguyên (không tìm được ảnh tốt hơn), 1 món trống (`goi-ngo-sen-tom-thit`).
+3. **Định dạng không đổi:** WebP 1200×900 (4:3), tên `{slug}.webp`, ~5 MB tổng. Ảnh dọc cắt theo vị trí chọn tay cho
+   món nằm giữa dải card 760×320 (D88).
+4. **DB dev đã seed:** `SeedImageAssets.RetiredSha256` giữ SHA-256 của 37 ảnh cũ. Mỗi lần seed, recipe seed có đúng 1
+   ảnh, alt = tên món và nội dung trùng một hash cũ → gỡ ảnh, enqueue xóa file gốc + biến thể (D43), gắn ảnh mới,
+   enqueue tạo biến thể (FR-JOB-002). Nhận diện theo nội dung nên ảnh người dùng upload không bao giờ khớp; object
+   không đọc được → để nguyên.
+5. *D98.2 (2026-11-13, người dùng xem trên web):* thẻ món (biến thể card 760×320 ≈ 2,4:1, D88) chỉ giữ dải giữa
+   ~56% chiều cao ảnh → ảnh cận (thịt kho, rau xào) và ly cao (trà sữa, sinh tố) mất chủ thể. Thịt kho, rau xào đổi
+   sang ảnh có món nằm gọn giữa khung; trà sữa, sinh tố (nền tối trơn) thu nhỏ cả ly đặt giữa khung, mép ảnh mờ dần
+   vào màu nền — cả ly lọt dải card. Hash bản trước thêm vào `RetiredSha256`. **Quy tắc chọn ảnh từ nay:** xem cả dải
+   2,4:1 ở giữa, không chỉ khung 4:3.
+6. **Frontend dev sau khi seeder thay ảnh:** seeder ghi thẳng DB nên không gọi `revalidateTag('recipes')`; trang ISR
+   (`/` 3600s…) giữ URL ảnh cũ — file cũ đã xóa nhưng `next/image` vẫn trả bản tối ưu đã cache. Next dev lưu cache
+   ở `frontend/.next/dev/cache/` (không phải `.next/cache/`) và giữ qua lần khởi động lại. Xử lý: tắt `npm run dev`,
+   xóa `frontend/.next/dev/cache/fetch-cache` và `.../images`, chạy lại (hoặc chờ hết `revalidate`).
+
+**Vì:** ảnh mẫu là thứ đầu tiên người xem thấy khi demo; thay bằng ảnh đúng món, chụp chuyên nghiệp mà không đổi
+API, schema hay frontend. Không bắt cả nhóm xóa volume dev.
+
+**Đánh đổi:** seeder tải lại ảnh của mỗi recipe seed (~50 × ≤ 300 KB, S3 local) mỗi lần API Development khởi động để
+tính hash. Lịch sử Git giữ cả bộ ảnh cũ (~4 MB).
+
+**Sửa SRS:** không.
+
+---
+
 ## Khi phát hiện mâu thuẫn mới lúc code
 
 1. Thêm mục mới vào cuối file này với mã `D23`, `D24`…
