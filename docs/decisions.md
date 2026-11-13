@@ -2787,6 +2787,10 @@ nhận ảnh mới nếu chỉ thay file.
    sang ảnh có món nằm gọn giữa khung; trà sữa, sinh tố (nền tối trơn) thu nhỏ cả ly đặt giữa khung, mép ảnh mờ dần
    vào màu nền — cả ly lọt dải card. Hash bản trước thêm vào `RetiredSha256`. **Quy tắc chọn ảnh từ nay:** xem cả dải
    2,4:1 ở giữa, không chỉ khung 4:3.
+6. **Frontend dev sau khi seeder thay ảnh:** seeder ghi thẳng DB nên không gọi `revalidateTag('recipes')`; trang ISR
+   (`/` 3600s…) giữ URL ảnh cũ — file cũ đã xóa nhưng `next/image` vẫn trả bản tối ưu đã cache. Next dev lưu cache
+   ở `frontend/.next/dev/cache/` (không phải `.next/cache/`) và giữ qua lần khởi động lại. Xử lý: tắt `npm run dev`,
+   xóa `frontend/.next/dev/cache/fetch-cache` và `.../images`, chạy lại (hoặc chờ hết `revalidate`).
 
 **Vì:** ảnh mẫu là thứ đầu tiên người xem thấy khi demo; thay bằng ảnh đúng món, chụp chuyên nghiệp mà không đổi
 API, schema hay frontend. Không bắt cả nhóm xóa volume dev.
